@@ -1,0 +1,66 @@
+site_name: Gardener on Metal / Virtlet
+repo_url: https://github.com/onmetal/virtlet/
+edit_uri: edit/main/docs/
+theme:
+  icon:
+    repo: fontawesome/brands/github
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.expand
+    - navigation.indexes
+    - navigation.top
+  name: material
+  logo: assets/logo.png
+  favicon: assets/favicon.png
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: white
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  font:
+    text: 'Work Sans'
+
+plugins:
+  - search
+
+markdown_extensions:
+  - pymdownx.highlight
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.snippets
+  - codehilite
+  - admonition
+  - abbr
+  - toc:
+      permalink: true
+
+nav:
+  - Home: README.md
+  - Architecture:
+    - architecture/README.md
+    - Concepts:
+        - architecture/concepts/numa-algorithm.md
+        - architecture/concepts/kvm.md
+  - Usage:
+    - Guides: usage/README.md
+  - Developer Guide:
+    - Local Setup: development/setup.md
+  - Main Documentation ⧉: https://onmetal.github.io/documentation/
+  - Landing Page ⧉: https://onmetal.github.io/
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/onmetal/virtlet
