@@ -1,0 +1,14 @@
+name: Size Label
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+jobs:
+  size-label:
+    runs-on: self-hosted
+    steps:
+      - name: size-label
+        uses: pascalgn/size-label-action@v0.5.0
+        env:
+          GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"

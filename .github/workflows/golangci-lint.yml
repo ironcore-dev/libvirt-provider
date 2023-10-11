@@ -1,0 +1,29 @@
+name: Lint Golang Codebase
+
+on:
+  pull_request_target:
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+jobs:
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
+          cache: false # https://github.com/golangci/golangci-lint-action/issues/807
+      - run: ./hack/setup-git-redirect.sh
+        env:
+          GITHUB_PAT: ${{ secrets.BOT_PAT }}
+      - run: sudo apt update  && sudo apt install -y libcephfs-dev librbd-dev librados-dev libc-bin gcc
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.54.2
+        env:
+          CGO_ENABLED: 1
