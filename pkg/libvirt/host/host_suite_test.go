@@ -26,10 +26,7 @@ import (
 var (
 	dialer *mockdialer.MockLibvirtDilaer
 	lv     *libvirt.Libvirt
-	zero   uint = 0
 )
-
-const hugePageSize = 1048576
 
 func TestHost(t *testing.T) {
 	RegisterFailHandler(Fail)

@@ -16,6 +16,7 @@ package emptydisk
 
 import (
 	"context"
+
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	"github.com/onmetal/libvirt-driver/pkg/qcow2"
@@ -25,9 +26,6 @@ import (
 
 const (
 	pluginName = "libvirt-driver.api.onmetal.de/empty-disk"
-
-	perm     = 0777
-	filePerm = 0666
 )
 
 type plugin struct {

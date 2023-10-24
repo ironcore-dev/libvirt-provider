@@ -17,10 +17,10 @@ package volume
 import (
 	"context"
 	"fmt"
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 	"sync"
 
+	"github.com/onmetal/libvirt-driver/pkg/api"
+	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 

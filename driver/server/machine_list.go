@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	machinev1alpha1 "github.com/onmetal/libvirt-driver/driver/api/v1alpha1"
 	"github.com/onmetal/libvirt-driver/driver/apiutils"

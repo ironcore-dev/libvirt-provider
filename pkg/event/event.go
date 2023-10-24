@@ -17,13 +17,14 @@ package event
 import (
 	"context"
 	"fmt"
+	"sync"
+	"time"
+
 	"github.com/go-logr/logr"
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"sync"
-	"time"
 )
 
 type Handler[e api.Object] interface {

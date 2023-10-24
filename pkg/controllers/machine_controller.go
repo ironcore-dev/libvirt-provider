@@ -18,6 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"slices"
+	"sync"
+
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/onmetal/libvirt-driver/pkg/api"
@@ -34,9 +38,6 @@ import (
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/pointer"
 	"libvirt.org/go/libvirtxml"
-	"os"
-	"slices"
-	"sync"
 )
 
 const (
@@ -223,7 +224,14 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 		return nil
 	}
 
-	//do libvirt cleanup
+	log.V(1).Info("Removing volumes")
+	//TODO
+
+	log.V(1).Info("Removing network interfaces")
+	//TODO
+
+	log.V(1).Info("Deleting domain")
+	//TODO
 
 	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
@@ -387,10 +395,11 @@ func (r *MachineReconciler) domainFor(
 		volume, err := r.volumes.Get(ctx, volumeID)
 		if err != nil {
 			//	TODO
-
+			return nil, nil, nil, err
 		}
 		desiredVolumes = append(desiredVolumes, volume)
 	}
+	_ = desiredVolumes
 
 	return domainDesc, nil, nil, nil
 }
@@ -518,17 +527,4 @@ func (r *MachineReconciler) setDomainIgnition(ctx context.Context, machine *api.
 		},
 	})
 	return nil
-}
-
-func (r *MachineReconciler) getDomainDesc(machineUID types.UID) (*libvirtxml.Domain, error) {
-	domainXMLData, err := r.libvirt.DomainGetXMLDesc(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(string(machineUID))}, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	domainXML := &libvirtxml.Domain{}
-	if err := domainXML.Unmarshal(domainXMLData); err != nil {
-		return nil, err
-	}
-	return domainXML, nil
 }
