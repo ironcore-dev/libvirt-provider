@@ -18,6 +18,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"slices"
+	"sync"
+
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/onmetal/libvirt-driver/pkg/api"
@@ -29,14 +33,12 @@ import (
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
 	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost" // TODO: Change to a better naming for all imports, libvirthost?
+	virtletvolume "github.com/onmetal/libvirt-driver/pkg/volume"
 	"github.com/onmetal/virtlet/libvirt/libvirtutils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/pointer"
 	"libvirt.org/go/libvirtxml"
-	"os"
-	"slices"
-	"sync"
 )
 
 const (
@@ -97,12 +99,13 @@ type MachineReconciler struct {
 	log   logr.Logger
 	queue workqueue.RateLimitingInterface
 
-	libvirt           *libvirt.Libvirt
-	guestCapabilities guest.Capabilities
-	tcMallocLibPath   string
-	host              virtlethost.Host
-	imageCache        virtletimage.Cache
-	raw               raw.Raw
+	libvirt             *libvirt.Libvirt
+	guestCapabilities   guest.Capabilities
+	tcMallocLibPath     string
+	host                virtlethost.Host
+	imageCache          virtletimage.Cache
+	raw                 raw.Raw
+	volumePluginManager *virtletvolume.PluginManager
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
@@ -382,14 +385,29 @@ func (r *MachineReconciler) domainFor(
 		}
 	}
 
-	var desiredVolumes []*api.Volume
-	for _, volumeID := range machine.Spec.Volumes {
-		volume, err := r.volumes.Get(ctx, volumeID)
-		if err != nil {
-			//	TODO
+	// var desiredVolumes []*api.Volume
+	// for _, volumeID := range machine.Spec.Volumes {
+	// 	volume, err := r.volumes.Get(ctx, volumeID)
+	// 	if err != nil {
+	// 		//	TODO
 
-		}
-		desiredVolumes = append(desiredVolumes, volume)
+	// 	}
+	// 	desiredVolumes = append(desiredVolumes, volume)
+	// }
+
+	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewCreateDomainExecutor(r.libvirt))
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
 	return domainDesc, nil, nil, nil
