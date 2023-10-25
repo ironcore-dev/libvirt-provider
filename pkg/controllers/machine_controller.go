@@ -36,7 +36,7 @@ import (
 	"github.com/onmetal/virtlet/libvirt/libvirtutils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"libvirt.org/go/libvirtxml"
 )
 
@@ -378,8 +378,8 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	if machineImgRef := machine.Spec.Image; machineImgRef != nil && pointer.StringDeref(machineImgRef, "") != "" {
-		if err := r.setDomainImage(ctx, machine, domainDesc, pointer.StringDeref(machineImgRef, "")); err != nil {
+	if machineImgRef := machine.Spec.Image; machineImgRef != nil && ptr.Deref(machineImgRef, "") != "" {
+		if err := r.setDomainImage(ctx, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
 			return nil, nil, nil, err
 		}
 	}
