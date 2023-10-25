@@ -121,3 +121,14 @@ func (s *Server) getOriPower(state api.PowerState) (ori.Power, error) {
 		return 0, fmt.Errorf("unknown machine power state '%q'", state)
 	}
 }
+
+func (s *Server) getPowerFromOri(power ori.Power) (api.PowerState, error) {
+	switch power {
+	case ori.Power_POWER_ON:
+		return api.PowerStatePowerOn, nil
+	case ori.Power_POWER_OFF:
+		return api.PowerStatePowerOff, nil
+	default:
+		return 0, fmt.Errorf("unknown ori power state '%q'", power)
+	}
+}
