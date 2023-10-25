@@ -16,6 +16,7 @@ package server
 
 import (
 	"context"
+
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 )
 

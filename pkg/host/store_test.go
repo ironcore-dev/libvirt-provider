@@ -15,12 +15,13 @@
 package host_test
 
 import (
+	"os"
+	"path/filepath"
+
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"os"
-	"path/filepath"
 )
 
 var _ = Describe("Store", func() {
@@ -30,19 +31,6 @@ var _ = Describe("Store", func() {
 		watch, err := machineStore.Watch(ctx)
 		Expect(err).NotTo(HaveOccurred())
 		DeferCleanup(watch.Stop)
-
-		buffer := make(chan store.WatchEvent[*api.Machine], 100)
-		go func() {
-			events := watch.Events()
-			for {
-				select {
-				case evt := <-events:
-					buffer <- evt
-				case <-ctx.Done():
-					return
-				}
-			}
-		}()
 
 		By("creating a machine object")
 		machine, err := machineStore.Create(ctx, &api.Machine{
@@ -65,6 +53,6 @@ var _ = Describe("Store", func() {
 			Type:   store.WatchEventTypeCreated,
 			Object: machine,
 		}
-		Eventually(buffer).Should(Receive(event))
+		Eventually(watch.Events()).Should(Receive(event))
 	})
 })

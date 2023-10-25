@@ -18,6 +18,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"sync"
+
 	"github.com/go-logr/logr"
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/event"
@@ -25,8 +28,6 @@ import (
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
 	"k8s.io/client-go/util/workqueue"
-	"slices"
-	"sync"
 )
 
 const (

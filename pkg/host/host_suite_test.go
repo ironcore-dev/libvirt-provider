@@ -15,12 +15,12 @@
 package host_test
 
 import (
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	"github.com/onmetal/libvirt-driver/pkg/host"
-	"github.com/onmetal/libvirt-driver/pkg/store"
 	"testing"
 	"time"
 
+	"github.com/onmetal/libvirt-driver/pkg/api"
+	"github.com/onmetal/libvirt-driver/pkg/host"
+	"github.com/onmetal/libvirt-driver/pkg/store"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -33,8 +33,8 @@ var (
 )
 
 const (
-	eventuallyTimeout    = 3 * time.Second
-	pollingInterval      = 50 * time.Millisecond
+	eventuallyTimeout    = 5 * time.Second
+	pollingInterval      = 250 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
 )
 

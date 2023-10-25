@@ -17,11 +17,12 @@ package ceph
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
+
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
-	"net"
-	"strings"
 )
 
 const (
@@ -34,19 +35,16 @@ const (
 
 	secretUserIDKey  = "userID"
 	secretUserKeyKey = "userKey"
-
-	secretEncryptionKey = "encryptionKey"
 )
 
 type plugin struct{}
 
 type volumeData struct {
-	monitors      []api.CephMonitor
-	image         string
-	handle        string
-	userID        string
-	userKey       string
-	encryptionKey string
+	monitors []api.CephMonitor
+	image    string
+	handle   string
+	userID   string
+	userKey  string
 }
 
 func NewPlugin() volume.Plugin {

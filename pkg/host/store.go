@@ -18,16 +18,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"sync"
+	"time"
+
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	utilssync "github.com/onmetal/libvirt-driver/pkg/sync"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"os"
-	"path/filepath"
-	"sync"
-	"time"
 )
 
 const perm = 0777
@@ -200,12 +201,14 @@ func (s *Store[E]) List(ctx context.Context) ([]E, error) {
 }
 
 func (s *Store[E]) Watch(ctx context.Context) (store.Watch[E], error) {
+	//TODO make configurable
+	const bufferSize = 10
 	s.watchesMu.Lock()
 	defer s.watchesMu.Unlock()
 
 	w := &watch[E]{
 		store:  s,
-		events: make(chan store.WatchEvent[E]),
+		events: make(chan store.WatchEvent[E], bufferSize),
 	}
 
 	s.watches.Insert(w)

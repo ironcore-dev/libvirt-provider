@@ -18,6 +18,10 @@ import (
 	"context"
 	goflag "flag"
 	"fmt"
+	"net"
+	"os"
+	"path/filepath"
+
 	"github.com/go-logr/logr"
 	"github.com/onmetal/libvirt-driver/driver/server"
 	"github.com/onmetal/libvirt-driver/pkg/api"
@@ -40,9 +44,6 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"net"
-	"os"
-	"path/filepath"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
