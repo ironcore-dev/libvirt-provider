@@ -57,12 +57,17 @@ func (s *Server) getLibvirtMachineConfig(ctx context.Context, log logr.Logger, o
 
 	cpu, memory := calcResources(class)
 
+	power, err := s.getPowerStateFromOri(oriMachine.Spec.Power)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get power state: %w", err)
+	}
+
 	machine := &api.Machine{
 		Metadata: api.Metadata{
 			ID: s.idGen.Generate(),
 		},
 		Spec: api.MachineSpec{
-			Power:       0,
+			Power:       power,
 			CpuMillis:   cpu,
 			MemoryBytes: memory,
 		},
