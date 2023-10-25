@@ -27,7 +27,7 @@ import (
 )
 
 func (s *Server) updatePowerState(ctx context.Context, machine *api.Machine, oriPower ori.Power) error {
-	power, err := s.getPowerFromOri(oriPower)
+	power, err := s.getPowerStateFromOri(oriPower)
 	if err != nil {
 		return fmt.Errorf("failed to get power state: %w", err)
 	}
@@ -43,7 +43,7 @@ func (s *Server) updatePowerState(ctx context.Context, machine *api.Machine, ori
 func (s *Server) UpdateMachinePower(ctx context.Context, req *ori.UpdateMachinePowerRequest) (*ori.UpdateMachinePowerResponse, error) {
 	log := s.loggerFrom(ctx)
 
-	log.V(1).Info("Deleting machine")
+	log.V(1).Info("Getting machine")
 	machine, err := s.machineStore.Get(ctx, req.MachineId)
 	if err != nil {
 		if !errors.Is(err, store.ErrNotFound) {

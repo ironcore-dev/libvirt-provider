@@ -122,7 +122,7 @@ func (s *Server) getOriPower(state api.PowerState) (ori.Power, error) {
 	}
 }
 
-func (s *Server) getPowerFromOri(power ori.Power) (api.PowerState, error) {
+func (s *Server) getPowerStateFromOri(power ori.Power) (api.PowerState, error) {
 	switch power {
 	case ori.Power_POWER_ON:
 		return api.PowerStatePowerOn, nil

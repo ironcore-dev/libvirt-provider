@@ -57,7 +57,7 @@ func (s *Server) getLibvirtMachineConfig(ctx context.Context, log logr.Logger, o
 
 	cpu, memory := calcResources(class)
 
-	power, err := s.getPowerFromOri(oriMachine.Spec.Power)
+	power, err := s.getPowerStateFromOri(oriMachine.Spec.Power)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get power state: %w", err)
 	}
