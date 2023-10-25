@@ -20,7 +20,7 @@ import (
 	. "github.com/onmetal/virtlet/meta"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 )
 
 const expectedXML = `<virtlet:metadata xmlns:virtlet="https://github.com/onmetal/virtlet"><virtlet:namespace>foo</virtlet:namespace><virtlet:name>bar</virtlet:name></virtlet:metadata>`
@@ -57,8 +57,8 @@ var _ = Describe("Meta", func() {
 				metadata := &VirtletMetadata{
 					Namespace: "foo",
 					Name:      "bar",
-					SGXMemory: pointer.Int64(68719476736),
-					SGXNode:   pointer.Int(0),
+					SGXMemory: ptr.To[int64](68719476736),
+					SGXNode:   ptr.To[int](0),
 				}
 
 				data, err := xml.Marshal(metadata)
@@ -74,8 +74,8 @@ var _ = Describe("Meta", func() {
 				Expect(metadata).To(Equal(&VirtletMetadata{
 					Namespace: "foo",
 					Name:      "bar",
-					SGXMemory: pointer.Int64(68719476736),
-					SGXNode:   pointer.Int(0),
+					SGXMemory: ptr.To[int64](68719476736),
+					SGXNode:   ptr.To[int](0),
 				}))
 			})
 		})
