@@ -1,5 +1,5 @@
 # Build the libvirt-driver binary
-FROM --platform=$BUILDPLATFORM golang:1.21.1-bookworm as builder
+FROM --platform=$BUILDPLATFORM golang:1.21.3-bookworm as builder
 
 ARG GOARCH=''
 ARG GITHUB_PAT=''
