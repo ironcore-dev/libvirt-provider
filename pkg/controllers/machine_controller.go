@@ -550,3 +550,9 @@ func (r *MachineReconciler) getDomainDesc(machineUID types.UID) (*libvirtxml.Dom
 	}
 	return domainXML, nil
 }
+
+func machineDomain(machineUID types.UID) libvirt.Domain {
+	return libvirt.Domain{
+		UUID: libvirtutils.UUIDStringToBytes(string(machineUID)),
+	}
+}

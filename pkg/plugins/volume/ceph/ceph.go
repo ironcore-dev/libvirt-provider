@@ -17,11 +17,13 @@ package ceph
 import (
 	"context"
 	"fmt"
+	"net"
+	"strings"
+
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
-	"net"
-	"strings"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -159,6 +161,6 @@ func (p *plugin) getVolumeData(spec *ori.VolumeConnection) (vData *volumeData, e
 	return vData, nil
 }
 
-func (p *plugin) Delete(ctx context.Context, volumeID string) error {
+func (p *plugin) Delete(ctx context.Context, volumeID string, machineID types.UID) error { // TODO: Change this again to remove machineID
 	return nil
 }

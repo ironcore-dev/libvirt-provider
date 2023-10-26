@@ -16,11 +16,13 @@ package emptydisk
 
 import (
 	"context"
+
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	"github.com/onmetal/libvirt-driver/pkg/qcow2"
 	"github.com/onmetal/libvirt-driver/pkg/raw"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
+	"k8s.io/apimachinery/pkg/types"
 )
 
 const (
@@ -64,6 +66,6 @@ func (p *plugin) Apply(ctx context.Context, spec *api.Volume) (*api.VolumeStatus
 	return nil, nil
 }
 
-func (p *plugin) Delete(ctx context.Context, volumeID string) error {
+func (p *plugin) Delete(ctx context.Context, volumeID string, machineID types.UID) error {
 	return nil
 }

@@ -29,8 +29,9 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/onmetal/libvirt-driver/pkg/api"
+	virtletvolume "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost" // TODO: Change to a better naming for all imports, libvirthost?
-	virtletvolume "github.com/onmetal/libvirt-driver/pkg/volume"
+	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 	"github.com/onmetal/virtlet/libvirt/libvirtutils"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
@@ -506,7 +507,7 @@ type VolumeMounter interface {
 	ForEachVolume(f func(*MountVolume) bool) error
 	ListVolumes() ([]MountVolume, error)
 	GetVolume(computeVolumeName string) (*MountVolume, error)
-	ApplyVolume(ctx context.Context, spec *virtletvolume.Spec, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error)
+	ApplyVolume(ctx context.Context, spec *api.Volume, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error)
 	DeleteVolume(ctx context.Context, computeVolumeName string) error
 }
 
@@ -600,13 +601,13 @@ func (m *volumeMounter) DeleteVolume(ctx context.Context, computeVolumeName stri
 	return nil
 }
 
-func (m *volumeMounter) ApplyVolume(ctx context.Context, spec *virtletvolume.Spec, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error) {
-	plugin, err := m.pluginManager.FindPluginBySpec(spec)
+func (m *volumeMounter) ApplyVolume(ctx context.Context, volume *ori.Volume, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error) {
+	plugin, err := m.pluginManager.FindPluginBySpec(volume)
 	if err != nil {
 		return "", nil, err
 	}
 
-	existing, err := m.GetVolume(spec.VolumeName())
+	existing, err := m.GetVolume(volume.Name)
 	if err != nil && !errors.Is(err, ErrMountedVolumeNotFound) {
 		return "", nil, err
 	}
@@ -615,7 +616,7 @@ func (m *volumeMounter) ApplyVolume(ctx context.Context, spec *virtletvolume.Spe
 			return "", nil, err
 		}
 
-		if err := m.DeleteVolume(ctx, spec.VolumeName()); err != nil {
+		if err := m.DeleteVolume(ctx, volume.Name); err != nil {
 			return "", nil, err
 		}
 	}
@@ -642,7 +643,7 @@ func (r *MachineReconciler) applyVolume(
 	attacher VolumeAttacher,
 ) (string, error) {
 	log.V(1).Info("Getting volume spec")
-	spec, err := virtletvolume.GetSpec(ctx, r.Client, machine.Namespace, machine.Name, &desiredVolume)
+	volume, err := virtletvolume.Prepare(machine.Namespace, machine.Name, &desiredVolume)
 	if err != nil {
 		return "", fmt.Errorf("error getting spec for volume: %w", err)
 	}

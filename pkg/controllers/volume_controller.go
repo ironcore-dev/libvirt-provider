@@ -18,15 +18,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"sync"
+
 	"github.com/go-logr/logr"
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/event"
 	volumeplugin "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
-	"slices"
-	"sync"
 )
 
 const (
@@ -181,7 +183,7 @@ func (r *VolumeReconciler) deleteVolume(ctx context.Context, log logr.Logger, vo
 		return fmt.Errorf("failed to find volume plugin %s", volume.Spec.Provider)
 	}
 
-	if err := plugin.Delete(ctx, volume.ID); err != nil {
+	if err := plugin.Delete(ctx, volume.ID, types.UID("")); err != nil { // TODO: Fix this with proper MachineID.
 		return fmt.Errorf("failed to delete volume: %w", err)
 	}
 

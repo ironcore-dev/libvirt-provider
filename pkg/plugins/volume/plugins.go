@@ -17,10 +17,12 @@ package volume
 import (
 	"context"
 	"fmt"
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 	"sync"
 
+	"github.com/onmetal/libvirt-driver/pkg/api"
+	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
+
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
@@ -30,7 +32,35 @@ type Plugin interface {
 
 	Prepare(spec *ori.Volume) (*api.VolumeSpec, error)
 	Apply(ctx context.Context, spec *api.Volume) (*api.VolumeStatus, error)
-	Delete(ctx context.Context, volumeID string) error
+	Delete(ctx context.Context, volumeID string, machineID types.UID) error
+}
+
+type Volume struct {
+	QCow2File string
+	RawFile   string
+	CephDisk  *CephDisk
+	Handle    string
+}
+
+type CephDisk struct {
+	Name       string
+	Monitors   []CephMonitor
+	Auth       *CephAuthentication
+	Encryption *CephEncryption
+}
+
+type CephAuthentication struct {
+	UserName string
+	UserKey  string
+}
+
+type CephEncryption struct {
+	EncryptionKey string
+}
+
+type CephMonitor struct {
+	Name string
+	Port string
 }
 
 type PluginManager struct {
