@@ -16,10 +16,44 @@ package server
 
 import (
 	"context"
+	"errors"
+	"fmt"
 
+	"github.com/onmetal/libvirt-driver/driver/apiutils"
+	"github.com/onmetal/libvirt-driver/pkg/api"
+	"github.com/onmetal/libvirt-driver/pkg/store"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
+func (s *Server) updateAnnotations(ctx context.Context, machine *api.Machine, annotations map[string]string) error {
+	if err := apiutils.SetAnnotationsAnnotation(machine, annotations); err != nil {
+		return fmt.Errorf("failed to set machine annotations: %w", err)
+	}
+
+	if _, err := s.machineStore.Update(ctx, machine); err != nil {
+		return fmt.Errorf("failed to update machine: %w", err)
+	}
+
+	return nil
+}
+
 func (s *Server) UpdateMachineAnnotations(ctx context.Context, req *ori.UpdateMachineAnnotationsRequest) (*ori.UpdateMachineAnnotationsResponse, error) {
+	log := s.loggerFrom(ctx)
+
+	log.V(1).Info("Getting machine")
+	machine, err := s.machineStore.Get(ctx, req.MachineId)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("error getting machine: %w", err)
+		}
+		return nil, status.Errorf(codes.NotFound, "machine %s not found", req.MachineId)
+	}
+
+	if err := s.updateAnnotations(ctx, machine, req.Annotations); err != nil {
+		return nil, fmt.Errorf("failed to update machine annotations: %w", err)
+	}
+
 	return &ori.UpdateMachineAnnotationsResponse{}, nil
 }
