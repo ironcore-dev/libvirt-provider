@@ -40,6 +40,7 @@ func (s *Server) updatePowerState(ctx context.Context, machine *api.Machine, ori
 
 	return nil
 }
+
 func (s *Server) UpdateMachinePower(ctx context.Context, req *ori.UpdateMachinePowerRequest) (*ori.UpdateMachinePowerResponse, error) {
 	log := s.loggerFrom(ctx)
 
