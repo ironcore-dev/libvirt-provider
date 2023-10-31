@@ -29,50 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 )
 
-func (s *Server) listAggregateMachines(ctx context.Context) ([]AggregateMachine, error) {
-	libvirtMachines, err := s.machineStore.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("error listing machines: %w", err)
-	}
-
-	var res []AggregateMachine
-	for _, machine := range libvirtMachines {
-		if !apiutils.IsManagedBy(machine, machinev1alpha1.MachineManager) {
-			continue
-		}
-
-		aggregateMachine, err := s.aggregateMachine(ctx, machine)
-		if err != nil {
-			return nil, fmt.Errorf("error aggregating machine %s: %w", machine.ID, err)
-		}
-
-		res = append(res, *aggregateMachine)
-	}
-	return res, nil
-}
-
-func (s *Server) aggregateMachine(
-	ctx context.Context,
-	machine *api.Machine,
-) (*AggregateMachine, error) {
-	var aggregateVolumes []*api.Volume
-	for _, machineVolume := range machine.Spec.Volumes {
-
-		volume, err := s.volumeStore.Get(ctx, machineVolume)
-		if err != nil {
-			return nil, err
-		}
-		aggregateVolumes = append(aggregateVolumes, volume)
-	}
-
-	//ToDO nics
-
-	return &AggregateMachine{
-		Machine: machine,
-		Volumes: aggregateVolumes,
-	}, nil
-}
-
 func (s *Server) getLibvirtMachine(ctx context.Context, id string) (*api.Machine, error) {
 	machine, err := s.machineStore.Get(ctx, id)
 	if err != nil {
@@ -89,24 +45,19 @@ func (s *Server) getLibvirtMachine(ctx context.Context, id string) (*api.Machine
 	return machine, nil
 }
 
-func (s *Server) getAggregateMachine(ctx context.Context, id string) (*AggregateMachine, error) {
-	libvirtMachine, err := s.getLibvirtMachine(ctx, id)
-	if err != nil {
-		return nil, err
-	}
-
-	return s.aggregateMachine(ctx, libvirtMachine)
-}
-
 func (s *Server) listMachines(ctx context.Context, log logr.Logger) ([]*ori.Machine, error) {
-	machines, err := s.listAggregateMachines(ctx)
+	machines, err := s.machineStore.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error listing machines: %w", err)
 	}
 
 	var res []*ori.Machine
-	for _, aggregateMachine := range machines {
-		oriMachine, err := s.convertMachineToOriMachine(ctx, log, &aggregateMachine)
+	for _, machine := range machines {
+		if !apiutils.IsManagedBy(machine, machinev1alpha1.MachineManager) {
+			continue
+		}
+
+		oriMachine, err := s.convertMachineToOriMachine(ctx, log, machine)
 		if err != nil {
 			return nil, err
 		}
@@ -136,12 +87,12 @@ func (s *Server) filterMachines(machines []*ori.Machine, filter *ori.MachineFilt
 }
 
 func (s *Server) getMachine(ctx context.Context, log logr.Logger, id string) (*ori.Machine, error) {
-	aggregateMachine, err := s.getAggregateMachine(ctx, id)
+	libvirtMachine, err := s.getLibvirtMachine(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get machine: %w", err)
 	}
 
-	return s.convertMachineToOriMachine(ctx, log, aggregateMachine)
+	return s.convertMachineToOriMachine(ctx, log, libvirtMachine)
 }
 
 func (s *Server) ListMachines(ctx context.Context, req *ori.ListMachinesRequest) (*ori.ListMachinesResponse, error) {

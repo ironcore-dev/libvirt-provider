@@ -20,6 +20,9 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"github.com/onmetal/libvirt-driver/pkg/api"
+	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
+	utilstrings "k8s.io/utils/strings"
 	"os"
 	"path/filepath"
 	"slices"
@@ -28,14 +31,9 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	"github.com/onmetal/libvirt-driver/pkg/api"
 	virtletvolume "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
-	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost" // TODO: Change to a better naming for all imports, libvirthost?
-	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 	"github.com/onmetal/virtlet/libvirt/libvirtutils"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
-	utilstrings "k8s.io/utils/strings"
 	"libvirt.org/go/libvirtxml"
 )
 
@@ -43,7 +41,7 @@ func (r *MachineReconciler) deleteVolumes(ctx context.Context, log logr.Logger, 
 	mounter := r.machineVolumeMounter(machine)
 	var errs []error
 
-	domainDesc, err := r.getDomainDesc(types.UID(machine.GetID()))
+	domainDesc, err := r.getDomainDesc(machine.ID)
 	if err != nil {
 		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
 			return fmt.Errorf("error getting domain description: %w", err)
@@ -53,7 +51,7 @@ func (r *MachineReconciler) deleteVolumes(ctx context.Context, log logr.Logger, 
 		return nil
 	}
 
-	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewRunningDomainExecutor(r.libvirt, types.UID(machine.GetID())))
+	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewRunningDomainExecutor(r.libvirt, machine.ID))
 	if err != nil {
 		return fmt.Errorf("error obtaining volume attacher: %w", err)
 	}
@@ -89,25 +87,14 @@ func (r *MachineReconciler) deleteVolumes(ctx context.Context, log logr.Logger, 
 	}
 
 	log.V(1).Info("All volumes cleaned up, removing volumes directory")
-	if err := os.RemoveAll(r.host.MachineVolumesDir(types.UID(machine.GetID()))); err != nil {
+	if err := os.RemoveAll(r.host.MachineVolumesDir(machine.ID)); err != nil {
 		return fmt.Errorf("error removing machine volumes directory: %w", err)
 	}
 	return nil
 }
 
-var ErrNotYetBound = errors.New("not yet bound")
-
 func GetUniqueVolumeName(pluginName, backingVolumeID string) string {
 	return fmt.Sprintf("%s/%s", pluginName, backingVolumeID)
-}
-
-func SplitUniqueVolumeName(uniqueName string) (string, string, error) {
-	components := strings.SplitN(uniqueName, "/", 3)
-	if len(components) != 3 {
-		return "", "", fmt.Errorf("cannot split volume unique name %s to plugin/volume components", uniqueName)
-	}
-	pluginName := fmt.Sprintf("%s/%s", components[0], components[1])
-	return pluginName, components[2], nil
 }
 
 func (r *MachineReconciler) machineVolumeMounter(machine *api.Machine) VolumeMounter {
@@ -153,13 +140,14 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 
 	var volumeStates []api.VolumeStatus
 	for _, volume := range specVolumes {
-		log.V(1).Info("Reconciling volume", "VolumeName", volume.ID)
-		volumeID, err := r.applyVolume(ctx, log, machine, volume, mounter, attacher)
+		log.V(1).Info("Reconciling volume", "VolumeName", volume.Name)
+		volumeID, err := r.applyVolume(ctx, log, volume, mounter, attacher)
 		if err != nil {
-			errs = append(errs, fmt.Errorf("[volume %s] error reconciling: %w", volume.ID, err))
+			errs = append(errs, fmt.Errorf("[volume %s] error reconciling: %w", volume.Name, err))
 		} else {
-			log.V(1).Info("Successfully reconciled volume", "VolumeName", volume.ID, "VolumeID", volumeID)
+			log.V(1).Info("Successfully reconciled volume", "VolumeName", volume.Name, "VolumeID", volumeID)
 			volumeStates = append(volumeStates, api.VolumeStatus{
+				Name:   volume.Name,
 				Handle: volumeID,
 				State:  api.VolumeStateAttached,
 			})
@@ -235,19 +223,19 @@ func (e *createDomainExecutor) DeleteSecret(secretUUID string) error {
 }
 
 type domainExecutor struct {
-	libvirt    *libvirt.Libvirt
-	machineUID types.UID
+	libvirt   *libvirt.Libvirt
+	machineID string
 }
 
-func NewRunningDomainExecutor(lv *libvirt.Libvirt, machineUID types.UID) DomainExecutor {
+func NewRunningDomainExecutor(lv *libvirt.Libvirt, machineID string) DomainExecutor {
 	return &domainExecutor{
-		libvirt:    lv,
-		machineUID: machineUID,
+		libvirt:   lv,
+		machineID: machineID,
 	}
 }
 
 func (a *domainExecutor) domain() libvirt.Domain {
-	return machineDomain(a.machineUID)
+	return machineDomain(a.machineID)
 }
 
 func (a *domainExecutor) AttachDisk(disk *libvirtxml.DomainDisk) error {
@@ -507,7 +495,7 @@ type VolumeMounter interface {
 	ForEachVolume(f func(*MountVolume) bool) error
 	ListVolumes() ([]MountVolume, error)
 	GetVolume(computeVolumeName string) (*MountVolume, error)
-	ApplyVolume(ctx context.Context, spec *api.Volume, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error)
+	ApplyVolume(ctx context.Context, spec *api.VolumeSpec, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error)
 	DeleteVolume(ctx context.Context, computeVolumeName string) error
 }
 
@@ -520,7 +508,7 @@ func (m *volumeMounter) PluginManager() *virtletvolume.PluginManager {
 }
 
 func (m *volumeMounter) ForEachVolume(f func(*virtlethost.MachineVolume) bool) error {
-	machineVolumesDir := m.host.MachineVolumesDir(types.UID(m.machine.GetID()))
+	machineVolumesDir := m.host.MachineVolumesDir(m.machine.ID)
 	volumeDirEntries, err := os.ReadDir(machineVolumesDir)
 	if err != nil {
 		return err
@@ -594,20 +582,20 @@ func (m *volumeMounter) DeleteVolume(ctx context.Context, computeVolumeName stri
 		return err
 	}
 
-	if err := plugin.Delete(ctx, computeVolumeName, types.UID(m.machine.GetID())); err != nil {
+	if err := plugin.Delete(ctx, computeVolumeName, m.machine.ID); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m *volumeMounter) ApplyVolume(ctx context.Context, volume *ori.Volume, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error) {
-	plugin, err := m.pluginManager.FindPluginBySpec(volume)
+func (m *volumeMounter) ApplyVolume(ctx context.Context, spec *api.VolumeSpec, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error) {
+	plugin, err := m.pluginManager.FindPluginBySpec(spec)
 	if err != nil {
 		return "", nil, err
 	}
 
-	existing, err := m.GetVolume(volume.Name)
+	existing, err := m.GetVolume(spec.Name)
 	if err != nil && !errors.Is(err, ErrMountedVolumeNotFound) {
 		return "", nil, err
 	}
@@ -616,7 +604,7 @@ func (m *volumeMounter) ApplyVolume(ctx context.Context, volume *ori.Volume, onD
 			return "", nil, err
 		}
 
-		if err := m.DeleteVolume(ctx, volume.Name); err != nil {
+		if err := m.DeleteVolume(ctx, spec.Name); err != nil {
 			return "", nil, err
 		}
 	}
@@ -626,7 +614,7 @@ func (m *volumeMounter) ApplyVolume(ctx context.Context, volume *ori.Volume, onD
 		return "", nil, err
 	}
 
-	volume, err := plugin.Apply(ctx, spec, m.machine) // TODO: change the plugin args
+	volume, err := plugin.Apply(ctx, spec, m.machine)
 	if err != nil {
 		return "", nil, err
 	}
@@ -637,19 +625,14 @@ func (m *volumeMounter) ApplyVolume(ctx context.Context, volume *ori.Volume, onD
 func (r *MachineReconciler) applyVolume(
 	ctx context.Context,
 	log logr.Logger,
-	machine *api.Machine,
-	desiredVolume api.Volume,
+	desiredVolume *api.VolumeSpec,
 	mountedVolumes VolumeMounter,
 	attacher VolumeAttacher,
 ) (string, error) {
 	log.V(1).Info("Getting volume spec")
-	volume, err := virtletvolume.Prepare(machine.Namespace, machine.Name, &desiredVolume)
-	if err != nil {
-		return "", fmt.Errorf("error getting spec for volume: %w", err)
-	}
 
 	log.V(1).Info("Applying volume")
-	volumeID, virtletVolume, err := mountedVolumes.ApplyVolume(ctx, spec, func(outdated *MountVolume) error {
+	volumeID, virtletVolume, err := mountedVolumes.ApplyVolume(ctx, desiredVolume, func(outdated *MountVolume) error {
 		log.V(1).Info("Detaching outdated mounted volume before deleting", "PluginName", outdated.PluginName)
 		if err := attacher.DetachVolume(outdated.ComputeVolumeName); err != nil && !errors.Is(err, ErrAttachedVolumeNotFound) {
 			return fmt.Errorf("error detaching volume: %w", err)
@@ -663,7 +646,7 @@ func (r *MachineReconciler) applyVolume(
 	log.V(1).Info("Ensuring volume is attached")
 	if err := attacher.AttachVolume(&AttachVolume{
 		Name:   desiredVolume.Name,
-		Device: *desiredVolume.Device,
+		Device: desiredVolume.Device,
 		Spec:   *virtletVolume,
 	}); err != nil && !errors.Is(err, ErrAttachedVolumeAlreadyExists) {
 		return "", fmt.Errorf("error ensuring volume is attached: %w", err)
@@ -671,8 +654,8 @@ func (r *MachineReconciler) applyVolume(
 	return volumeID, nil
 }
 
-func (r *MachineReconciler) listDesiredVolumes(machine *api.Machine) map[string]api.Volume {
-	res := make(map[string]api.Volume)
+func (r *MachineReconciler) listDesiredVolumes(machine *api.Machine) map[string]*api.VolumeSpec {
+	res := make(map[string]*api.VolumeSpec)
 
 	for _, volume := range machine.Spec.Volumes {
 		res[volume.Name] = volume
@@ -795,9 +778,11 @@ func (a *libvirtVolumeAttacher) virtletVolumeToLibvirt(computeVolumeName string,
 			diskEncryption = &libvirtxml.DomainDiskEncryption{
 				Format: "luks2",
 				Engine: "librbd",
-				Secret: &libvirtxml.DomainDiskSecret{
-					Type: "passphrase",
-					UUID: a.secretEncryptionUUID(computeVolumeName),
+				Secrets: []libvirtxml.DomainDiskSecret{
+					{
+						Type: "passphrase",
+						UUID: a.secretEncryptionUUID(computeVolumeName),
+					},
 				},
 			}
 

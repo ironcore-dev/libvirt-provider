@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	virtletvolume "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	"os"
 	"slices"
 	"sync"
@@ -33,9 +34,7 @@ import (
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
 	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost" // TODO: Change to a better naming for all imports, libvirthost?
-	virtletvolume "github.com/onmetal/libvirt-driver/pkg/volume"
 	"github.com/onmetal/virtlet/libvirt/libvirtutils"
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/pointer"
 	"libvirt.org/go/libvirtxml"
@@ -46,6 +45,22 @@ const (
 	filePerm                        = 0666
 	rootFSAlias                     = "ua-rootfs"
 	libvirtDomainXMLIgnitionKeyName = "opt/com.coreos/config"
+)
+
+var (
+	// TODO: improve domainStateToMachineState since some states are mapped to computev1alpha1.MachineStatePending
+	// where it doesn't make that much sense.
+	domainStateToMachineState = map[libvirt.DomainState]api.MachineState{
+		libvirt.DomainNostate: api.MachineStatePending,
+		libvirt.DomainRunning: api.MachineStateRunning,
+		libvirt.DomainBlocked: api.MachineStateRunning,
+		libvirt.DomainPaused:  api.MachineStatePending,
+		//libvirt.DomainShutdown:    api.MachineStateShutdown,
+		//libvirt.DomainShutoff:     api.MachineStateShutdown,
+		libvirt.DomainPmsuspended: api.MachineStatePending,
+	}
+
+	errNoNetworkInterfaceAlias = errors.New("no network interface alias")
 )
 
 type MachineReconcilerOptions struct {
@@ -61,7 +76,6 @@ func NewMachineReconciler(
 	libvirt *libvirt.Libvirt,
 	machines store.Store[*api.Machine],
 	machineEvents event.Source[*api.Machine],
-	volumes store.Store[*api.Volume],
 	opts MachineReconcilerOptions,
 ) (*MachineReconciler, error) {
 	//if libvirt == nil {
@@ -76,17 +90,12 @@ func NewMachineReconciler(
 		return nil, fmt.Errorf("must specify machine events")
 	}
 
-	if volumes == nil {
-		return nil, fmt.Errorf("must specify volume store")
-	}
-
 	return &MachineReconciler{
 		log:               log,
 		queue:             workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 		libvirt:           libvirt,
 		machines:          machines,
 		machineEvents:     machineEvents,
-		volumes:           volumes,
 		guestCapabilities: opts.GuestCapabilities,
 		tcMallocLibPath:   opts.TCMallocLibPath,
 		host:              opts.Host,
@@ -109,8 +118,6 @@ type MachineReconciler struct {
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
-
-	volumes store.Store[*api.Volume]
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -192,23 +199,6 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 		return nil
 	}
 
-	log.V(1).Info("Looking up domain")
-	if _, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.GetID())); err != nil {
-		if !libvirt.IsNotFound(err) {
-			return fmt.Errorf("error getting domain %s: %w", machine.GetID(), err)
-		}
-
-		log.V(1).Info("Creating new domain")
-		_, _, err := r.createDomain(ctx, log, machine)
-		if err != nil {
-			return fmt.Errorf("error creating the domain %s: %w", machine.GetID(), err)
-		}
-
-		log.V(1).Info("Created domain")
-		return nil /// TODO: Check how to handle the NIC/Volume States here better.
-		//return computev1alpha1.MachineStatePending, volumeStates, nicStates, nil
-	}
-
 	if !slices.Contains(machine.Finalizers, MachineFinalizer) {
 		machine.Finalizers = append(machine.Finalizers, MachineFinalizer)
 		if _, err := r.machines.Update(ctx, machine); err != nil {
@@ -217,7 +207,63 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 		return nil
 	}
 
+	log.V(1).Info("Making machine directories")
+	if err := virtlethost.MakeMachineDirs(r.host, machine.ID); err != nil {
+		return fmt.Errorf("error making machine directories: %w", err)
+	}
+	log.V(1).Info("Successfully made machine directories")
+
+	log.V(1).Info("Reconciling domain")
+	state, volumeStates, nicStates, err := r.reconcileDomain(ctx, log, machine)
+	if err != nil {
+		return virtletimage.IgnoreImagePulling(err)
+	}
+	log.V(1).Info("Reconciled domain")
+
+	machine.Status.VolumeStatus = volumeStates
+	machine.Status.NetworkInterfaceStatus = nicStates
+	machine.Status.State = state
+
+	if _, err = r.machines.Update(ctx, machine); err != nil {
+		return fmt.Errorf("failed to update image metadate: %w", err)
+	}
+
 	return nil
+}
+
+func (r *MachineReconciler) reconcileDomain(
+	ctx context.Context,
+	log logr.Logger,
+	machine *api.Machine,
+) (api.MachineState, []api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
+	log.V(1).Info("Looking up domain")
+	if _, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
+		if !libvirt.IsNotFound(err) {
+			return "", nil, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
+		}
+
+		log.V(1).Info("Creating new domain")
+		volumeStates, nicStates, err := r.createDomain(ctx, log, machine)
+		if err != nil {
+			return "", nil, nil, err
+		}
+
+		log.V(1).Info("Created domain")
+		return api.MachineStatePending, volumeStates, nicStates, nil
+	}
+
+	log.V(1).Info("Updating existing domain")
+	volumeStates, nicStates, err := r.updateDomain(ctx, log, machine)
+	if err != nil {
+		return "", nil, nil, err
+	}
+
+	state, err := r.getMachineState(machine.ID)
+	if err != nil {
+		return "", nil, nil, fmt.Errorf("error getting machine state: %w", err)
+	}
+
+	return state, volumeStates, nicStates, nil
 }
 
 func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, machine *api.Machine) error {
@@ -235,6 +281,46 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 	log.V(2).Info("Removed Finalizers")
 
 	return nil
+}
+
+func (r *MachineReconciler) updateDomain(
+	ctx context.Context,
+	log logr.Logger,
+	machine *api.Machine,
+) ([]api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
+	domainDesc, err := r.getDomainDesc(machine.ID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting domain description: %w", err)
+	}
+
+	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewRunningDomainExecutor(r.libvirt, machine.ID))
+	if err != nil {
+		return nil, nil, fmt.Errorf("error construction volume attacher: %w", err)
+	}
+
+	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
+	if err != nil {
+		return nil, nil, fmt.Errorf("[volumes] %w", err)
+	}
+
+	//nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
+	//if err != nil {
+	//	return nil, nil, fmt.Errorf("[network interfaces] %w", err)
+	//}
+
+	return volumeStates, nil, nil
+}
+
+func (r *MachineReconciler) getMachineState(machineID string) (api.MachineState, error) {
+	domainState, _, err := r.libvirt.DomainGetState(machineDomain(machineID), 0)
+	if err != nil {
+		return "", fmt.Errorf("error getting domain state: %w", err)
+	}
+
+	if machineState, ok := domainStateToMachineState[libvirt.DomainState(domainState)]; ok {
+		return machineState, nil
+	}
+	return api.MachineStatePending, nil
 }
 
 func (r *MachineReconciler) createDomain(
@@ -385,16 +471,6 @@ func (r *MachineReconciler) domainFor(
 		}
 	}
 
-	// var desiredVolumes []*api.Volume
-	// for _, volumeID := range machine.Spec.Volumes {
-	// 	volume, err := r.volumes.Get(ctx, volumeID)
-	// 	if err != nil {
-	// 		//	TODO
-
-	// 	}
-	// 	desiredVolumes = append(desiredVolumes, volume)
-	// }
-
 	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewCreateDomainExecutor(r.libvirt))
 	if err != nil {
 		return nil, nil, nil, err
@@ -405,12 +481,12 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
-	if err != nil {
-		return nil, nil, nil, err
-	}
+	//nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
+	//if err != nil {
+	//	return nil, nil, nil, err
+	//}
 
-	return domainDesc, nil, nil, nil
+	return domainDesc, volumeStates, nil, nil
 }
 
 func (r *MachineReconciler) setDomainResources(ctx context.Context, log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {
@@ -472,7 +548,7 @@ func (r *MachineReconciler) setDomainImage(
 		return err
 	}
 
-	rootFSFile := r.host.MachineRootFSFile(types.UID(machine.GetID()))
+	rootFSFile := r.host.MachineRootFSFile(machine.ID)
 	ok, err := osutils.RegularFileExists(rootFSFile)
 	if err != nil {
 		return err
@@ -519,7 +595,7 @@ func (r *MachineReconciler) setDomainIgnition(ctx context.Context, machine *api.
 	}
 	ignitionData := machine.Spec.Ignition
 
-	ignPath := r.host.MachineIgnitionFile(types.UID(machine.GetID()))
+	ignPath := r.host.MachineIgnitionFile(machine.ID)
 	if err := os.WriteFile(ignPath, ignitionData, filePerm); err != nil {
 		return err
 	}
@@ -538,8 +614,8 @@ func (r *MachineReconciler) setDomainIgnition(ctx context.Context, machine *api.
 	return nil
 }
 
-func (r *MachineReconciler) getDomainDesc(machineUID types.UID) (*libvirtxml.Domain, error) {
-	domainXMLData, err := r.libvirt.DomainGetXMLDesc(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(string(machineUID))}, 0)
+func (r *MachineReconciler) getDomainDesc(machineID string) (*libvirtxml.Domain, error) {
+	domainXMLData, err := r.libvirt.DomainGetXMLDesc(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(machineID)}, 0)
 	if err != nil {
 		return nil, err
 	}
@@ -551,8 +627,8 @@ func (r *MachineReconciler) getDomainDesc(machineUID types.UID) (*libvirtxml.Dom
 	return domainXML, nil
 }
 
-func machineDomain(machineUID types.UID) libvirt.Domain {
+func machineDomain(machineID string) libvirt.Domain {
 	return libvirt.Domain{
-		UUID: libvirtutils.UUIDStringToBytes(string(machineUID)),
+		UUID: libvirtutils.UUIDStringToBytes(machineID),
 	}
 }

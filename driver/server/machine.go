@@ -9,8 +9,7 @@ import (
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 )
 
-func (s *Server) convertMachineToOriMachine(ctx context.Context, log logr.Logger, aggregateMachine *AggregateMachine) (*ori.Machine, error) {
-	machine := aggregateMachine.Machine
+func (s *Server) convertMachineToOriMachine(ctx context.Context, log logr.Logger, machine *api.Machine) (*ori.Machine, error) {
 	metadata, err := apiutils.GetObjectMetadata(machine.Metadata)
 	if err != nil {
 		return nil, fmt.Errorf("error getting ori metadata: %w", err)

@@ -20,19 +20,23 @@ import (
 	"sync"
 
 	"github.com/onmetal/libvirt-driver/pkg/api"
-	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
-
-	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-type Plugin interface {
-	Name() string
-	CanSupport(spec *ori.Volume) bool
+type Host interface {
+	PluginDir(pluginName string) string
+	MachinePluginDir(machineID string, pluginName string) string
+	MachineVolumeDir(machineID string, pluginName, volumeName string) string
+}
 
-	Prepare(spec *ori.Volume) (*api.VolumeSpec, error)
-	Apply(ctx context.Context, spec *api.Volume) (*api.VolumeStatus, error)
-	Delete(ctx context.Context, volumeID string, machineID types.UID) error
+type Plugin interface {
+	Init(host Host) error
+	Name() string
+	GetBackingVolumeID(spec *api.VolumeSpec) (string, error)
+	CanSupport(spec *api.VolumeSpec) bool
+
+	Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (*Volume, error)
+	Delete(ctx context.Context, computeVolumeName string, machineID string) error
 }
 
 type Volume struct {
@@ -74,7 +78,7 @@ func NewPluginManager() *PluginManager {
 	}
 }
 
-func (m *PluginManager) InitPlugins(plugins []Plugin) error {
+func (m *PluginManager) InitPlugins(host Host, plugins []Plugin) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -83,6 +87,11 @@ func (m *PluginManager) InitPlugins(plugins []Plugin) error {
 		name := plugin.Name()
 		if _, ok := m.plugins[name]; ok {
 			initErrs = append(initErrs, fmt.Errorf("[plugin %s] already registered", name))
+			continue
+		}
+
+		if err := plugin.Init(host); err != nil {
+			initErrs = append(initErrs, fmt.Errorf("[plugin %s] error initializing: %w", name, err))
 			continue
 		}
 
@@ -106,7 +115,7 @@ func (m *PluginManager) FindPluginByName(name string) (Plugin, error) {
 	return plugin, nil
 }
 
-func (m *PluginManager) FindPluginBySpec(volume *ori.Volume) (Plugin, error) {
+func (m *PluginManager) FindPluginBySpec(volume *api.VolumeSpec) (Plugin, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 

@@ -30,12 +30,14 @@ type MachineSpec struct {
 	Image    *string `json:"image"`
 	Ignition []byte  `json:"ignition"`
 
-	Volumes []string `json:"volumes"`
+	Volumes []*VolumeSpec `json:"volumes"`
 }
 
 type MachineStatus struct {
-	State    MachineState `json:"state"`
-	ImageRef string       `json:"imageRef"`
+	VolumeStatus           []VolumeStatus           `json:"volumeStatus"`
+	NetworkInterfaceStatus []NetworkInterfaceStatus `json:"networkInterfaceStatus"`
+	State                  MachineState             `json:"state"`
+	ImageRef               string                   `json:"imageRef"`
 }
 
 type MachineState string
@@ -52,4 +54,48 @@ type PowerState int32
 const (
 	PowerStatePowerOn  PowerState = 0
 	PowerStatePowerOff PowerState = 1
+)
+
+type VolumeSpec struct {
+	Name       string            `json:"name"`
+	Device     string            `json:"device"`
+	EmptyDisk  *EmptyDiskSpec    `json:"emptyDisk,omitempty"`
+	Connection *VolumeConnection `json:"cephDisk,omitempty"`
+}
+
+type VolumeStatus struct {
+	Name   string      `json:"name,omitempty"`
+	Handle string      `json:"handle,omitempty"`
+	State  VolumeState `json:"state,omitempty"`
+}
+
+type EmptyDiskSpec struct {
+	Size int64 `json:"size"`
+}
+
+type VolumeConnection struct {
+	Driver     string            ` json:"driver,omitempty"`
+	Handle     string            ` json:"handle,omitempty"`
+	Attributes map[string]string ` json:"attributes,omitempty"`
+	SecretData map[string][]byte ` json:"secret_data,omitempty"`
+}
+
+type VolumeState string
+
+const (
+	VolumeStatePending  VolumeState = "Pending"
+	VolumeStateAttached VolumeState = "Attached"
+)
+
+type NetworkInterfaceStatus struct {
+	Name   string                ` json:"name"`
+	Handle string                ` json:"handle"`
+	State  NetworkInterfaceState `json:"state"`
+}
+
+type NetworkInterfaceState string
+
+const (
+	NetworkInterfaceStatePending  NetworkInterfaceState = "Pending"
+	NetworkInterfaceStateAttached NetworkInterfaceState = "Attached"
 )

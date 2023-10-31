@@ -18,6 +18,7 @@ import (
 	"context"
 	goflag "flag"
 	"fmt"
+	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
 	"net"
 	"os"
 	"path/filepath"
@@ -132,6 +133,12 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}()
 
+	virtletHost, err := virtlethost.NewLibvirtAt(nil, opts.RootDir, libvirt)
+	if err != nil {
+		setupLog.Error(err, "error creating virtlet host")
+		os.Exit(1)
+	}
+
 	// Detect Guest Capabilities
 	caps, err := guest.DetectCapabilities(libvirt, guest.CapabilitiesOptions{
 		PreferredDomainTypes:  opts.Libvirt.PreferredDomainTypes,
@@ -142,34 +149,11 @@ func Run(ctx context.Context, opts Options) error {
 		os.Exit(1)
 	}
 
-	volumeStoreDir := filepath.Join(opts.RootDir, "volumes")
-	setupLog.Info("Configuring volume store", "Directory", volumeStoreDir)
-	volumeStore, err := host.NewStore(host.Options[*api.Volume]{
-		NewFunc:        func() *api.Volume { return &api.Volume{} },
-		CreateStrategy: utils.VolumeStrategy,
-		Dir:            volumeStoreDir,
-	})
-	if err != nil {
-		return fmt.Errorf("failed to initialize volume store: %w", err)
-	}
-
-	volumeEvents, err := event.NewListWatchSource[*api.Volume](
-		volumeStore.List,
-		volumeStore.Watch,
-		event.ListWatchSourceOptions{},
-	)
-	if err != nil {
-		return fmt.Errorf("failed to initialize volume events: %w", err)
-	}
-
-	_ = volumeEvents
-
-	machineStoreDir := filepath.Join(opts.RootDir, "machines")
-	setupLog.Info("Configuring machine store", "Directory", machineStoreDir)
+	setupLog.Info("Configuring machine store", "Directory", virtletHost.MachineStoreDir())
 	machineStore, err := host.NewStore(host.Options[*api.Machine]{
 		NewFunc:        func() *api.Machine { return &api.Machine{} },
 		CreateStrategy: utils.MachineStrategy,
-		Dir:            machineStoreDir,
+		Dir:            virtletHost.MachineStoreDir(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize machine store: %w", err)
@@ -189,9 +173,9 @@ func Run(ctx context.Context, opts Options) error {
 		libvirt,
 		machineStore,
 		machineEvents,
-		volumeStore,
 		controllers.MachineReconcilerOptions{
 			GuestCapabilities: caps,
+			Host:              virtletHost,
 		},
 	)
 	if err != nil {
@@ -224,7 +208,7 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	volumePlugins := volumeplugin.NewPluginManager()
-	if err := volumePlugins.InitPlugins([]volumeplugin.Plugin{
+	if err := volumePlugins.InitPlugins(virtletHost, []volumeplugin.Plugin{
 		ceph.NewPlugin(),
 		emptydisk.NewPlugin(qcow2Inst, rawInst),
 	}); err != nil {
@@ -233,7 +217,6 @@ func Run(ctx context.Context, opts Options) error {
 
 	srv, err := server.New(server.Options{
 		MachineStore:   machineStore,
-		VolumeStore:    volumeStore,
 		MachineClasses: machineClasses,
 		VolumePlugins:  volumePlugins,
 	})

@@ -21,9 +21,8 @@ const (
 )
 
 const (
-	ManagerLabel    = "libvirt-driver.api.onmetal.de/manager"
-	ClassLabel      = "libvirt-driver.api.onmetal.de/class"
-	MachineRefLabel = "libvirt-driver.api.onmetal.de/machine"
+	ManagerLabel = "libvirt-driver.api.onmetal.de/manager"
+	ClassLabel   = "libvirt-driver.api.onmetal.de/class"
 )
 
 const (
