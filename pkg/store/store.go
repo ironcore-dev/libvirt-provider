@@ -17,6 +17,7 @@ package store
 import (
 	"context"
 	"errors"
+
 	"github.com/onmetal/libvirt-driver/pkg/api"
 )
 

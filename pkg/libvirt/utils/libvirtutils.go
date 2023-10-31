@@ -17,7 +17,6 @@ package utils
 import (
 	"errors"
 	"fmt"
-	"github.com/digitalocean/go-libvirt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -25,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/digitalocean/go-libvirt"
 	"github.com/digitalocean/go-libvirt/socket"
 	"github.com/digitalocean/go-libvirt/socket/dialers"
 	"github.com/google/uuid"

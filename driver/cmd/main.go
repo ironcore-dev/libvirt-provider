@@ -16,8 +16,9 @@ package main
 
 import (
 	"fmt"
-	"github.com/onmetal/libvirt-driver/driver/cmd/app"
 	"os"
+
+	"github.com/onmetal/libvirt-driver/driver/cmd/app"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 

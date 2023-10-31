@@ -63,32 +63,33 @@ manifests: controller-gen ## Generate WebhookConfiguration, ClusterRole and Cust
 generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and DeepCopyObject method implementations.
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-.PHONY: addlicense
-addlicense: ## Add license headers to all go files.
-	find . -name '*.go' -exec go run github.com/google/addlicense -c 'OnMetal authors' {} +
+.PHONY: add-license
+add-license: addlicense ## Add license headers to all go files.
+	find . -name '*.go' -exec $(ADDLICENSE) -c 'OnMetal authors' {} +
+
+.PHONY: check-license
+check-license: addlicense ## Check that every file has a license header present.
+	find . -name '*.go' -exec $(ADDLICENSE) -check -c 'OnMetal authors' {} +
+
 
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
-
-.PHONY: checklicense
-checklicense: ## Check that every file has a license header present.
-	find . -name '*.go' -exec go run github.com/google/addlicense  -check -c 'OnMetal authors' {} +
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint against code.
 	GOOS=$(TARGET_OS) CGO=1 $(GOLANGCI_LINT) run ./...
 
 .PHONY: check
-check: manifests generate addlicense lint test
+check: manifests generate add-license lint test
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 .PHONY: test
-test: manifests generate fmt envtest checklicense ## Run tests. Some test depend on Linux OS
+test: manifests generate fmt envtest check-license ## Run tests. Some test depend on Linux OS
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
 
 .PHONY: check
-check: generate fmt addlicense lint test ## Lint and run tests.
+check: generate fmt add-license lint test ## Lint and run tests.
 
 ##@ Documentation
 
@@ -104,7 +105,7 @@ clean-docs: ## Remove all local mkdocs Docker images (cleanup).
 ##@ Build
 
 .PHONY: build
-build: generate fmt addlicense lint ## Build the binary
+build: generate fmt add-license lint ## Build the binary
 	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o bin/virtlet ./main.go
 
 .PHONY: run
@@ -137,12 +138,14 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_GEN_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
+ADDLICENSE ?= $(LOCALBIN)/addlicense
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v3.8.7
 CONTROLLER_GEN_VERSION ?= v0.9.0
-GOLANGCI_LINT_VERSION ?= v1.54.2
 ENVTEST_VERSION ?= release-0.15
+GOLANGCI_LINT_VERSION ?= v1.54.2
+ADDLICENSE_VERSION ?= v1.1.1
 
 KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
@@ -166,6 +169,12 @@ envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
 golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
 $(GOLANGCI_LINT): $(LOCALBIN)
 	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+
+.PHONY: addlicense
+addlicense: $(ADDLICENSE) ## Download addlicense locally if necessary.
+$(ADDLICENSE): $(LOCALBIN)
+	test -s $(LOCALBIN)/addlicense || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@$(ADDLICENSE_VERSION)
+
 
 # go-install-tool will 'go install' any $1 package.
 # it will add v. prefix into url, if url isn't contain version

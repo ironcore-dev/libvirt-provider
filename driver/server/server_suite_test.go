@@ -15,15 +15,15 @@
 package server_test
 
 import (
+	"testing"
+	"time"
+
 	"github.com/onmetal/libvirt-driver/driver/server"
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/host"
 	"github.com/onmetal/libvirt-driver/pkg/mcr"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
-	"testing"
-	"time"
-
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"

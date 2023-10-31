@@ -16,10 +16,30 @@ package server
 
 import (
 	"context"
+
+	"github.com/blang/semver/v4"
+	"github.com/onmetal/libvirt-driver/driver/version"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 )
 
 func (s *Server) Version(ctx context.Context, req *ori.VersionRequest) (*ori.VersionResponse, error) {
+	var runtimeVersion string
+	switch {
+	case version.Version != "":
+		runtimeVersion = version.Version
+	case version.Commit != "":
+		v, err := semver.NewBuildVersion(version.Commit)
+		if err != nil {
+			runtimeVersion = "0.0.0"
+		} else {
+			runtimeVersion = v
+		}
+	default:
+		runtimeVersion = "0.0.0"
+	}
 
-	return &ori.VersionResponse{}, nil
+	return &ori.VersionResponse{
+		RuntimeName:    version.RuntimeName,
+		RuntimeVersion: runtimeVersion,
+	}, nil
 }

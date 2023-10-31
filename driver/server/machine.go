@@ -1,8 +1,23 @@
+// Copyright 2023 OnMetal authors
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 package server
 
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	"github.com/onmetal/libvirt-driver/driver/apiutils"
 	"github.com/onmetal/libvirt-driver/pkg/api"
@@ -103,5 +118,16 @@ func (s *Server) getOriPower(state api.PowerState) (ori.Power, error) {
 		return ori.Power_POWER_OFF, nil
 	default:
 		return 0, fmt.Errorf("unknown machine power state '%q'", state)
+	}
+}
+
+func (s *Server) getPowerStateFromOri(power ori.Power) (api.PowerState, error) {
+	switch power {
+	case ori.Power_POWER_ON:
+		return api.PowerStatePowerOn, nil
+	case ori.Power_POWER_OFF:
+		return api.PowerStatePowerOff, nil
+	default:
+		return 0, fmt.Errorf("unknown ori power state '%q'", power)
 	}
 }

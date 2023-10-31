@@ -17,6 +17,7 @@ package server
 import (
 	"context"
 	"fmt"
+
 	"github.com/go-logr/logr"
 	machinev1alpha1 "github.com/onmetal/libvirt-driver/driver/api/v1alpha1"
 	"github.com/onmetal/libvirt-driver/driver/apiutils"
@@ -43,6 +44,11 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 	log.V(2).Info("Validated class")
 
 	cpu, memory := calcResources(class)
+
+	power, err := s.getPowerStateFromOri(oriMachine.Spec.Power)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get power state: %w", err)
+	}
 
 	var volumes []*api.VolumeSpec
 	for _, oriVolume := range oriMachine.Spec.Volumes {
@@ -82,7 +88,7 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 			ID: s.idGen.Generate(),
 		},
 		Spec: api.MachineSpec{
-			Power:       0,
+			Power:       power,
 			CpuMillis:   cpu,
 			MemoryBytes: memory,
 			Volumes:     volumes,
