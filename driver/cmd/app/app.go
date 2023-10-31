@@ -18,7 +18,6 @@ import (
 	"context"
 	goflag "flag"
 	"fmt"
-	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
 	"net"
 	"os"
 	"path/filepath"
@@ -29,6 +28,7 @@ import (
 	"github.com/onmetal/libvirt-driver/pkg/controllers"
 	"github.com/onmetal/libvirt-driver/pkg/event"
 	"github.com/onmetal/libvirt-driver/pkg/host"
+	virtletimage "github.com/onmetal/libvirt-driver/pkg/image"
 	"github.com/onmetal/libvirt-driver/pkg/libvirt/guest"
 	libvirtutils "github.com/onmetal/libvirt-driver/pkg/libvirt/utils"
 	"github.com/onmetal/libvirt-driver/pkg/mcr"
@@ -38,9 +38,11 @@ import (
 	"github.com/onmetal/libvirt-driver/pkg/qcow2"
 	"github.com/onmetal/libvirt-driver/pkg/raw"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
+	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
 	"github.com/onmetal/onmetal-api/broker/common"
 	commongrpc "github.com/onmetal/onmetal-api/broker/common/grpc"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
+	"github.com/onmetal/onmetal-image/oci/remote"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
@@ -139,6 +141,30 @@ func Run(ctx context.Context, opts Options) error {
 		os.Exit(1)
 	}
 
+	reg, err := remote.DockerRegistry(nil)
+	if err != nil {
+		setupLog.Error(err, "error creating registry")
+		os.Exit(1)
+	}
+
+	imgCache, err := virtletimage.NewLocalCache(log, reg, virtletHost.OCIStore())
+	if err != nil {
+		setupLog.Error(err, "error setting up image manager")
+		os.Exit(1)
+	}
+
+	qcow2Inst, err := qcow2.Instance(opts.Libvirt.Qcow2Type)
+	if err != nil {
+		setupLog.Error(err, "error creating qcow2 instance")
+		os.Exit(1)
+	}
+
+	rawInst, err := raw.Instance(raw.Default())
+	if err != nil {
+		setupLog.Error(err, "error creating raw instance")
+		os.Exit(1)
+	}
+
 	// Detect Guest Capabilities
 	caps, err := guest.DetectCapabilities(libvirt, guest.CapabilitiesOptions{
 		PreferredDomainTypes:  opts.Libvirt.PreferredDomainTypes,
@@ -147,6 +173,14 @@ func Run(ctx context.Context, opts Options) error {
 	if err != nil {
 		setupLog.Error(err, "error detecting guest capabilities")
 		os.Exit(1)
+	}
+
+	volumePlugins := volumeplugin.NewPluginManager()
+	if err := volumePlugins.InitPlugins(virtletHost, []volumeplugin.Plugin{
+		ceph.NewPlugin(),
+		emptydisk.NewPlugin(qcow2Inst, rawInst),
+	}); err != nil {
+		return fmt.Errorf("failed to initialize machine class registry: %w", err)
 	}
 
 	setupLog.Info("Configuring machine store", "Directory", virtletHost.MachineStoreDir())
@@ -174,8 +208,11 @@ func Run(ctx context.Context, opts Options) error {
 		machineStore,
 		machineEvents,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities: caps,
-			Host:              virtletHost,
+			GuestCapabilities:   caps,
+			ImageCache:          imgCache,
+			Raw:                 rawInst,
+			Host:                virtletHost,
+			VolumePluginManager: volumePlugins,
 		},
 	)
 	if err != nil {
@@ -195,26 +232,6 @@ func Run(ctx context.Context, opts Options) error {
 		return fmt.Errorf("failed to initialize machine class registry: %w", err)
 	}
 
-	qcow2Inst, err := qcow2.Instance(opts.Libvirt.Qcow2Type)
-	if err != nil {
-		setupLog.Error(err, "error creating qcow2 instance")
-		os.Exit(1)
-	}
-
-	rawInst, err := raw.Instance(raw.Default())
-	if err != nil {
-		setupLog.Error(err, "error creating raw instance")
-		os.Exit(1)
-	}
-
-	volumePlugins := volumeplugin.NewPluginManager()
-	if err := volumePlugins.InitPlugins(virtletHost, []volumeplugin.Plugin{
-		ceph.NewPlugin(),
-		emptydisk.NewPlugin(qcow2Inst, rawInst),
-	}); err != nil {
-		return fmt.Errorf("failed to initialize machine class registry: %w", err)
-	}
-
 	srv, err := server.New(server.Options{
 		MachineStore:   machineStore,
 		MachineClasses: machineClasses,
@@ -225,6 +242,14 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		setupLog.Info("Starting image cache")
+		if err := imgCache.Start(ctx); err != nil {
+			log.Error(err, "failed to start image cache")
+			return err
+		}
+		return nil
+	})
 
 	g.Go(func() error {
 		setupLog.Info("Starting machine reconciler")

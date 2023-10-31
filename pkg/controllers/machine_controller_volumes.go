@@ -20,9 +20,6 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
-	utilstrings "k8s.io/utils/strings"
 	"os"
 	"path/filepath"
 	"slices"
@@ -31,9 +28,12 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
+	"github.com/onmetal/libvirt-driver/pkg/api"
 	virtletvolume "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
+	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
 	"github.com/onmetal/virtlet/libvirt/libvirtutils"
 	"k8s.io/apimachinery/pkg/util/sets"
+	utilstrings "k8s.io/utils/strings"
 	"libvirt.org/go/libvirtxml"
 )
 

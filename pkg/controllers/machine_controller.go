@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	virtletvolume "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	"os"
 	"slices"
 	"sync"
@@ -30,13 +29,14 @@ import (
 	virtletimage "github.com/onmetal/libvirt-driver/pkg/image"
 	"github.com/onmetal/libvirt-driver/pkg/libvirt/guest"
 	"github.com/onmetal/libvirt-driver/pkg/os/osutils"
+	virtletvolume "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	"github.com/onmetal/libvirt-driver/pkg/raw"
 	"github.com/onmetal/libvirt-driver/pkg/store"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
 	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost" // TODO: Change to a better naming for all imports, libvirthost?
 	"github.com/onmetal/virtlet/libvirt/libvirtutils"
 	"k8s.io/client-go/util/workqueue"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	"libvirt.org/go/libvirtxml"
 )
 
@@ -59,16 +59,15 @@ var (
 		//libvirt.DomainShutoff:     api.MachineStateShutdown,
 		libvirt.DomainPmsuspended: api.MachineStatePending,
 	}
-
-	errNoNetworkInterfaceAlias = errors.New("no network interface alias")
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities guest.Capabilities
-	TCMallocLibPath   string
-	ImageCache        virtletimage.Cache
-	Raw               raw.Raw
-	Host              virtlethost.Host
+	GuestCapabilities   guest.Capabilities
+	TCMallocLibPath     string
+	ImageCache          virtletimage.Cache
+	Raw                 raw.Raw
+	Host                virtlethost.Host
+	VolumePluginManager *virtletvolume.PluginManager
 }
 
 func NewMachineReconciler(
@@ -91,16 +90,17 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:               log,
-		queue:             workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:           libvirt,
-		machines:          machines,
-		machineEvents:     machineEvents,
-		guestCapabilities: opts.GuestCapabilities,
-		tcMallocLibPath:   opts.TCMallocLibPath,
-		host:              opts.Host,
-		imageCache:        opts.ImageCache,
-		raw:               opts.Raw,
+		log:                 log,
+		queue:               workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		libvirt:             libvirt,
+		machines:            machines,
+		machineEvents:       machineEvents,
+		guestCapabilities:   opts.GuestCapabilities,
+		tcMallocLibPath:     opts.TCMallocLibPath,
+		host:                opts.Host,
+		imageCache:          opts.ImageCache,
+		raw:                 opts.Raw,
+		volumePluginManager: opts.VolumePluginManager,
 	}, nil
 }
 
@@ -271,6 +271,14 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 		log.V(1).Info("machine has no finalizer: done")
 		return nil
 	}
+
+	log.V(1).Info("Finalizer present, doing cleanup")
+
+	log.V(1).Info("Removing volumes")
+	if err := r.deleteVolumes(ctx, log, machine); err != nil {
+		return fmt.Errorf("error removing machine disks: %w", err)
+	}
+	log.V(1).Info("Successfully removed machine disks")
 
 	//do libvirt cleanup
 
@@ -459,8 +467,8 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	if machineImgRef := machine.Spec.Image; machineImgRef != nil && pointer.StringDeref(machineImgRef, "") != "" {
-		if err := r.setDomainImage(ctx, machine, domainDesc, pointer.StringDeref(machineImgRef, "")); err != nil {
+	if machineImgRef := machine.Spec.Image; machineImgRef != nil && ptr.Deref(machineImgRef, "") != "" {
+		if err := r.setDomainImage(ctx, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -495,8 +503,10 @@ func (r *MachineReconciler) setDomainResources(ctx context.Context, log logr.Log
 		Value: uint(machine.Spec.MemoryBytes),
 		Unit:  "Byte",
 	}
+
+	cpu := uint(machine.Spec.CpuMillis / 1000)
 	domain.VCPU = &libvirtxml.DomainVCPU{
-		Value: uint(machine.Spec.CpuMillis),
+		Value: cpu,
 	}
 	return nil
 }
