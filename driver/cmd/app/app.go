@@ -23,6 +23,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-logr/logr"
+	"github.com/onmetal/libvirt-driver/driver/networkinterfaceplugin"
 	"github.com/onmetal/libvirt-driver/driver/server"
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/controllers"
@@ -39,6 +40,7 @@ import (
 	"github.com/onmetal/libvirt-driver/pkg/raw"
 	"github.com/onmetal/libvirt-driver/pkg/utils"
 	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
+	apinetv1alpha1 "github.com/onmetal/onmetal-api-net/api/core/v1alpha1"
 	"github.com/onmetal/onmetal-api/broker/common"
 	commongrpc "github.com/onmetal/onmetal-api/broker/common/grpc"
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
@@ -47,22 +49,35 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
 	homeDir string
+	scheme  = runtime.NewScheme()
 )
 
 func init() {
 	homeDir, _ = os.UserHomeDir()
+
+	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
+	utilruntime.Must(apinetv1alpha1.AddToScheme(scheme))
 }
 
 type Options struct {
 	Address string
 	RootDir string
-	Libvirt LibvirtOptions
+
+	ApinetKubeconfig string
+
+	Libvirt   LibvirtOptions
+	NicPlugin *networkinterfaceplugin.Options
 }
 
 type LibvirtOptions struct {
@@ -80,6 +95,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Address, "address", "/var/run/ori-machinebroker.sock", "Address to listen on.")
 	fs.StringVar(&o.RootDir, "virtlet-dir", filepath.Join(homeDir, ".virtlet"), "Path to the directory virtlet manages its content at.")
 
+	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
+
 	// LibvirtOptions
 	fs.StringVar(&o.Libvirt.Socket, "libvirt-socket", o.Libvirt.Socket, "Path to the libvirt socket to use.")
 	fs.StringVar(&o.Libvirt.Address, "libvirt-address", o.Libvirt.Address, "Address of a RPC libvirt socket to connect to.")
@@ -90,6 +107,9 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.Libvirt.PreferredMachineTypes, "preferred-machine-types", []string{"pc-q35"}, "Ordered list of preferred machine types to use.")
 
 	fs.StringVar(&o.Libvirt.Qcow2Type, "qcow2-type", qcow2.Default(), fmt.Sprintf("qcow2 implementation to use. Available: %v", qcow2.Available()))
+
+	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
+	o.NicPlugin.AddFlags(fs)
 }
 
 func Command() *cobra.Command {
@@ -127,7 +147,7 @@ func Run(ctx context.Context, opts Options) error {
 	libvirt, err := libvirtutils.GetLibvirt(opts.Libvirt.Socket, opts.Libvirt.Address, opts.Libvirt.URI)
 	if err != nil {
 		setupLog.Error(err, "error getting libvirt")
-		os.Exit(1)
+		return err
 	}
 	defer func() {
 		if err := libvirt.ConnectClose(); err != nil {
@@ -135,34 +155,50 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}()
 
-	virtletHost, err := virtlethost.NewLibvirtAt(nil, opts.RootDir, libvirt)
+	// Check if apinetKubeconfig is provided
+	var apinetClient client.Client
+	if opts.ApinetKubeconfig != "" {
+		apinetCfg, err := clientcmd.BuildConfigFromFlags("", opts.ApinetKubeconfig)
+		if err != nil {
+			setupLog.Error(err, "Failed to build config from apinet-kubeconfig")
+			return err
+		}
+
+		apinetClient, err = client.New(apinetCfg, client.Options{Scheme: scheme})
+		if err != nil {
+			setupLog.Error(err, "Error creating api-net client:")
+			return err
+		}
+	}
+
+	virtletHost, err := virtlethost.NewLibvirtAt(apinetClient, opts.RootDir, libvirt)
 	if err != nil {
 		setupLog.Error(err, "error creating virtlet host")
-		os.Exit(1)
+		return err
 	}
 
 	reg, err := remote.DockerRegistry(nil)
 	if err != nil {
 		setupLog.Error(err, "error creating registry")
-		os.Exit(1)
+		return err
 	}
 
 	imgCache, err := virtletimage.NewLocalCache(log, reg, virtletHost.OCIStore())
 	if err != nil {
 		setupLog.Error(err, "error setting up image manager")
-		os.Exit(1)
+		return err
 	}
 
 	qcow2Inst, err := qcow2.Instance(opts.Libvirt.Qcow2Type)
 	if err != nil {
 		setupLog.Error(err, "error creating qcow2 instance")
-		os.Exit(1)
+		return err
 	}
 
 	rawInst, err := raw.Instance(raw.Default())
 	if err != nil {
 		setupLog.Error(err, "error creating raw instance")
-		os.Exit(1)
+		return err
 	}
 
 	// Detect Guest Capabilities
@@ -172,7 +208,7 @@ func Run(ctx context.Context, opts Options) error {
 	})
 	if err != nil {
 		setupLog.Error(err, "error detecting guest capabilities")
-		os.Exit(1)
+		return err
 	}
 
 	volumePlugins := volumeplugin.NewPluginManager()
@@ -181,6 +217,22 @@ func Run(ctx context.Context, opts Options) error {
 		emptydisk.NewPlugin(qcow2Inst, rawInst),
 	}); err != nil {
 		return fmt.Errorf("failed to initialize machine class registry: %w", err)
+	}
+
+	nicPlugin, nicPluginCleanup, err := opts.NicPlugin.NetworkInterfacePlugin()
+	if err != nil {
+		setupLog.Error(err, "Error creating network plugin")
+		return err
+	}
+	if nicPluginCleanup != nil {
+		defer nicPluginCleanup()
+	}
+
+	setupLog.Info("Initializing network interface plugin")
+
+	if err := nicPlugin.Init(virtletHost); err != nil {
+		setupLog.Error(err, "Error initializing network plugin")
+		return err
 	}
 
 	setupLog.Info("Configuring machine store", "Directory", virtletHost.MachineStoreDir())
@@ -208,11 +260,12 @@ func Run(ctx context.Context, opts Options) error {
 		machineStore,
 		machineEvents,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities:   caps,
-			ImageCache:          imgCache,
-			Raw:                 rawInst,
-			Host:                virtletHost,
-			VolumePluginManager: volumePlugins,
+			GuestCapabilities:      caps,
+			ImageCache:             imgCache,
+			Raw:                    rawInst,
+			Host:                   virtletHost,
+			VolumePluginManager:    volumePlugins,
+			NetworkInterfacePlugin: nicPlugin,
 		},
 	)
 	if err != nil {

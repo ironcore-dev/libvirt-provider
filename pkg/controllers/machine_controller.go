@@ -29,6 +29,7 @@ import (
 	virtletimage "github.com/onmetal/libvirt-driver/pkg/image"
 	"github.com/onmetal/libvirt-driver/pkg/libvirt/guest"
 	"github.com/onmetal/libvirt-driver/pkg/os/osutils"
+	virtletnetworkinterface "github.com/onmetal/libvirt-driver/pkg/plugins/networkinterface"
 	virtletvolume "github.com/onmetal/libvirt-driver/pkg/plugins/volume"
 	"github.com/onmetal/libvirt-driver/pkg/raw"
 	"github.com/onmetal/libvirt-driver/pkg/store"
@@ -45,6 +46,7 @@ const (
 	filePerm                        = 0666
 	rootFSAlias                     = "ua-rootfs"
 	libvirtDomainXMLIgnitionKeyName = "opt/com.coreos/config"
+	networkInterfaceAliasPrefix     = "ua-networkinterface-"
 )
 
 var (
@@ -62,12 +64,13 @@ var (
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities   guest.Capabilities
-	TCMallocLibPath     string
-	ImageCache          virtletimage.Cache
-	Raw                 raw.Raw
-	Host                virtlethost.Host
-	VolumePluginManager *virtletvolume.PluginManager
+	GuestCapabilities      guest.Capabilities
+	TCMallocLibPath        string
+	ImageCache             virtletimage.Cache
+	Raw                    raw.Raw
+	Host                   virtlethost.Host
+	VolumePluginManager    *virtletvolume.PluginManager
+	NetworkInterfacePlugin virtletnetworkinterface.Plugin
 }
 
 func NewMachineReconciler(
@@ -77,9 +80,9 @@ func NewMachineReconciler(
 	machineEvents event.Source[*api.Machine],
 	opts MachineReconcilerOptions,
 ) (*MachineReconciler, error) {
-	//if libvirt == nil {
-	//	return nil, fmt.Errorf("must specify libvirt client")
-	//}
+	if libvirt == nil {
+		return nil, fmt.Errorf("must specify libvirt client")
+	}
 
 	if machines == nil {
 		return nil, fmt.Errorf("must specify machine store")
@@ -90,17 +93,18 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:                 log,
-		queue:               workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:             libvirt,
-		machines:            machines,
-		machineEvents:       machineEvents,
-		guestCapabilities:   opts.GuestCapabilities,
-		tcMallocLibPath:     opts.TCMallocLibPath,
-		host:                opts.Host,
-		imageCache:          opts.ImageCache,
-		raw:                 opts.Raw,
-		volumePluginManager: opts.VolumePluginManager,
+		log:                    log,
+		queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		libvirt:                libvirt,
+		machines:               machines,
+		machineEvents:          machineEvents,
+		guestCapabilities:      opts.GuestCapabilities,
+		tcMallocLibPath:        opts.TCMallocLibPath,
+		host:                   opts.Host,
+		imageCache:             opts.ImageCache,
+		raw:                    opts.Raw,
+		volumePluginManager:    opts.VolumePluginManager,
+		networkInterfacePlugin: opts.NetworkInterfacePlugin,
 	}, nil
 }
 
@@ -108,13 +112,15 @@ type MachineReconciler struct {
 	log   logr.Logger
 	queue workqueue.RateLimitingInterface
 
-	libvirt             *libvirt.Libvirt
-	guestCapabilities   guest.Capabilities
-	tcMallocLibPath     string
-	host                virtlethost.Host
-	imageCache          virtletimage.Cache
-	raw                 raw.Raw
-	volumePluginManager *virtletvolume.PluginManager
+	libvirt           *libvirt.Libvirt
+	guestCapabilities guest.Capabilities
+	tcMallocLibPath   string
+	host              virtlethost.Host
+	imageCache        virtletimage.Cache
+	raw               raw.Raw
+
+	volumePluginManager    *virtletvolume.PluginManager
+	networkInterfacePlugin virtletnetworkinterface.Plugin
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
@@ -311,12 +317,12 @@ func (r *MachineReconciler) updateDomain(
 		return nil, nil, fmt.Errorf("[volumes] %w", err)
 	}
 
-	//nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
-	//if err != nil {
-	//	return nil, nil, fmt.Errorf("[network interfaces] %w", err)
-	//}
+	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
+	if err != nil {
+		return nil, nil, fmt.Errorf("[network interfaces] %w", err)
+	}
 
-	return volumeStates, nil, nil
+	return volumeStates, nicStates, nil
 }
 
 func (r *MachineReconciler) getMachineState(machineID string) (api.MachineState, error) {
@@ -489,12 +495,12 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	//nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
-	//if err != nil {
-	//	return nil, nil, nil, err
-	//}
+	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
+	if err != nil {
+		return nil, nil, nil, err
+	}
 
-	return domainDesc, volumeStates, nil, nil
+	return domainDesc, volumeStates, nicStates, nil
 }
 
 func (r *MachineReconciler) setDomainResources(ctx context.Context, log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {

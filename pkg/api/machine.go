@@ -30,7 +30,8 @@ type MachineSpec struct {
 	Image    *string `json:"image"`
 	Ignition []byte  `json:"ignition"`
 
-	Volumes []*VolumeSpec `json:"volumes"`
+	Volumes           []*VolumeSpec           `json:"volumes"`
+	NetworkInterfaces []*NetworkInterfaceSpec `json:"networkInterfaces"`
 }
 
 type MachineStatus struct {
@@ -86,6 +87,13 @@ const (
 	VolumeStatePending  VolumeState = "Pending"
 	VolumeStateAttached VolumeState = "Attached"
 )
+
+type NetworkInterfaceSpec struct {
+	Name       string            `json:"name"`
+	NetworkId  string            `json:"networkId"`
+	Ips        []string          `json:"ips"`
+	Attributes map[string]string `json:"attributes"`
+}
 
 type NetworkInterfaceStatus struct {
 	Name   string                ` json:"name"`
