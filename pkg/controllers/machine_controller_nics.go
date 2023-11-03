@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strings"
 
@@ -33,6 +34,31 @@ import (
 var (
 	errNoNetworkInterfaceAlias = errors.New("no network interface alias")
 )
+
+func (r *MachineReconciler) deleteNetworkInterfaces(ctx context.Context, log logr.Logger, machine *api.Machine) error {
+	machineNetworkInterfaces, err := virtlethost.ReadMachineNetworkInterfaces(r.host, machine.ID)
+	if err != nil {
+		if !errors.Is(err, os.ErrNotExist) {
+			return fmt.Errorf("error listing machine network interfaces: %w", err)
+		}
+
+		log.V(1).Info("Machine network interfaces already gone")
+		return nil
+	}
+
+	for _, machineNic := range machineNetworkInterfaces {
+		if err := r.networkInterfacePlugin.Delete(ctx, machineNic.NetworkInterfaceName, machine.ID); err != nil {
+			return fmt.Errorf("[machine network interface %s] error deleting: %w", machineNic.NetworkInterfaceName, err)
+		}
+	}
+
+	log.V(1).Info("All volumes cleaned up, removing network interfaces directory")
+	if err := os.RemoveAll(r.host.MachineNetworkInterfacesDir(machine.ID)); err != nil {
+		return fmt.Errorf("error removing machine network interfaces directory: %w", err)
+	}
+
+	return nil
+}
 
 func (r *MachineReconciler) setDomainNetworkInterfaces(
 	ctx context.Context,

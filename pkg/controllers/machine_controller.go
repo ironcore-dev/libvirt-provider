@@ -286,7 +286,23 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 	}
 	log.V(1).Info("Successfully removed machine disks")
 
-	//do libvirt cleanup
+	log.V(1).Info("Removing network interfaces")
+	if err := r.deleteNetworkInterfaces(ctx, log, machine); err != nil {
+		return fmt.Errorf("error removing machine network interfaces: %w", err)
+	}
+	log.V(1).Info("Successfully removed network interfaces")
+
+	log.V(1).Info("Deleting domain")
+	if err := r.deleteDomain(log, machine); err != nil {
+		return err
+	}
+	log.V(1).Info("Successfully deleted domain")
+
+	log.V(1).Info("Removing machine directory")
+	if err := os.RemoveAll(r.host.MachineDir(machine.ID)); err != nil {
+		return fmt.Errorf("error removing machine directory: %w", err)
+	}
+	log.V(1).Info("Successfully removed machine directory")
 
 	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
@@ -294,6 +310,35 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 	}
 	log.V(2).Info("Removed Finalizers")
 
+	return nil
+}
+
+func (r *MachineReconciler) deleteDomain(log logr.Logger, machine *api.Machine) error {
+	domain := libvirt.Domain{
+		UUID: libvirtutils.UUIDStringToBytes(machine.ID),
+	}
+
+	log.V(1).Info("Destroying domain if exists")
+	if err := r.libvirt.DomainDestroy(domain); err != nil {
+		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
+			return fmt.Errorf("error destroying domain: %w", err)
+		}
+
+		log.V(1).Info("Domain is already gone")
+		return nil
+	}
+	log.V(1).Info("Successfully destroyed domain")
+
+	log.V(1).Info("Undefining domain if exists")
+	if err := r.libvirt.DomainUndefine(domain); err != nil {
+		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
+			return fmt.Errorf("error undefining domain: %w", err)
+		}
+
+		log.V(1).Info("Domain is already gone")
+		return nil
+	}
+	log.V(1).Info("Successfully undefined domain")
 	return nil
 }
 
