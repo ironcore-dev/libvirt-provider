@@ -34,7 +34,6 @@ type Server struct {
 	idGen idgen.IDGen
 
 	machineStore store.Store[*api.Machine]
-	volumeStore  store.Store[*api.Volume]
 
 	volumePlugins  *volume.PluginManager
 	machineClasses MachineClassRegistry
@@ -44,7 +43,6 @@ type Options struct {
 	IDGen idgen.IDGen
 
 	MachineStore store.Store[*api.Machine]
-	VolumeStore  store.Store[*api.Volume]
 
 	MachineClasses MachineClassRegistry
 
@@ -64,7 +62,6 @@ func New(opts Options) (*Server, error) {
 	return &Server{
 		idGen:          opts.IDGen,
 		machineStore:   opts.MachineStore,
-		volumeStore:    opts.VolumeStore,
 		volumePlugins:  opts.VolumePlugins,
 		machineClasses: opts.MachineClasses,
 	}, nil

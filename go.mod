@@ -10,6 +10,7 @@ require (
 	github.com/google/uuid v1.3.1
 	github.com/onmetal/controller-utils v0.8.2
 	github.com/onmetal/onmetal-api v0.1.2-0.20230928225058-754dd4d16010
+	github.com/onmetal/onmetal-api-net v0.1.1-0.20230928112223-6024f7354172
 	github.com/onmetal/onmetal-image v0.1.1
 	github.com/onmetal/virtlet v0.3.0
 	github.com/onsi/ginkgo/v2 v2.13.0

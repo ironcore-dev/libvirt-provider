@@ -25,11 +25,3 @@ type machineStrategy struct{}
 func (machineStrategy) PrepareForCreate(obj *api.Machine) {
 	obj.Status = api.MachineStatus{State: api.MachineStatePending}
 }
-
-var VolumeStrategy = volumeStrategy{}
-
-type volumeStrategy struct{}
-
-func (volumeStrategy) PrepareForCreate(obj *api.Volume) {
-	obj.Status = api.VolumeStatus{State: api.VolumeStatePending}
-}

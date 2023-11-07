@@ -115,18 +115,9 @@ func SetClassLabel(o api.Object, class string) {
 	metautils.SetLabel(o, machinev1alpha1.ClassLabel, class)
 }
 
-func SetMachineRefLabel(o api.Object, machineID string) {
-	metautils.SetLabel(o, machinev1alpha1.MachineRefLabel, machineID)
-}
-
 func GetClassLabel(o api.Object) (string, bool) {
 	class, found := o.GetLabels()[machinev1alpha1.ClassLabel]
 	return class, found
-}
-
-func GetMachineRefLabel(o api.Object) (string, bool) {
-	machineRef, found := o.GetLabels()[machinev1alpha1.MachineRefLabel]
-	return machineRef, found
 }
 
 func IsManagedBy(o api.Object, manager string) bool {

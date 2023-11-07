@@ -1,10 +1,10 @@
-// Copyright 2022 OnMetal authors
+// Copyright 2023 OnMetal authors
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
 // You may obtain a copy of the License at
 //
-//      http://www.apache.org/licenses/LICENSE-2.0
+//     http://www.apache.org/licenses/LICENSE-2.0
 //
 // Unless required by applicable law or agreed to in writing, software
 // distributed under the License is distributed on an "AS IS" BASIS,
@@ -22,11 +22,10 @@ import (
 
 	"github.com/onmetal/libvirt-driver/pkg/api"
 	"github.com/onmetal/libvirt-driver/pkg/plugins/volume"
-	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 )
 
 const (
-	pluginName = "libvirt-driver.api.onmetal.de/ceph"
+	pluginName = "virtlet.api.onmetal.de/ceph"
 
 	cephDriverName = "ceph"
 
@@ -35,42 +34,66 @@ const (
 
 	secretUserIDKey  = "userID"
 	secretUserKeyKey = "userKey"
+
+	//secretEncryptionKey = "encryptionKey"
 )
 
-type plugin struct{}
+type plugin struct {
+	host volume.Host
+}
 
 type volumeData struct {
-	monitors []api.CephMonitor
-	image    string
-	handle   string
-	userID   string
-	userKey  string
+	monitors      []volume.CephMonitor
+	image         string
+	handle        string
+	userID        string
+	userKey       string
+	encryptionKey string
 }
 
 func NewPlugin() volume.Plugin {
 	return &plugin{}
 }
 
+func (p *plugin) Init(host volume.Host) error {
+	p.host = host
+	return nil
+}
+
 func (p *plugin) Name() string {
 	return pluginName
 }
 
-func (p *plugin) CanSupport(spec *ori.Volume) bool {
-	connection := spec.Connection
-	if connection == nil {
+func (p *plugin) GetBackingVolumeID(spec *api.VolumeSpec) (string, error) {
+	storage := spec.Connection
+	if storage == nil {
+		return "", fmt.Errorf("volume is nil")
+	}
+
+	handle := storage.Handle
+	if handle == "" {
+		return "", fmt.Errorf("volume access does not specify handle: %s", handle)
+	}
+
+	return fmt.Sprintf("%s^%s", pluginName, handle), nil
+}
+
+func (p *plugin) CanSupport(spec *api.VolumeSpec) bool {
+	storage := spec.Connection
+	if storage == nil {
 		return false
 	}
 
-	return connection.Driver == cephDriverName
+	return storage.Driver == cephDriverName
 }
 
-func readSecret(secret map[string][]byte) (userID, userKey string, err error) {
-	userIDData, ok := secret[secretUserIDKey]
+func readSecretData(data map[string][]byte) (userID, userKey string, err error) {
+	userIDData, ok := data[secretUserIDKey]
 	if !ok || len(userIDData) == 0 {
 		return "", "", fmt.Errorf("no user id at %s", secretUserIDKey)
 	}
 
-	userKeyData, ok := secret[secretUserKeyKey]
+	userKeyData, ok := data[secretUserKeyKey]
 	if !ok || len(userKeyData) == 0 {
 		return "", "", fmt.Errorf("no user key at %s", secretUserKeyKey)
 	}
@@ -78,21 +101,21 @@ func readSecret(secret map[string][]byte) (userID, userKey string, err error) {
 	return string(userIDData), string(userKeyData), nil
 }
 
-func readVolumeAttributes(attrs map[string]string) (monitors []api.CephMonitor, image string, err error) {
+func readVolumeAttributes(attrs map[string]string) (monitors []volume.CephMonitor, image string, err error) {
 	monitorsString, ok := attrs[volumeAttributesMonitorsKey]
 	if !ok || monitorsString == "" {
 		return nil, "", fmt.Errorf("no monitors data at %s", volumeAttributesMonitorsKey)
 	}
 
 	monitorsParts := strings.Split(monitorsString, ",")
-	monitors = make([]api.CephMonitor, 0, len(monitorsParts))
+	monitors = make([]volume.CephMonitor, 0, len(monitorsParts))
 	for _, monitorsPart := range monitorsParts {
 		host, port, err := net.SplitHostPort(monitorsPart)
 		if err != nil {
 			return nil, "", fmt.Errorf("[monitor %s] error splitting host / port: %w", monitorsPart, err)
 		}
 
-		monitors = append(monitors, api.CephMonitor{Name: host, Port: port})
+		monitors = append(monitors, volume.CephMonitor{Name: host, Port: port})
 	}
 
 	image, ok = attrs[volumeAttributeImageKey]
@@ -103,60 +126,77 @@ func readVolumeAttributes(attrs map[string]string) (monitors []api.CephMonitor, 
 	return monitors, image, nil
 }
 
-func (p *plugin) Prepare(spec *ori.Volume) (*api.VolumeSpec, error) {
-	if spec.Connection == nil {
-		return nil, fmt.Errorf("no connection spec")
-	}
-
-	volumeData, err := p.getVolumeData(spec.Connection)
+func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (*volume.Volume, error) {
+	volumeData, err := p.getVolumeData(ctx, spec, machine)
 	if err != nil {
 		return nil, err
 	}
 
-	return &api.VolumeSpec{
-		Provider: api.VolumeProviderCeph,
-		CephDisk: &api.CephDisk{
-			Image:    spec.Connection.Handle,
+	return &volume.Volume{
+		QCow2File: "",
+		RawFile:   "",
+		CephDisk: &volume.CephDisk{
+			Name:     volumeData.image,
 			Monitors: volumeData.monitors,
-			Auth: api.CephAuthentication{
+			Auth: &volume.CephAuthentication{
 				UserName: volumeData.userID,
 				UserKey:  volumeData.userKey,
 			},
+			Encryption: &volume.CephEncryption{
+				EncryptionKey: volumeData.encryptionKey,
+			},
 		},
+		Handle: volumeData.handle,
 	}, nil
 }
 
-func (p *plugin) Apply(ctx context.Context, spec *api.Volume) (*api.VolumeStatus, error) {
-	return nil, nil
-}
-
-func (p *plugin) getVolumeData(spec *ori.VolumeConnection) (vData *volumeData, err error) {
+func (p *plugin) getVolumeData(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (vData *volumeData, err error) {
 	vData = new(volumeData)
+	connection := spec.Connection
+	if connection == nil {
+		return nil, fmt.Errorf("volume does not specify connection")
+	}
+	if connection.Driver != cephDriverName {
+		return nil, fmt.Errorf("volume connection specifies invalid driver %q", connection.Driver)
+	}
+	if connection.Attributes == nil {
+		return nil, fmt.Errorf("volume connection does not specify attributes")
+	}
+	if connection.SecretData == nil {
+		return nil, fmt.Errorf("volume connection does not specify secret data")
+	}
+	if connection.Handle == "" {
+		return nil, fmt.Errorf("volume connection does not specify handle")
+	}
+	vData.handle = connection.Handle
 
-	if spec.Driver != cephDriverName {
-		return nil, fmt.Errorf("volume access specifies invalid driver %q", spec.Driver)
-	}
-	if spec.SecretData == nil {
-		return nil, fmt.Errorf("volume access does not specify secret ref")
-	}
-	if spec.Handle == "" {
-		return nil, fmt.Errorf("volume access does not specify handle")
-	}
-	vData.handle = spec.Handle
-
-	vData.monitors, vData.image, err = readVolumeAttributes(spec.Attributes)
+	vData.monitors, vData.image, err = readVolumeAttributes(connection.Attributes)
 	if err != nil {
 		return nil, fmt.Errorf("error reading volume attributes: %w", err)
 	}
 
-	vData.userID, vData.userKey, err = readSecret(spec.SecretData)
+	vData.userID, vData.userKey, err = readSecretData(connection.SecretData)
 	if err != nil {
 		return nil, fmt.Errorf("error reading secret: %w", err)
 	}
 
+	//TODO currently not supported in ORI
+	//storageSpec := spec.Storage.Spec
+	//if storageSpec.Encryption != nil {
+	//	encryptionSecret := &corev1.Secret{}
+	//	encryptionSecretKey := client.ObjectKey{Namespace: machine.Namespace, Name: storageSpec.Encryption.SecretRef.Name}
+	//	if err := p.host.Client().Get(ctx, encryptionSecretKey, encryptionSecret); err != nil {
+	//		return nil, fmt.Errorf("error getting encryption secret: %w", err)
+	//	}
+	//	vData.encryptionKey, err = readEncryptionSecret(encryptionSecret)
+	//	if err != nil {
+	//		return nil, fmt.Errorf("error reading secret: %w", err)
+	//	}
+	//}
+
 	return vData, nil
 }
 
-func (p *plugin) Delete(ctx context.Context, volumeID string) error {
+func (p *plugin) Delete(ctx context.Context, computeVolumeName string, machineID string) error {
 	return nil
 }

@@ -21,7 +21,6 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	ocistore "github.com/onmetal/onmetal-image/oci/store"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -30,6 +29,8 @@ const (
 	DefaultPluginsDir = "plugins"
 
 	DefaultMachinesDir                 = "machines"
+	DefaultStoreDir                    = "store"
+	DefaultMachineStoreDir             = "machines"
 	DefaultMachineVolumesDir           = "volumes"
 	DefaultMachineIgnitionsDir         = "ignitions"
 	DefaultMachineIgnitionFile         = "data.ign"
@@ -41,27 +42,30 @@ const (
 
 type Paths interface {
 	RootDir() string
+	StoreDir() string
+
 	MachinesDir() string
+	MachineStoreDir() string
 	ImagesDir() string
 	PluginsDir() string
 
 	PluginDir(pluginName string) string
-	MachinePluginsDir(machineUID types.UID) string
-	MachinePluginDir(machineUID types.UID, pluginName string) string
+	MachinePluginsDir(machineUID string) string
+	MachinePluginDir(machineUID string, pluginName string) string
 
-	MachineDir(machineUID types.UID) string
-	MachineRootFSDir(machineUID types.UID) string
-	MachineRootFSFile(machineUID types.UID) string
-	MachineVolumesDir(machineUID types.UID) string
+	MachineDir(machineUID string) string
+	MachineRootFSDir(machineUID string) string
+	MachineRootFSFile(machineUID string) string
+	MachineVolumesDir(machineUID string) string
 
-	MachineVolumesPluginDir(machineUID types.UID, pluginName string) string
-	MachineVolumeDir(machineUID types.UID, pluginName, volumeName string) string
+	MachineVolumesPluginDir(machineUID string, pluginName string) string
+	MachineVolumeDir(machineUID string, pluginName, volumeName string) string
 
-	MachineNetworkInterfacesDir(machineUID types.UID) string
-	MachineNetworkInterfaceDir(machineUID types.UID, networkInterfaceName string) string
+	MachineNetworkInterfacesDir(machineUID string) string
+	MachineNetworkInterfaceDir(machineUID string, networkInterfaceName string) string
 
-	MachineIgnitionsDir(machineUID types.UID) string
-	MachineIgnitionFile(machineUID types.UID) string
+	MachineIgnitionsDir(machineUID string) string
+	MachineIgnitionFile(machineUID string) string
 }
 
 type paths struct {
@@ -72,8 +76,16 @@ func (p *paths) RootDir() string {
 	return p.rootDir
 }
 
+func (p *paths) StoreDir() string {
+	return filepath.Join(p.rootDir, DefaultStoreDir)
+}
+
 func (p *paths) MachinesDir() string {
 	return filepath.Join(p.rootDir, DefaultMachinesDir)
+}
+
+func (p *paths) MachineStoreDir() string {
+	return filepath.Join(p.StoreDir(), DefaultMachineStoreDir)
 }
 
 func (p *paths) ImagesDir() string {
@@ -88,57 +100,56 @@ func (p *paths) PluginDir(pluginName string) string {
 	return filepath.Join(p.PluginsDir(), pluginName)
 }
 
-func (p *paths) MachineDir(machineUID types.UID) string {
+func (p *paths) MachineDir(machineUID string) string {
 	return filepath.Join(p.MachinesDir(), string(machineUID))
 }
 
-func (p *paths) MachineRootFSDir(machineUID types.UID) string {
+func (p *paths) MachineRootFSDir(machineUID string) string {
 	return filepath.Join(p.MachineDir(machineUID), DefaultMachineRootFSDir)
 }
 
-func (p *paths) MachineRootFSFile(machineUID types.UID) string {
+func (p *paths) MachineRootFSFile(machineUID string) string {
 	return filepath.Join(p.MachineRootFSDir(machineUID), DefaultMachineRootFSFile)
 }
 
-func (p *paths) MachineVolumesDir(machineUID types.UID) string {
+func (p *paths) MachineVolumesDir(machineUID string) string {
 	return filepath.Join(p.MachineDir(machineUID), DefaultMachineVolumesDir)
 }
 
-func (p *paths) MachineVolumesPluginDir(machineUID types.UID, pluginName string) string {
+func (p *paths) MachineVolumesPluginDir(machineUID string, pluginName string) string {
 	return filepath.Join(p.MachineVolumesDir(machineUID), pluginName)
 }
 
-func (p *paths) MachineVolumeDir(machineUID types.UID, pluginName, volumeName string) string {
+func (p *paths) MachineVolumeDir(machineUID string, pluginName, volumeName string) string {
 	return filepath.Join(p.MachineVolumesPluginDir(machineUID, pluginName), volumeName)
 }
 
-func (p *paths) MachinePluginsDir(machineUID types.UID) string {
+func (p *paths) MachinePluginsDir(machineUID string) string {
 	return filepath.Join(p.MachineDir(machineUID), DefaultMachinePluginsDir)
 }
 
-func (p *paths) MachinePluginDir(machineUID types.UID, pluginName string) string {
+func (p *paths) MachinePluginDir(machineUID string, pluginName string) string {
 	return filepath.Join(p.MachinePluginsDir(machineUID), pluginName)
 }
 
-func (p *paths) MachineNetworkInterfacesDir(machineUID types.UID) string {
+func (p *paths) MachineNetworkInterfacesDir(machineUID string) string {
 	return filepath.Join(p.MachineDir(machineUID), DefaultMachineNetworkInterfacesDir)
 }
 
-func (p *paths) MachineNetworkInterfaceDir(machineUID types.UID, networkInterfaceName string) string {
+func (p *paths) MachineNetworkInterfaceDir(machineUID string, networkInterfaceName string) string {
 	return filepath.Join(p.MachineNetworkInterfacesDir(machineUID), networkInterfaceName)
 }
 
-func (p *paths) MachineIgnitionsDir(machineUID types.UID) string {
+func (p *paths) MachineIgnitionsDir(machineUID string) string {
 	return filepath.Join(p.MachineDir(machineUID), DefaultMachineIgnitionsDir)
 }
 
-func (p *paths) MachineIgnitionFile(machineUID types.UID) string {
+func (p *paths) MachineIgnitionFile(machineUID string) string {
 	return filepath.Join(p.MachineIgnitionsDir(machineUID), DefaultMachineIgnitionFile)
 }
 
 type Host interface {
 	Paths
-	Client() client.Client
 	APINetClient() client.Client
 	OCIStore() *ocistore.Store
 }
@@ -150,13 +161,8 @@ type LibvirtHost interface {
 
 type host struct {
 	Paths
-	client       client.Client
 	apinetClient client.Client
 	ociStore     *ocistore.Store
-}
-
-func (h *host) Client() client.Client {
-	return h.client
 }
 
 func (h *host) APINetClient() client.Client {
@@ -183,7 +189,7 @@ func PathsAt(rootDir string) (Paths, error) {
 	return p, nil
 }
 
-func NewAt(client client.Client, apinetClient client.Client, rootDir string) (Host, error) {
+func NewAt(apinetClient client.Client, rootDir string) (Host, error) {
 	p, err := PathsAt(rootDir)
 	if err != nil {
 		return nil, err
@@ -196,7 +202,6 @@ func NewAt(client client.Client, apinetClient client.Client, rootDir string) (Ho
 
 	return &host{
 		Paths:        p,
-		client:       client,
 		apinetClient: apinetClient,
 		ociStore:     ociStore,
 	}, nil
@@ -211,8 +216,8 @@ func (h *libvirtHost) Libvirt() *libvirt.Libvirt {
 	return h.libvirt
 }
 
-func NewLibvirtAt(client client.Client, apinetClient client.Client, rootDir string, libvirt *libvirt.Libvirt) (LibvirtHost, error) {
-	host, err := NewAt(client, apinetClient, rootDir)
+func NewLibvirtAt(apinetClient client.Client, rootDir string, libvirt *libvirt.Libvirt) (LibvirtHost, error) {
+	host, err := NewAt(apinetClient, rootDir)
 	if err != nil {
 		return nil, err
 	}
@@ -229,9 +234,9 @@ type MachineNetworkInterface struct {
 	NetworkInterfaceName string
 }
 
-func ReadMachineUIDs(paths Paths) ([]types.UID, error) {
-	var res []types.UID
-	if err := IterateMachines(paths, func(machineUID types.UID) error {
+func ReadMachineUIDs(paths Paths) ([]string, error) {
+	var res []string
+	if err := IterateMachines(paths, func(machineUID string) error {
 		res = append(res, machineUID)
 		return nil
 	}); err != nil {
@@ -240,7 +245,7 @@ func ReadMachineUIDs(paths Paths) ([]types.UID, error) {
 	return res, nil
 }
 
-func IterateMachines(paths Paths, f func(machineUID types.UID) error) error {
+func IterateMachines(paths Paths, f func(machineUID string) error) error {
 	entries, err := os.ReadDir(paths.MachinesDir())
 	if err != nil {
 		return err
@@ -251,7 +256,7 @@ func IterateMachines(paths Paths, f func(machineUID types.UID) error) error {
 			continue
 		}
 
-		machineUID := types.UID(entry.Name())
+		machineUID := string(entry.Name())
 		if err := f(machineUID); err != nil {
 			return fmt.Errorf("[machine uid %s] %w", machineUID, err)
 		}
@@ -259,7 +264,7 @@ func IterateMachines(paths Paths, f func(machineUID types.UID) error) error {
 	return nil
 }
 
-func IterateMachineNetworkInterfaces(paths Paths, machineUID types.UID, f func(networkInterfaceName string) error) error {
+func IterateMachineNetworkInterfaces(paths Paths, machineUID string, f func(networkInterfaceName string) error) error {
 	entries, err := os.ReadDir(paths.MachineNetworkInterfacesDir(machineUID))
 	if err != nil {
 		return err
@@ -278,7 +283,7 @@ func IterateMachineNetworkInterfaces(paths Paths, machineUID types.UID, f func(n
 	return nil
 }
 
-func ReadMachineNetworkInterfaces(paths Paths, machineUID types.UID) ([]MachineNetworkInterface, error) {
+func ReadMachineNetworkInterfaces(paths Paths, machineUID string) ([]MachineNetworkInterface, error) {
 	entries, err := os.ReadDir(paths.MachineNetworkInterfacesDir(machineUID))
 	if err != nil {
 		return nil, err
@@ -297,7 +302,7 @@ func ReadMachineNetworkInterfaces(paths Paths, machineUID types.UID) ([]MachineN
 	return machineNics, nil
 }
 
-func MakeMachineDirs(paths Paths, machineUID types.UID) error {
+func MakeMachineDirs(paths Paths, machineUID string) error {
 	if err := os.MkdirAll(paths.MachineDir(machineUID), perm); err != nil {
 		return fmt.Errorf("error creating machine directory: %w", err)
 	}
