@@ -15,9 +15,15 @@
 package mcr
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"math"
 	"os"
+
+	"github.com/shirou/gopsutil/v3/cpu"
+	"github.com/shirou/gopsutil/v3/mem"
+	"k8s.io/apimachinery/pkg/api/resource"
 
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/yaml"
@@ -72,4 +78,38 @@ func (m *Mcr) List() []*ori.MachineClass {
 		classes = append(classes, &class)
 	}
 	return classes
+}
+
+func GetQuantity(class *ori.MachineClass, host *Host) int64 {
+	cpuRatio := host.Cpu.Value() / class.Capabilities.CpuMillis
+	memoryRatio := host.Mem.Value() / class.Capabilities.MemoryBytes
+
+	return int64(math.Min(float64(cpuRatio), float64(memoryRatio)))
+}
+
+func GetResources(ctx context.Context) (*Host, error) {
+	hostMem, err := mem.VirtualMemoryWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get host memory: %w", err)
+	}
+
+	hostCPU, err := cpu.InfoWithContext(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get host memory: %w", err)
+	}
+
+	var hostCPUSum int64
+	for _, v := range hostCPU {
+		hostCPUSum += int64(v.Cores)
+	}
+
+	return &Host{
+		Cpu: resource.NewScaledQuantity(hostCPUSum, resource.Kilo),
+		Mem: resource.NewQuantity(int64(hostMem.Total), resource.BinarySI),
+	}, nil
+}
+
+type Host struct {
+	Cpu *resource.Quantity
+	Mem *resource.Quantity
 }

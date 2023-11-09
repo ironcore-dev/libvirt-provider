@@ -74,6 +74,8 @@ type Options struct {
 	Address string
 	RootDir string
 
+	PathSupportedMachineClasses string
+
 	ApinetKubeconfig string
 
 	Libvirt   LibvirtOptions
@@ -95,6 +97,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Address, "address", "/var/run/ori-machinebroker.sock", "Address to listen on.")
 	fs.StringVar(&o.RootDir, "virtlet-dir", filepath.Join(homeDir, ".virtlet"), "Path to the directory virtlet manages its content at.")
 
+	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
+
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
 	// LibvirtOptions
@@ -110,6 +114,10 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
+}
+
+func (o *Options) MarkFlagsRequired(cmd *cobra.Command) {
+	_ = cmd.MarkFlagRequired("supported-machine-classes")
 }
 
 func Command() *cobra.Command {
@@ -135,6 +143,7 @@ func Command() *cobra.Command {
 	cmd.PersistentFlags().AddGoFlagSet(goFlags)
 
 	opts.AddFlags(cmd.Flags())
+	opts.MarkFlagsRequired(cmd)
 
 	return cmd
 }
@@ -272,15 +281,13 @@ func Run(ctx context.Context, opts Options) error {
 		return fmt.Errorf("failed to initialize machine controller: %w", err)
 	}
 
-	machineClasses, err := mcr.NewMachineClassRegistry([]ori.MachineClass{
-		{
-			Name: "x3-xlarge",
-			Capabilities: &ori.MachineClassCapabilities{
-				CpuMillis:   4000,
-				MemoryBytes: 8589934592,
-			},
-		},
-	})
+	setupLog.V(1).Info("Loading machine classes", "Path", opts.PathSupportedMachineClasses)
+	classes, err := mcr.LoadMachineClassesFile(opts.PathSupportedMachineClasses)
+	if err != nil {
+		return fmt.Errorf("failed to initialize machine class registry: %w", err)
+	}
+
+	machineClasses, err := mcr.NewMachineClassRegistry(classes)
 	if err != nil {
 		return fmt.Errorf("failed to initialize machine class registry: %w", err)
 	}
