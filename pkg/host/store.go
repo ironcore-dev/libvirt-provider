@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sync"
 	"time"
 
@@ -123,7 +124,7 @@ func (s *Store[E]) Update(ctx context.Context, obj E) (E, error) {
 	s.idMu.Lock(obj.GetID())
 	defer s.idMu.Unlock(obj.GetID())
 
-	_, err := s.get(obj.GetID())
+	oldObj, err := s.get(obj.GetID())
 	if err != nil {
 		return utils.Zero[E](), err
 	}
@@ -132,6 +133,10 @@ func (s *Store[E]) Update(ctx context.Context, obj E) (E, error) {
 		if err := s.delete(obj.GetID()); err != nil {
 			return utils.Zero[E](), fmt.Errorf("failed to delete object metadata: %w", err)
 		}
+		return obj, nil
+	}
+
+	if reflect.DeepEqual(oldObj, obj) {
 		return obj, nil
 	}
 
