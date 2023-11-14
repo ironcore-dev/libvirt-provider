@@ -92,6 +92,7 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 			CpuMillis:   cpu,
 			MemoryBytes: memory,
 			Volumes:     volumes,
+			Ignition:    oriMachine.Spec.IgnitionData,
 		},
 	}
 
@@ -100,6 +101,10 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 	}
 	apiutils.SetClassLabel(machine, oriMachine.Spec.Class)
 	apiutils.SetManagerLabel(machine, machinev1alpha1.MachineManager)
+
+	if oriMachine.Spec.Image != nil {
+		machine.Spec.Image = &oriMachine.Spec.Image.Image
+	}
 
 	apiMachine, err := s.machineStore.Create(ctx, machine)
 	if err != nil {
