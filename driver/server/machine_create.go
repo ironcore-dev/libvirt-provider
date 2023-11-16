@@ -83,16 +83,28 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 		volumes = append(volumes, volumeSpec)
 	}
 
+	var networkInterfaces []*api.NetworkInterfaceSpec
+	for _, oriNetworkInterface := range oriMachine.Spec.NetworkInterfaces {
+		networkInterfaceSpec := &api.NetworkInterfaceSpec{
+			Name:       oriNetworkInterface.Name,
+			NetworkId:  oriNetworkInterface.NetworkId,
+			Ips:        oriNetworkInterface.Ips,
+			Attributes: oriNetworkInterface.Attributes,
+		}
+		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
+	}
+
 	machine := &api.Machine{
 		Metadata: api.Metadata{
 			ID: s.idGen.Generate(),
 		},
 		Spec: api.MachineSpec{
-			Power:       power,
-			CpuMillis:   cpu,
-			MemoryBytes: memory,
-			Volumes:     volumes,
-			Ignition:    oriMachine.Spec.IgnitionData,
+			Power:             power,
+			CpuMillis:         cpu,
+			MemoryBytes:       memory,
+			Volumes:           volumes,
+			Ignition:          oriMachine.Spec.IgnitionData,
+			NetworkInterfaces: networkInterfaces,
 		},
 	}
 
