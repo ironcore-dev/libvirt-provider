@@ -22,7 +22,7 @@ import (
 	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
 )
 
-func (s *Server) AttachVolume(ctx context.Context, req *ori.AttachVolumeRequest) (res *ori.AttachVolumeResponse, retErr error) {
+func (s *Server) AttachVolume(ctx context.Context, req *ori.AttachVolumeRequest) (*ori.AttachVolumeResponse, error) {
 	log := s.loggerFrom(ctx)
 	log.V(1).Info("Attaching volume to machine")
 
