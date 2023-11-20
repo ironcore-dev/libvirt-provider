@@ -52,13 +52,9 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 
 	var volumes []*api.VolumeSpec
 	for _, oriVolume := range oriMachine.Spec.Volumes {
-		volumeSpec, err := convertToApiVolumeSpec(oriVolume)
+		volumeSpec, err := s.getVolumeFromORIVolume(oriVolume)
 		if err != nil {
 			return nil, fmt.Errorf("error converting volume: %w", err)
-		}
-
-		if err := s.checkVolumePluginCompatibility(volumeSpec); err != nil {
-			return nil, fmt.Errorf("failed to ensure volume plugin compatibility: %w", err)
 		}
 
 		volumes = append(volumes, volumeSpec)

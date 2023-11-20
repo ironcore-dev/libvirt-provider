@@ -132,7 +132,7 @@ func (s *Server) getPowerStateFromOri(power ori.Power) (api.PowerState, error) {
 	}
 }
 
-func convertToApiVolumeSpec(oriVolume *ori.Volume) (*api.VolumeSpec, error) {
+func (s *Server) getVolumeFromORIVolume(oriVolume *ori.Volume) (*api.VolumeSpec, error) {
 	if oriVolume == nil {
 		return nil, fmt.Errorf("original volume is nil")
 	}
@@ -154,17 +154,16 @@ func convertToApiVolumeSpec(oriVolume *ori.Volume) (*api.VolumeSpec, error) {
 		}
 	}
 
-	return &api.VolumeSpec{
+	volumeSpec := &api.VolumeSpec{
 		Name:       oriVolume.Name,
 		Device:     oriVolume.Device,
 		EmptyDisk:  emptyDiskSpec,
 		Connection: connectionSpec,
-	}, nil
-}
-
-func (s *Server) checkVolumePluginCompatibility(volumeSpec *api.VolumeSpec) error {
-	if _, err := s.volumePlugins.FindPluginBySpec(volumeSpec); err != nil {
-		return fmt.Errorf("failed to find volume plugin: %w", err)
 	}
-	return nil
+
+	if _, err := s.volumePlugins.FindPluginBySpec(volumeSpec); err != nil {
+		return nil, fmt.Errorf("failed to find volume plugin: %w", err)
+	}
+
+	return volumeSpec, nil
 }
