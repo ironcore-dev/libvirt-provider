@@ -52,29 +52,9 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 
 	var volumes []*api.VolumeSpec
 	for _, oriVolume := range oriMachine.Spec.Volumes {
-		var emptyDiskSpec *api.EmptyDiskSpec
-		var connectionSpec *api.VolumeConnection
-
-		if connection := oriVolume.Connection; connection != nil {
-			connectionSpec = &api.VolumeConnection{
-				Driver:     connection.Driver,
-				Handle:     connection.Handle,
-				Attributes: connection.Attributes,
-				SecretData: connection.SecretData,
-			}
-		}
-
-		if emptyDisk := oriVolume.EmptyDisk; emptyDisk != nil {
-			emptyDiskSpec = &api.EmptyDiskSpec{
-				Size: emptyDisk.SizeBytes,
-			}
-		}
-
-		volumeSpec := &api.VolumeSpec{
-			Name:       oriVolume.Name,
-			Device:     oriVolume.Device,
-			EmptyDisk:  emptyDiskSpec,
-			Connection: connectionSpec,
+		volumeSpec, err := convertToApiVolumeSpec(oriVolume)
+		if err != nil {
+			return nil, fmt.Errorf("error converting volume: %w", err)
 		}
 
 		if _, err := s.volumePlugins.FindPluginBySpec(volumeSpec); err != nil {

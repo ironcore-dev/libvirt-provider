@@ -131,3 +131,33 @@ func (s *Server) getPowerStateFromOri(power ori.Power) (api.PowerState, error) {
 		return 0, fmt.Errorf("unknown ori power state '%q'", power)
 	}
 }
+
+func convertToApiVolumeSpec(oriVolume *ori.Volume) (*api.VolumeSpec, error) {
+	if oriVolume == nil {
+		return nil, fmt.Errorf("original volume is nil")
+	}
+
+	var emptyDiskSpec *api.EmptyDiskSpec
+	if emptyDisk := oriVolume.EmptyDisk; emptyDisk != nil {
+		emptyDiskSpec = &api.EmptyDiskSpec{
+			Size: emptyDisk.SizeBytes,
+		}
+	}
+
+	var connectionSpec *api.VolumeConnection
+	if connection := oriVolume.Connection; connection != nil {
+		connectionSpec = &api.VolumeConnection{
+			Driver:     connection.Driver,
+			Handle:     connection.Handle,
+			Attributes: connection.Attributes,
+			SecretData: connection.SecretData,
+		}
+	}
+
+	return &api.VolumeSpec{
+		Name:       oriVolume.Name,
+		Device:     oriVolume.Device,
+		EmptyDisk:  emptyDiskSpec,
+		Connection: connectionSpec,
+	}, nil
+}
