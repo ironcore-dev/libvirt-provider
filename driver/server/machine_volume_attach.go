@@ -40,6 +40,10 @@ func (s *Server) AttachVolume(ctx context.Context, req *ori.AttachVolumeRequest)
 		return nil, fmt.Errorf("error converting volume: %w", err)
 	}
 
+	if err := s.checkVolumePluginCompatibility(volumeSpec); err != nil {
+		return nil, fmt.Errorf("failed to ensure volume plugin compatibility: %w", err)
+	}
+
 	apiMachine.Spec.Volumes = append(apiMachine.Spec.Volumes, volumeSpec)
 
 	if _, err := s.machineStore.Update(ctx, apiMachine); err != nil {

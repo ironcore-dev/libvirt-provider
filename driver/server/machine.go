@@ -161,3 +161,10 @@ func convertToApiVolumeSpec(oriVolume *ori.Volume) (*api.VolumeSpec, error) {
 		Connection: connectionSpec,
 	}, nil
 }
+
+func (s *Server) checkVolumePluginCompatibility(volumeSpec *api.VolumeSpec) error {
+	if _, err := s.volumePlugins.FindPluginBySpec(volumeSpec); err != nil {
+		return fmt.Errorf("failed to find volume plugin: %w", err)
+	}
+	return nil
+}

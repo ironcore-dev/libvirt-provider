@@ -57,9 +57,10 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 			return nil, fmt.Errorf("error converting volume: %w", err)
 		}
 
-		if _, err := s.volumePlugins.FindPluginBySpec(volumeSpec); err != nil {
-			return nil, fmt.Errorf("failed to find volume plugin: %w", err)
+		if err := s.checkVolumePluginCompatibility(volumeSpec); err != nil {
+			return nil, fmt.Errorf("failed to ensure volume plugin compatibility: %w", err)
 		}
+
 		volumes = append(volumes, volumeSpec)
 	}
 
