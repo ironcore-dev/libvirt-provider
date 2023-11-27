@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 
 # Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
-FROM gcr.io/distroless/base-debian11 as distroless-base
+FROM gcr.io/distroless/static:nonroot as distroless-base
 
 # The distroless amd64 image has a target triplet of x86_64
 FROM distroless-base AS distroless-amd64
