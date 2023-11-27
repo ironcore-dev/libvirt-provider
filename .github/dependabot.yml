@@ -5,14 +5,20 @@ updates:
     directory: "/"
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 20
+    open-pull-requests-limit: 10
+    reviewers:
+      - "ironcore-dev/compute"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 20
+    open-pull-requests-limit: 10
+    reviewers:
+      - "ironcore-dev/compute"
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
       interval: "daily"
-    open-pull-requests-limit: 20
+    open-pull-requests-limit: 10
+    reviewers:
+      - "ironcore-dev/compute"

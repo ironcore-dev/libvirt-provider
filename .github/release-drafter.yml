@@ -8,10 +8,8 @@ categories:
     labels:
       - 'feature'
       - 'enhancement'
-      - 'compute'
-      - 'networking'
-      - 'storage'
-      - 'api-change'
+      - 'server'
+      - 'controllers'
   - title: '🐛 Bug Fixes'
     labels:
       - 'fix'
@@ -38,18 +36,12 @@ version-resolver:
 exclude-labels:
   - 'skip-changelog'
 autolabeler:
-  - label: 'api-change'
+  - label: 'controllers'
     files:
-      - '/apis/*'
-  - label: 'compute'
+      - '/pkg/controllers/*'
+  - label: 'server'
     files:
-      - '/controllers/compute/*'
-  - label: 'storage'
-    files:
-      - '/controllers/storage/*'
-  - label: 'networking'
-    files:
-      - '/controllers/networking/*'
+      - '/provider/server/*'
   - label: 'documentation'
     files:
       - '*.md'

@@ -21,8 +21,8 @@ import (
 	"sync"
 
 	"github.com/digitalocean/go-libvirt"
-	"github.com/onmetal/onmetal-api/api/compute/v1alpha1"
-	"github.com/onmetal/virtlet/meta"
+	"github.com/ironcore-dev/ironcore/api/compute/v1alpha1"
+	"github.com/ironcore-dev/libvirt-provider/pkg/meta"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/client-go/util/workqueue"
 	"libvirt.org/go/libvirtxml"

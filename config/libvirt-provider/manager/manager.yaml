@@ -1,0 +1,121 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  labels:
+    control-plane: controller-manager
+  name: system
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: controller-manager
+  namespace: system
+  labels:
+    control-plane: controller-manager
+spec:
+  selector:
+    matchLabels:
+      control-plane: controller-manager
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: libvirt-provider
+      labels:
+        control-plane: controller-manager
+    spec:
+      containers:
+        - command:
+            - /machinepoollet
+          args:
+            - --leader-elect
+          image: machinepoollet:latest
+          name: manager
+          securityContext:
+            allowPrivilegeEscalation: false
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 100m
+              memory: 30Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
+          volumeMounts:
+            - mountPath: /var/run
+              name: var-run
+        - command:
+            - /libvirt-provider
+          image: libvirt-provider:latest
+          name: libvirt-provider
+          securityContext:
+            privileged: true
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            limits:
+              cpu: 100m
+              memory: 30Mi
+            requests:
+              cpu: 100m
+              memory: 20Mi
+          volumeMounts:
+            - name: var-run
+              mountPath: /var/run
+            - mountPath: /var/lib/libvirt-provider
+              name: libvirt-provider
+            - mountPath: /var/run/libvirt
+              name: libvirt
+            - mountPath: /var/lib/libvirt
+              name: libvirt-images
+            - mountPath: /lib/modules
+              name: lib-modules
+            - mountPath: /var/run/dbus/system_bus_socket
+              name: dbus
+            - mountPath: /usr/share/misc/pci.ids
+              name: pci-ids
+      serviceAccountName: controller-manager
+      terminationGracePeriodSeconds: 10
+      volumes:
+        - name: var-run
+          emptyDir: { }
+        - name: libvirt
+          hostPath:
+            path: /var/run/libvirt
+        - name: libvirt-provider
+          hostPath:
+            path: /var/lib/libvirt-provider
+            type: DirectoryOrCreate
+        - name: libvirt-images
+          hostPath:
+            path: /var/lib/libvirt
+        - name: lib-modules
+          hostPath:
+            path: /lib/modules
+        - name: dbus
+          hostPath:
+            path: /var/run/dbus/system_bus_socket
+        - name: pci-ids
+          hostPath:
+            path: /usr/share/misc/pci.ids
+            type: File

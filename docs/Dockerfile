@@ -1,6 +1,6 @@
 FROM ghcr.io/afritzler/mkdocs-material:latest
 
-LABEL project=libvirt-driver_documentation
+LABEL project=libvirt-provider_documentation
 
 WORKDIR /docs
 

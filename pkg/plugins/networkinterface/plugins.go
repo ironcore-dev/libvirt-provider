@@ -18,10 +18,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
-	computev1alpha1 "github.com/onmetal/onmetal-api/api/compute/v1alpha1"
-	networkingv1alpha1 "github.com/onmetal/onmetal-api/api/networking/v1alpha1"
+	computev1alpha1 "github.com/ironcore-dev/ironcore/api/compute/v1alpha1"
+	networkingv1alpha1 "github.com/ironcore-dev/ironcore/api/networking/v1alpha1"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

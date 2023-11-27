@@ -1,7 +1,7 @@
 name: Pull Request Code test
 
 on:
-  pull_request_target:
+  pull_request:
     types: [ assigned, opened, synchronize, reopened ]
     paths-ignore:
       - 'docs/**'
@@ -13,22 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.sha }}
       - uses: actions/setup-go@v4
         with:
-          go-version-file: go.mod
-      - name: Update github keys
-        run: |
-          mkdir -p ~/.ssh
-          for key in rsa ecdsa ed25519; do
-            ssh-keyscan -t $key github.com 2>/dev/null >> ~/.ssh/known_hosts
-          done
-      - uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.BOT_PRIVATE_KEY }}
-      - run: ./hack/setup-git-redirect.sh
-      - run: sudo apt update  && sudo apt install -y libcephfs-dev librbd-dev librados-dev libc-bin gcc  
+          go-version-file: 'go.mod'
+      - run: sudo apt update  && sudo apt install -y libcephfs-dev librbd-dev librados-dev
       - run: make test
-        env:
-          CGO_ENABLED: 1

@@ -24,10 +24,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	"github.com/onmetal/libvirt-driver/pkg/store"
-	utilssync "github.com/onmetal/libvirt-driver/pkg/sync"
-	"github.com/onmetal/libvirt-driver/pkg/utils"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/store"
+	utilssync "github.com/ironcore-dev/libvirt-provider/pkg/sync"
+	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
 	"k8s.io/apimachinery/pkg/util/json"
 	"k8s.io/apimachinery/pkg/util/sets"
 )

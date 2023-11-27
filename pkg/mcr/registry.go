@@ -25,7 +25,7 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	ori "github.com/onmetal/onmetal-api/ori/apis/machine/v1alpha1"
+	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 

@@ -24,9 +24,9 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	virtletnetworkinterface "github.com/onmetal/libvirt-driver/pkg/plugins/networkinterface"
-	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirtxml"
 )

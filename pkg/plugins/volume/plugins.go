@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/onmetal/libvirt-driver/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 

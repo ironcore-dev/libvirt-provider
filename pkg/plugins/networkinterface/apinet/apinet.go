@@ -26,12 +26,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	virtletnetworkinterface "github.com/onmetal/libvirt-driver/pkg/plugins/networkinterface"
-	virtlethost "github.com/onmetal/libvirt-driver/pkg/virtlethost"
-	apinetv1alpha1 "github.com/onmetal/onmetal-api-net/api/core/v1alpha1"
-	"github.com/onmetal/onmetal-api-net/apimachinery/api/net"
-	"github.com/onmetal/onmetal-api-net/apinetlet/provider"
+	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
+	"github.com/ironcore-dev/ironcore-net/apimachinery/api/net"
+	"github.com/ironcore-dev/ironcore-net/apinetlet/provider"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,7 +41,7 @@ import (
 )
 
 const (
-	fieldOwner = client.FieldOwner("networking.api.onmetal.de/libvirt-driver")
+	fieldOwner = client.FieldOwner("networking.ironcore.dev/libvirt-provider")
 
 	defaultAPINetConfigFile = "api-net.json"
 

@@ -15,8 +15,8 @@
 package host
 
 import (
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	"github.com/onmetal/libvirt-driver/pkg/store"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 )
 
 type watch[E api.Object] struct {
