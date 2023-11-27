@@ -1,5 +1,5 @@
-site_name: Gardener on Metal / Virtlet
-repo_url: https://github.com/onmetal/virtlet/
+site_name: IronCore / Libvirt Provider
+repo_url: https://github.com/ironcore-dev/libvirt-provider/
 edit_uri: edit/main/docs/
 theme:
   icon:
@@ -50,17 +50,10 @@ nav:
   - Home: README.md
   - Architecture:
     - architecture/README.md
-    - Concepts:
-        - architecture/concepts/numa-algorithm.md
-        - architecture/concepts/kvm.md
-  - Usage:
-    - Guides: usage/README.md
-  - Developer Guide:
-    - Local Setup: development/setup.md
-  - Main Documentation ⧉: https://onmetal.github.io/documentation/
-  - Landing Page ⧉: https://onmetal.github.io/
+  - Main Documentation ⧉: https://ironcore-dev.github.io/documentation/
+  - Landing Page ⧉: https://ironcore-dev.github.io/
 
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/onmetal/virtlet
+      link: https://github.com/ironcore-dev/libvirt-provider
