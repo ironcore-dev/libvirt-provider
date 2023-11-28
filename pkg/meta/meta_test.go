@@ -17,7 +17,7 @@ package meta_test
 import (
 	"encoding/xml"
 
-	. "github.com/onmetal/virtlet/meta"
+	. "github.com/ironcore-dev/libvirt-provider/pkg/meta"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"k8s.io/utils/ptr"

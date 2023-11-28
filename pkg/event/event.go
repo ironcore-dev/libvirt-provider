@@ -21,8 +21,8 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	"github.com/onmetal/libvirt-driver/pkg/store"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/wait"
 )

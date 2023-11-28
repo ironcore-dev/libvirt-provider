@@ -3,10 +3,10 @@
 IMG ?= controller:latest
 
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.26.1
+ENVTEST_K8S_VERSION = 1.28
 
 # Docker image name for the mkdocs based local development setup
-MKDOCS_IMG=onmetal/libvirt-driver-docs
+MKDOCS_IMG=onmetal/libvirt-provider-docs
 
 # Code depend on OS
 TARGET_OS ?= linux
@@ -65,11 +65,11 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 
 .PHONY: add-license
 add-license: addlicense ## Add license headers to all go files.
-	find . -name '*.go' -exec $(ADDLICENSE) -c 'OnMetal authors' {} +
+	find . -name '*.go' -exec $(ADDLICENSE) -f hack/license-header.txt {} +
 
 .PHONY: check-license
 check-license: addlicense ## Check that every file has a license header present.
-	find . -name '*.go' -exec $(ADDLICENSE) -check -c 'OnMetal authors' {} +
+	find . -name '*.go' -exec $(ADDLICENSE) -check -c 'IronCore authors' {} +
 
 
 .PHONY: fmt

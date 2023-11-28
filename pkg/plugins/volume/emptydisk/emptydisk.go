@@ -23,15 +23,15 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	"github.com/onmetal/libvirt-driver/pkg/plugins/volume"
-	"github.com/onmetal/libvirt-driver/pkg/qcow2"
-	"github.com/onmetal/libvirt-driver/pkg/raw"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
+	"github.com/ironcore-dev/libvirt-provider/pkg/qcow2"
+	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	utilstrings "k8s.io/utils/strings"
 )
 
 const (
-	pluginName = "libvirt-driver.api.onmetal.de/empty-disk"
+	pluginName = "libvirt-provider.ironcore.dev/empty-disk"
 
 	perm     = 0777
 	filePerm = 0666

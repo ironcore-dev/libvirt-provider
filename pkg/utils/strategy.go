@@ -15,7 +15,7 @@
 package utils
 
 import (
-	"github.com/onmetal/libvirt-driver/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 )
 
 var MachineStrategy = machineStrategy{}

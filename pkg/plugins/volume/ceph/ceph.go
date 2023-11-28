@@ -20,12 +20,12 @@ import (
 	"net"
 	"strings"
 
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	"github.com/onmetal/libvirt-driver/pkg/plugins/volume"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
 )
 
 const (
-	pluginName = "virtlet.api.onmetal.de/ceph"
+	pluginName = "libvirt-provider.ironcore.dev/ceph"
 
 	cephDriverName = "ceph"
 

@@ -1,33 +1,23 @@
-# Build the libvirt-driver binary
+# Build the libvirt-provider binary
 FROM --platform=$BUILDPLATFORM golang:1.21.4-bookworm as builder
-
-ARG GOARCH=''
-ARG GITHUB_PAT=''
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-
-COPY hack hack
-
-ENV GOPRIVATE='github.com/onmetal/*'
-
 # cache deps before building and copying source so that we don't need to re-download as much
 # and so that source changes don't invalidate our downloaded layer
-RUN --mount=type=ssh --mount=type=secret,id=github_pat \
-    --mount=type=cache,target=/root/.cache/go-build \
+RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    GITHUB_PAT_PATH=/run/secrets/github_pat ./hack/setup-git-redirect.sh \
-    && mkdir -p -m 0600 ~/.ssh \
-    && ssh-keyscan github.com >> ~/.ssh/known_hosts \
-    && go mod download
+    go mod download
 
 # Copy the go source
-COPY driver/ driver/
+COPY provider/ provider/
 COPY pkg/ pkg/
+COPY hack/ hack/
 
-ARG TARGETOS TARGETARCH
+ARG TARGETOS
+ARG TARGETARCH
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     qemu-utils ca-certificates libvirt-clients libcephfs-dev librbd-dev librados-dev libc-bin gcc \
@@ -37,7 +27,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Build
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w" -a -o libvirt-driver ./driver/cmd/main.go
+    CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w" -a -o libvirt-provider ./provider/cmd/main.go
 
 
 # Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
@@ -55,7 +45,7 @@ ENV LIB_DIR_PREFIX_MINUS aarch64
 
 
 FROM busybox:1.36.1-uclibc as busybox
-FROM distroless-$TARGETARCH  as virtlet-libc
+FROM distroless-$TARGETARCH  as libvirt-provider
 WORKDIR /
 COPY --from=busybox /bin/sh /bin/sh
 COPY --from=busybox /bin/mkdir /bin/mkdir
@@ -95,8 +85,8 @@ RUN mkdir -p /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/
 COPY --from=builder /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/libceph-common.so.2 /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
-WORKDIR /
 
-COPY --from=builder /workspace/libvirt-driver .
+FROM libvirt-provider
+USER 65532:65532
 
-ENTRYPOINT ["/libvirt-driver"]
+ENTRYPOINT ["/libvirt-provider"]

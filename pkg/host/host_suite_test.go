@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/onmetal/libvirt-driver/pkg/api"
-	"github.com/onmetal/libvirt-driver/pkg/host"
-	"github.com/onmetal/libvirt-driver/pkg/store"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/host"
+	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
