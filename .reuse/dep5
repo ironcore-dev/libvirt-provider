@@ -1,0 +1,36 @@
+Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Upstream-Name: libvirt-provider
+Upstream-Contact: IronCore authors <ospo@sap.com>
+Source: https://github.com/ironcore-dev/libvirt-provider
+
+# --------------------------------------------------
+# source code
+
+Files:
+  .github/*
+  .gitignore
+  .golangci.yaml
+  CODEOWNERS
+  CODE_OF_CONDUCT.md
+  CONTRIBUTING.md
+  Dockerfile
+  Makefile
+  config/*
+  go.mod
+  go.sum
+  hack/*
+  mkdocs.yml
+Copyright: 2023 SAP SE or an SAP affiliate company and IronCore contributors
+License: Apache-2.0
+
+# --------------------------------------------------
+# documentation
+
+Files:
+  docs/*
+  README.md
+Copyright: 2023 SAP SE or an SAP affiliate company and IronCore contributors
+License: Apache-2.0
+
+# --------------------------------------------------
+# source dependencies
