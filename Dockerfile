@@ -85,6 +85,7 @@ RUN mkdir -p /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/
 COPY --from=builder /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/libceph-common.so.2 /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
+COPY --from=builder /workspace/libvirt-provider /libvirt-provider
 
 FROM libvirt-provider
 USER 65532:65532
