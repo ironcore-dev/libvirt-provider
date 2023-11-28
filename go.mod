@@ -7,7 +7,7 @@ require (
 	github.com/containerd/containerd v1.7.7
 	github.com/digitalocean/go-libvirt v0.0.0-20221205150000-2939327a8519
 	github.com/go-logr/logr v1.3.0
-	github.com/google/uuid v1.3.1
+	github.com/google/uuid v1.4.0
 	github.com/ironcore-dev/controller-utils v0.9.0
 	github.com/ironcore-dev/ironcore v0.1.2-0.20231120151107-b5c3fa09890e
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20231127161134-cf5b10137532
