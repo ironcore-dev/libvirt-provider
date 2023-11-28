@@ -48,6 +48,7 @@ FROM busybox:1.36.1-uclibc as busybox
 FROM distroless-$TARGETARCH  as libvirt-provider
 WORKDIR /
 COPY --from=busybox /bin/sh /bin/sh
+COPY --from=busybox /bin/dd /bin/dd
 COPY --from=busybox /bin/mkdir /bin/mkdir
 COPY --from=builder /lib/${LIB_DIR_PREFIX}-linux-gnu/librados.so.2 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/librbd.so.1 \
@@ -87,7 +88,6 @@ COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 COPY --from=builder /workspace/libvirt-provider /libvirt-provider
 
-FROM libvirt-provider
 USER 65532:65532
 
 ENTRYPOINT ["/libvirt-provider"]
