@@ -30,6 +30,11 @@ spec:
             - --leader-elect
           image: machinepoollet:latest
           name: manager
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           securityContext:
             allowPrivilegeEscalation: false
           livenessProbe:
