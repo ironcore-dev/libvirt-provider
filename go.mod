@@ -12,7 +12,7 @@ require (
 	github.com/ironcore-dev/ironcore v0.1.2-0.20231120151107-b5c3fa09890e
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20231127161134-cf5b10137532
 	github.com/onmetal/onmetal-image v0.1.1
-	github.com/onsi/ginkgo/v2 v2.13.1
+	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
 	github.com/shirou/gopsutil/v3 v3.23.10
