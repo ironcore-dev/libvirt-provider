@@ -15,7 +15,7 @@ require (
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
-	github.com/shirou/gopsutil/v3 v3.23.10
+	github.com/shirou/gopsutil/v3 v3.23.11
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/sync v0.5.0
@@ -97,7 +97,7 @@ require (
 	golang.org/x/exp v0.0.0-20221212164502-fae10dda9338 // indirect
 	golang.org/x/net v0.17.0 // indirect
 	golang.org/x/oauth2 v0.11.0 // indirect
-	golang.org/x/sys v0.14.0 // indirect
+	golang.org/x/sys v0.15.0 // indirect
 	golang.org/x/term v0.13.0 // indirect
 	golang.org/x/text v0.13.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
