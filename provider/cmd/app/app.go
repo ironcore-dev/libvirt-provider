@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-logr/logr"
+	"github.com/ironcore-dev/ironcore-image/oci/remote"
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
 	"github.com/ironcore-dev/ironcore/broker/common"
 	commongrpc "github.com/ironcore-dev/ironcore/broker/common/grpc"
@@ -33,7 +34,6 @@ import (
 	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	"github.com/ironcore-dev/libvirt-provider/provider/server"
-	"github.com/onmetal/onmetal-image/oci/remote"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
