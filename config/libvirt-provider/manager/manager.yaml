@@ -23,6 +23,44 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      initContainers:
+        - name: create-libvirt-user
+          image: ubuntu
+          securityContext:
+            privileged: true
+          command: [ 'sh', '-c' ]
+          env:
+            - name: USER
+              value: "libvirt-provider"
+            - name: USER_ID
+              value: "65532"
+            - name: USER_GROUP
+              value: "libvirt-provider"
+            - name: USER_GROUP_ID
+              value: "65532"
+            - name: LIBVIRT_PROVIDER_DIR
+              value: "/var/lib/libvirt-provider"
+            - name: LIBVIR_GROUP
+              value: "libvirt"
+          args:
+            - |
+              if ! getent group $(LIBVIR_GROUP); then
+                   echo "Error: $(LIBVIR_GROUP) group does not exist."
+                   exit 1
+              fi
+              if ! getent group $(USER_GROUP); then
+                  groupadd -g $(USER_GROUP_ID) $(USER_GROUP)
+              fi
+              if ! id -u $(USER); then
+                  useradd --no-create-home -g $(USER_GROUP) --uid $(USER_ID) $(USER)
+              fi
+              usermod -a -G $(LIBVIR_GROUP) $(USER)
+              chown $(USER):$(USER_GROUP) -R $(LIBVIRT_PROVIDER_DIR)
+          volumeMounts:
+            - name: etc
+              mountPath: /etc
+            - name: libvirt-provider
+              mountPath: /var/lib/libvirt-provider
       containers:
         - command:
             - /machinepoollet
@@ -124,3 +162,7 @@ spec:
           hostPath:
             path: /usr/share/misc/pci.ids
             type: File
+        - name: etc
+          hostPath:
+            path: /etc
+            type: Directory
