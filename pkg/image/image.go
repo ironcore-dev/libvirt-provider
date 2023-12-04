@@ -13,17 +13,17 @@ import (
 
 	"github.com/containerd/containerd/remotes"
 	"github.com/go-logr/logr"
-	onmetalimage "github.com/onmetal/onmetal-image"
-	"github.com/onmetal/onmetal-image/oci/image"
-	"github.com/onmetal/onmetal-image/oci/indexer"
-	"github.com/onmetal/onmetal-image/oci/remote"
-	"github.com/onmetal/onmetal-image/oci/store"
-	"github.com/onmetal/onmetal-image/utils/sets"
+	ironcoreimage "github.com/ironcore-dev/ironcore-image"
+	"github.com/ironcore-dev/ironcore-image/oci/image"
+	"github.com/ironcore-dev/ironcore-image/oci/indexer"
+	"github.com/ironcore-dev/ironcore-image/oci/remote"
+	"github.com/ironcore-dev/ironcore-image/oci/store"
+	"github.com/ironcore-dev/ironcore-image/utils/sets"
 	ocispecv1 "github.com/opencontainers/image-spec/specs-go/v1"
 )
 
 type Image struct {
-	Config    onmetalimage.Config
+	Config    ironcoreimage.Config
 	RootFS    *FileLayer
 	InitRAMFs *FileLayer
 	Kernel    *FileLayer
@@ -58,7 +58,7 @@ type pullResult struct {
 	err   error
 }
 
-func readImageConfig(ctx context.Context, img image.Image) (*onmetalimage.Config, error) {
+func readImageConfig(ctx context.Context, img image.Image) (*ironcoreimage.Config, error) {
 	configLayer, err := img.Config(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error getting config layer: %w", err)
@@ -70,7 +70,7 @@ func readImageConfig(ctx context.Context, img image.Image) (*onmetalimage.Config
 	}
 	defer func() { _ = rc.Close() }()
 
-	config := &onmetalimage.Config{}
+	config := &ironcoreimage.Config{}
 	if err := json.NewDecoder(rc).Decode(config); err != nil {
 		return nil, fmt.Errorf("error decoding config: %w", err)
 	}
@@ -94,7 +94,7 @@ func (c *LocalCache) resolveImage(ctx context.Context, ociImg image.Image) (*Ima
 	)
 	for _, layer := range layers {
 		switch layer.Descriptor().MediaType {
-		case onmetalimage.InitRAMFSLayerMediaType:
+		case ironcoreimage.InitRAMFSLayerMediaType:
 			initRAMFSPath, err := localStore.BlobPath(layer.Descriptor().Digest)
 			if err != nil {
 				return nil, fmt.Errorf("error getting path to initramfs: %w", err)
@@ -103,7 +103,7 @@ func (c *LocalCache) resolveImage(ctx context.Context, ociImg image.Image) (*Ima
 				Descriptor: layer.Descriptor(),
 				Path:       initRAMFSPath,
 			}
-		case onmetalimage.KernelLayerMediaType:
+		case ironcoreimage.KernelLayerMediaType:
 			kernelPath, err := localStore.BlobPath(layer.Descriptor().Digest)
 			if err != nil {
 				return nil, fmt.Errorf("error getting path to kernel: %w", err)
@@ -112,7 +112,7 @@ func (c *LocalCache) resolveImage(ctx context.Context, ociImg image.Image) (*Ima
 				Descriptor: layer.Descriptor(),
 				Path:       kernelPath,
 			}
-		case onmetalimage.RootFSLayerMediaType:
+		case ironcoreimage.RootFSLayerMediaType:
 			rootFSPath, err := localStore.BlobPath(layer.Descriptor().Digest)
 			if err != nil {
 				return nil, fmt.Errorf("error getting path to rootfs: %w", err)
@@ -258,10 +258,10 @@ func IgnoreImagePulling(err error) error {
 
 func setupMediaTypeKeyPrefixes(ctx context.Context) context.Context {
 	mediaTypeToPrefix := map[string]string{
-		onmetalimage.ConfigMediaType:         "config",
-		onmetalimage.InitRAMFSLayerMediaType: "layer",
-		onmetalimage.KernelLayerMediaType:    "layer",
-		onmetalimage.RootFSLayerMediaType:    "layer",
+		ironcoreimage.ConfigMediaType:         "config",
+		ironcoreimage.InitRAMFSLayerMediaType: "layer",
+		ironcoreimage.KernelLayerMediaType:    "layer",
+		ironcoreimage.RootFSLayerMediaType:    "layer",
 	}
 	for mediaType, prefix := range mediaTypeToPrefix {
 		ctx = remotes.WithMediaTypeKeyPrefix(ctx, mediaType, prefix)

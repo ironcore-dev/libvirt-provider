@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/digitalocean/go-libvirt"
-	ocistore "github.com/onmetal/onmetal-image/oci/store"
+	ocistore "github.com/ironcore-dev/ironcore-image/oci/store"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 

@@ -654,7 +654,7 @@ func (r *MachineReconciler) setDomainIgnition(ctx context.Context, machine *api.
 		FWCfg: &libvirtxml.DomainSysInfoFWCfg{
 			Entry: []libvirtxml.DomainSysInfoEntry{
 				{
-					// TODO: Make the ignition sysinfo key configurable via onmetal-image / machine spec.
+					// TODO: Make the ignition sysinfo key configurable via ironcore-image / machine spec.
 					Name: libvirtDomainXMLIgnitionKeyName,
 					File: ignPath,
 				},
