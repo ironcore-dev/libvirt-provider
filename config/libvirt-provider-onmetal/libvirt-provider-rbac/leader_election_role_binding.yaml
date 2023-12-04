@@ -1,12 +1,12 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: provider-rolebinding
+  name: leader-election-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: provider-role
+  name: leader-election-role
 subjects:
-  - kind: ServiceAccount
-    name: controller-manager
-    namespace: system
+- kind: ServiceAccount
+  name: controller-manager
+  namespace: system
