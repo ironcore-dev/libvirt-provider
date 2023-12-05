@@ -125,13 +125,13 @@ func (c *LocalCache) resolveImage(ctx context.Context, ociImg image.Image) (*Ima
 		}
 	}
 	var missing []string
-	if img.RootFS.Path == "" {
+	if img.RootFS == nil || img.RootFS.Path == "" {
 		missing = append(missing, "rootfs")
 	}
-	if img.Kernel.Path == "" {
+	if img.Kernel == nil || img.Kernel.Path == "" {
 		missing = append(missing, "kernel")
 	}
-	if img.InitRAMFs.Path == "" {
+	if img.InitRAMFs == nil || img.InitRAMFs.Path == "" {
 		missing = append(missing, "initramfs")
 	}
 	if len(missing) > 0 {
