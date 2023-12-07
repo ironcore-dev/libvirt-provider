@@ -121,6 +121,23 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	//todo make configurable
 	workerSize := 15
 
+	r.imageCache.AddListener(virtletimage.ListenerFuncs{
+		HandlePullDoneFunc: func(evt virtletimage.PullDoneEvent) {
+			machines, err := r.machines.List(ctx)
+			if err != nil {
+				log.Error(err, "failed to list machine")
+				return
+			}
+
+			for _, machine := range machines {
+				if ptr.Deref(machine.Spec.Image, "") == evt.Ref {
+					log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
+					r.queue.Add(machine.ID)
+				}
+			}
+		},
+	})
+
 	imgEventReg, err := r.machineEvents.AddHandler(event.HandlerFunc[*api.Machine](func(evt event.Event[*api.Machine]) {
 		r.queue.Add(evt.Object.ID)
 	}))
