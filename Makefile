@@ -12,6 +12,8 @@ MKDOCS_IMG=onmetal/libvirt-provider-docs
 TARGET_OS ?= linux
 TARGET_ARCH ?= amd64
 
+VIRTLETBIN=$(LOCALBIN)/virtlet
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -80,9 +82,6 @@ fmt: ## Run go fmt against code.
 lint: golangci-lint ## Run golangci-lint against code.
 	GOOS=$(TARGET_OS) CGO=1 $(GOLANGCI_LINT) run ./...
 
-.PHONY: check
-check: manifests generate add-license lint test
-
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 .PHONY: test
 test: manifests generate fmt envtest check-license ## Run tests. Some test depend on Linux OS
@@ -106,7 +105,7 @@ clean-docs: ## Remove all local mkdocs Docker images (cleanup).
 
 .PHONY: build
 build: generate fmt add-license lint ## Build the binary
-	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o bin/virtlet ./main.go
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o $(VIRTLETBIN) ./main.go
 
 .PHONY: run
 run-base: generate fmt lint ## Run the binary
@@ -122,9 +121,18 @@ docker-push: ## Push docker image with the manager.
 
 ##@ Deployment
 
-ifndef ignore-not-found
-  ignore-not-found = false
-endif
+#ifndef ignore-not-found
+#  ignore-not-found = false
+#endif
+
+.PHONY: deploy
+deploy: kustomize ## Deploy virtlet into the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	kubectl apply -k config/default
+
+.PHONY: undeploy
+undeploy: #kustomize ## Undeploy virtlet from the K8s cluster specified in ~/.kube/config.
+	kubectl delete -k config/default
 
 ##@ Tools
 
@@ -137,49 +145,51 @@ $(LOCALBIN):
 KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_GEN_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
-GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
-ADDLICENSE ?= $(LOCALBIN)/addlicense
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+ADDLICENSE ?= $(LOCALBIN)/addlicense-$(ADDLICENSE_VERSION)
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
+KUSTOMIZE_VERSION ?= v5.2.1
 CONTROLLER_GEN_VERSION ?= v0.9.0
 ENVTEST_VERSION ?= release-0.15
 GOLANGCI_LINT_VERSION ?= v1.55.2
 ADDLICENSE_VERSION ?= v1.1.1
 
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
 kustomize: $(LOCALBIN) ## Download kustomize locally if necessary.
-	test -s $(KUSTOMIZE) || \
-	(curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN) && \
-	mv $(LOCALBIN)/kustomize $(KUSTOMIZE) )
+    $(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
-$(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(CONTROLLER_GEN) || true
+controller-gen: $(LOCALBIN)
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,${CONTROLLER_GEN_VERSION})
+
 
 .PHONY: envtest
 envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
-	test -s $(ENVTEST) || true
+#	test -s $(ENVTEST) || true
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,${ENVTEST_VERSION})
 
 .PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(LOCALBIN)
-	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+golangci-lint: $(LOCALBIN)
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: clean-tools
+clean-tools: 
+	find $(LOCALBIN) -type f \
+	-not -path "$(KUSTOMIZE)" -not -path "$(CONTROLLER_GEN)" -not -path "$(ENVTEST)" \
+	-not -path "$(GOLANGCI_LINT)" -not -path $(VIRTLETBIN) \
+	-exec rm -f {} \+
 
 .PHONY: addlicense
-addlicense: $(ADDLICENSE) ## Download addlicense locally if necessary.
-$(ADDLICENSE): $(LOCALBIN)
-	test -s $(LOCALBIN)/addlicense || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@$(ADDLICENSE_VERSION)
+addlicense: $(LOCALBIN)
+	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
 
 
 # go-install-tool will 'go install' any $1 package.
 # it will add v. prefix into url, if url isn't contain version
 define go-install-tool
 @[ -f $(1) ] || { \
+set -e; \
 version=@$(3) ;\
 url=$(2) ;\
 if echo $$version | grep 'v[2-9][0-9]*' -q; then \
