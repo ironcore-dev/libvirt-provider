@@ -11,6 +11,7 @@ import (
 
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
+	"k8s.io/utils/ptr"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 	secretUserIDKey  = "userID"
 	secretUserKeyKey = "userKey"
 
-	//secretEncryptionKey = "encryptionKey"
+	secretEncryptionKey = "encryptionKey"
 )
 
 type plugin struct {
@@ -37,7 +38,7 @@ type volumeData struct {
 	handle        string
 	userID        string
 	userKey       string
-	encryptionKey string
+	encryptionKey *string
 }
 
 func NewPlugin() volume.Plugin {
@@ -90,6 +91,15 @@ func readSecretData(data map[string][]byte) (userID, userKey string, err error) 
 	return string(userIDData), string(userKeyData), nil
 }
 
+func readEncryptionData(data map[string][]byte) (*string, error) {
+	encryptionKey, ok := data[secretEncryptionKey]
+	if !ok || len(encryptionKey) == 0 {
+		return nil, fmt.Errorf("no encryption key at %s", secretEncryptionKey)
+	}
+
+	return ptr.To(string(encryptionKey)), nil
+}
+
 func readVolumeAttributes(attrs map[string]string) (monitors []volume.CephMonitor, image string, err error) {
 	monitorsString, ok := attrs[volumeAttributesMonitorsKey]
 	if !ok || monitorsString == "" {
@@ -116,9 +126,16 @@ func readVolumeAttributes(attrs map[string]string) (monitors []volume.CephMonito
 }
 
 func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (*volume.Volume, error) {
-	volumeData, err := p.getVolumeData(ctx, spec, machine)
+	volumeData, err := p.getVolumeData(spec)
 	if err != nil {
 		return nil, err
+	}
+
+	var cephEncryption *volume.CephEncryption
+	if volumeData.encryptionKey != nil {
+		cephEncryption = &volume.CephEncryption{
+			EncryptionKey: ptr.Deref(volumeData.encryptionKey, ""),
+		}
 	}
 
 	return &volume.Volume{
@@ -131,15 +148,13 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 				UserName: volumeData.userID,
 				UserKey:  volumeData.userKey,
 			},
-			Encryption: &volume.CephEncryption{
-				EncryptionKey: volumeData.encryptionKey,
-			},
+			Encryption: cephEncryption,
 		},
 		Handle: volumeData.handle,
 	}, nil
 }
 
-func (p *plugin) getVolumeData(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (vData *volumeData, err error) {
+func (p *plugin) getVolumeData(spec *api.VolumeSpec) (vData *volumeData, err error) {
 	vData = new(volumeData)
 	connection := spec.Connection
 	if connection == nil {
@@ -166,22 +181,15 @@ func (p *plugin) getVolumeData(ctx context.Context, spec *api.VolumeSpec, machin
 
 	vData.userID, vData.userKey, err = readSecretData(connection.SecretData)
 	if err != nil {
-		return nil, fmt.Errorf("error reading secret: %w", err)
+		return nil, fmt.Errorf("error reading secret data: %w", err)
 	}
 
-	//TODO currently not supported in iri
-	//storageSpec := spec.Storage.Spec
-	//if storageSpec.Encryption != nil {
-	//	encryptionSecret := &corev1.Secret{}
-	//	encryptionSecretKey := client.ObjectKey{Namespace: machine.Namespace, Name: storageSpec.Encryption.SecretRef.Name}
-	//	if err := p.host.Client().Get(ctx, encryptionSecretKey, encryptionSecret); err != nil {
-	//		return nil, fmt.Errorf("error getting encryption secret: %w", err)
-	//	}
-	//	vData.encryptionKey, err = readEncryptionSecret(encryptionSecret)
-	//	if err != nil {
-	//		return nil, fmt.Errorf("error reading secret: %w", err)
-	//	}
-	//}
+	if encryptionData := spec.Connection.EncryptionData; encryptionData != nil {
+		vData.encryptionKey, err = readEncryptionData(encryptionData)
+		if err != nil {
+			return nil, fmt.Errorf("error reading encryption data: %w", err)
+		}
+	}
 
 	return vData, nil
 }
