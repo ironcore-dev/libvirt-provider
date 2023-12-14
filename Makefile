@@ -12,7 +12,7 @@ MKDOCS_IMG=onmetal/libvirt-provider-docs
 TARGET_OS ?= linux
 TARGET_ARCH ?= amd64
 
-VIRTLETBIN=$(LOCALBIN)/virtlet
+LIBVERTPROVIDERBIN=$(LOCALBIN)/libvert-provider
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -82,6 +82,9 @@ fmt: ## Run go fmt against code.
 lint: golangci-lint ## Run golangci-lint against code.
 	GOOS=$(TARGET_OS) CGO=1 $(GOLANGCI_LINT) run ./...
 
+.PHONY: check
+check: manifests generate addlicense lint test # Generate manifests, code, lint, add licenses, test
+
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 .PHONY: test
 test: manifests generate fmt envtest check-license ## Run tests. Some test depend on Linux OS
@@ -99,13 +102,13 @@ start-docs: ## Start the local mkdocs based development environment.
 
 .PHONY: clean-docs
 clean-docs: ## Remove all local mkdocs Docker images (cleanup).
-	docker container prune --force --filter "label=project=virtlet_documentation"
+	docker container prune --force --filter "label=project=libvirt-provider_documentation"
 
 ##@ Build
 
 .PHONY: build
 build: generate fmt add-license lint ## Build the binary
-	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o $(VIRTLETBIN) ./main.go
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o $(LIBVERTPROVIDERBIN) ./main.go
 
 .PHONY: run
 run-base: generate fmt lint ## Run the binary
@@ -120,18 +123,13 @@ docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
 
 ##@ Deployment
-
-#ifndef ignore-not-found
-#  ignore-not-found = false
-#endif
-
 .PHONY: deploy
-deploy: kustomize ## Deploy virtlet into the K8s cluster specified in ~/.kube/config.
+deploy: kustomize ## Deploy libvirt-provider into the K8s cluster specified in ~/.kube/config.
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
 	kubectl apply -k config/default
 
 .PHONY: undeploy
-undeploy: #kustomize ## Undeploy virtlet from the K8s cluster specified in ~/.kube/config.
+undeploy: #kustomize ## Undeploy libvirt-provider from the K8s cluster specified in ~/.kube/config.
 	kubectl delete -k config/default
 
 ##@ Tools
@@ -149,7 +147,7 @@ GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 ADDLICENSE ?= $(LOCALBIN)/addlicense-$(ADDLICENSE_VERSION)
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v5.2.1
+KUSTOMIZE_VERSION ?= v0.13.0
 CONTROLLER_GEN_VERSION ?= v0.9.0
 ENVTEST_VERSION ?= release-0.15
 GOLANGCI_LINT_VERSION ?= v1.55.2
@@ -169,19 +167,16 @@ envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
 #	test -s $(ENVTEST) || true
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,${ENVTEST_VERSION})
 
-.PHONY: golangci-lint
-golangci-lint: $(LOCALBIN)
+.PHONY: golangci-lint 
+golangci-lint: $(LOCALBIN) ## Run golangci-lint on the code.
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
 
-.PHONY: clean-tools
-clean-tools: 
-	find $(LOCALBIN) -type f \
-	-not -path "$(KUSTOMIZE)" -not -path "$(CONTROLLER_GEN)" -not -path "$(ENVTEST)" \
-	-not -path "$(GOLANGCI_LINT)" -not -path $(VIRTLETBIN) \
-	-exec rm -f {} \+
+.PHONY: clean-tools  
+clean-tools: ## Clean any artifacts that can be regenerated.
+	rm -rf $(LOCALBIN)
 
-.PHONY: addlicense
-addlicense: $(LOCALBIN)
+.PHONY: addlicense 
+addlicense: $(LOCALBIN) ## Add license headers to all go files.
 	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
 
 
