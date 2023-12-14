@@ -19,8 +19,8 @@ import (
 	"github.com/ironcore-dev/ironcore-net/apimachinery/api/net"
 	"github.com/ironcore-dev/ironcore-net/apinetlet/provider"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
-	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,10 +41,10 @@ const (
 
 type Plugin struct {
 	nodeName string
-	host     virtlethost.Host
+	host     providerhost.Host
 }
 
-func NewPlugin(nodeName string) virtletnetworkinterface.Plugin {
+func NewPlugin(nodeName string) providernetworkinterface.Plugin {
 	return &Plugin{
 		nodeName: nodeName,
 	}
@@ -54,7 +54,7 @@ func GetAPInetPlugin() *Plugin {
 	return &Plugin{}
 }
 
-func (p *Plugin) Init(host virtlethost.Host) error {
+func (p *Plugin) Init(host providerhost.Host) error {
 	p.host = host
 	return nil
 }
@@ -101,7 +101,7 @@ func (p *Plugin) APInetNicName(machineID string, networkInterfaceName string) st
 	return uuid.NewHash(sha256.New(), uuid.Nil, []byte(fmt.Sprintf("%s/%s", machineID, networkInterfaceName)), 5).String()
 }
 
-func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*virtletnetworkinterface.NetworkInterface, error) {
+func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*providernetworkinterface.NetworkInterface, error) {
 	log := ctrl.LoggerFrom(ctx)
 
 	log.V(1).Info("Writing network interface dir")
@@ -152,7 +152,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	}
 	if hostDev != nil {
 		log.V(1).Info("Host device is ready", "HostDevice", hostDev)
-		return &virtletnetworkinterface.NetworkInterface{
+		return &providernetworkinterface.NetworkInterface{
 			Handle: provider.GetNetworkInterfaceID(
 				apinetNic.Namespace,
 				apinetNic.Name,
@@ -185,7 +185,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	}
 
 	log.V(1).Info("Host device is ready", "HostDevice", hostDev)
-	return &virtletnetworkinterface.NetworkInterface{
+	return &providernetworkinterface.NetworkInterface{
 		Handle: provider.GetNetworkInterfaceID(
 			apinetNic.Namespace,
 			apinetNic.Name,
@@ -196,7 +196,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	}, nil
 }
 
-func getHostDevice(apinetNic *apinetv1alpha1.NetworkInterface) (*virtletnetworkinterface.HostDevice, error) {
+func getHostDevice(apinetNic *apinetv1alpha1.NetworkInterface) (*providernetworkinterface.HostDevice, error) {
 	switch apinetNic.Status.State {
 	case apinetv1alpha1.NetworkInterfaceStateReady:
 		pciDevice := apinetNic.Status.PCIAddress
@@ -224,7 +224,7 @@ func getHostDevice(apinetNic *apinetv1alpha1.NetworkInterface) (*virtletnetworki
 			return nil, fmt.Errorf("error parsing pci device function %q: %w", pciDevice.Function, err)
 		}
 
-		return &virtletnetworkinterface.HostDevice{
+		return &providernetworkinterface.HostDevice{
 			Domain:   uint(domain),
 			Bus:      uint(bus),
 			Slot:     uint(slot),

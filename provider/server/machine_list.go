@@ -9,7 +9,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
@@ -35,57 +35,57 @@ func (s *Server) getLibvirtMachine(ctx context.Context, id string) (*api.Machine
 	return machine, nil
 }
 
-func (s *Server) listMachines(ctx context.Context, log logr.Logger) ([]*ori.Machine, error) {
+func (s *Server) listMachines(ctx context.Context, log logr.Logger) ([]*iri.Machine, error) {
 	machines, err := s.machineStore.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error listing machines: %w", err)
 	}
 
-	var res []*ori.Machine
+	var res []*iri.Machine
 	for _, machine := range machines {
 		if !apiutils.IsManagedBy(machine, machinev1alpha1.MachineManager) {
 			continue
 		}
 
-		oriMachine, err := s.convertMachineToOriMachine(ctx, log, machine)
+		iriMachine, err := s.convertMachineToIRIMachine(ctx, log, machine)
 		if err != nil {
 			return nil, err
 		}
 
-		res = append(res, oriMachine)
+		res = append(res, iriMachine)
 	}
 	return res, nil
 }
 
-func (s *Server) filterMachines(machines []*ori.Machine, filter *ori.MachineFilter) []*ori.Machine {
+func (s *Server) filterMachines(machines []*iri.Machine, filter *iri.MachineFilter) []*iri.Machine {
 	if filter == nil {
 		return machines
 	}
 
 	var (
-		res []*ori.Machine
+		res []*iri.Machine
 		sel = labels.SelectorFromSet(filter.LabelSelector)
 	)
-	for _, oriMachine := range machines {
-		if !sel.Matches(labels.Set(oriMachine.Metadata.Labels)) {
+	for _, iriMachine := range machines {
+		if !sel.Matches(labels.Set(iriMachine.Metadata.Labels)) {
 			continue
 		}
 
-		res = append(res, oriMachine)
+		res = append(res, iriMachine)
 	}
 	return res
 }
 
-func (s *Server) getMachine(ctx context.Context, log logr.Logger, id string) (*ori.Machine, error) {
+func (s *Server) getMachine(ctx context.Context, log logr.Logger, id string) (*iri.Machine, error) {
 	libvirtMachine, err := s.getLibvirtMachine(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get machine: %w", err)
 	}
 
-	return s.convertMachineToOriMachine(ctx, log, libvirtMachine)
+	return s.convertMachineToIRIMachine(ctx, log, libvirtMachine)
 }
 
-func (s *Server) ListMachines(ctx context.Context, req *ori.ListMachinesRequest) (*ori.ListMachinesResponse, error) {
+func (s *Server) ListMachines(ctx context.Context, req *iri.ListMachinesRequest) (*iri.ListMachinesResponse, error) {
 	log := s.loggerFrom(ctx)
 
 	if filter := req.Filter; filter != nil && filter.Id != "" {
@@ -94,13 +94,13 @@ func (s *Server) ListMachines(ctx context.Context, req *ori.ListMachinesRequest)
 			if status.Code(err) != codes.NotFound {
 				return nil, err
 			}
-			return &ori.ListMachinesResponse{
-				Machines: []*ori.Machine{},
+			return &iri.ListMachinesResponse{
+				Machines: []*iri.Machine{},
 			}, nil
 		}
 
-		return &ori.ListMachinesResponse{
-			Machines: []*ori.Machine{machine},
+		return &iri.ListMachinesResponse{
+			Machines: []*iri.Machine{machine},
 		}, nil
 	}
 
@@ -111,7 +111,7 @@ func (s *Server) ListMachines(ctx context.Context, req *ori.ListMachinesRequest)
 
 	machines = s.filterMachines(machines, req.Filter)
 
-	return &ori.ListMachinesResponse{
+	return &iri.ListMachinesResponse{
 		Machines: machines,
 	}, nil
 }

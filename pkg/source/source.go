@@ -56,11 +56,11 @@ func (s *DomainLifecycle) handle(ctx context.Context, evt libvirt.DomainEventLif
 	}
 
 	if domain.Metadata == nil || domain.Metadata.XML == "" {
-		domainLifecycleLog.V(2).Info("Domain has no metadata and is thus not considered to be managed by virtlet", "Domain", evt.Dom)
+		domainLifecycleLog.V(2).Info("Domain has no metadata and is thus not considered to be managed by libvirt-provider", "Domain", evt.Dom)
 		return
 	}
 
-	machineMeta := &meta.VirtletMetadata{}
+	machineMeta := &meta.LibvirtProviderMetadata{}
 	if err := xml.Unmarshal([]byte(domain.Metadata.XML), machineMeta); err != nil {
 		domainLifecycleLog.Error(err, "Error unmarshalling domain metadata")
 		return

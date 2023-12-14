@@ -8,12 +8,12 @@ import (
 	"fmt"
 
 	"github.com/ironcore-dev/controller-utils/metautils"
-	orimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
+	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 )
 
-func GetObjectMetadata(o api.Metadata) (*orimeta.ObjectMetadata, error) {
+func GetObjectMetadata(o api.Metadata) (*irimeta.ObjectMetadata, error) {
 	annotations, err := GetAnnotationsAnnotation(o)
 	if err != nil {
 		return nil, err
@@ -29,7 +29,7 @@ func GetObjectMetadata(o api.Metadata) (*orimeta.ObjectMetadata, error) {
 		deletedAt = o.DeletedAt.UnixNano()
 	}
 
-	return &orimeta.ObjectMetadata{
+	return &irimeta.ObjectMetadata{
 		Id:          o.ID,
 		Annotations: annotations,
 		Labels:      labels,
@@ -39,7 +39,7 @@ func GetObjectMetadata(o api.Metadata) (*orimeta.ObjectMetadata, error) {
 	}, nil
 }
 
-func SetObjectMetadata(o api.Object, metadata *orimeta.ObjectMetadata) error {
+func SetObjectMetadata(o api.Object, metadata *irimeta.ObjectMetadata) error {
 	if err := SetAnnotationsAnnotation(o, metadata.Annotations); err != nil {
 		return err
 	}

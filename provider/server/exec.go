@@ -6,10 +6,10 @@ package server
 import (
 	"context"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 )
 
-func (s *Server) Exec(ctx context.Context, req *ori.ExecRequest) (*ori.ExecResponse, error) {
+func (s *Server) Exec(ctx context.Context, req *iri.ExecRequest) (*iri.ExecResponse, error) {
 
-	return &ori.ExecResponse{}, nil
+	return &iri.ExecResponse{}, nil
 }

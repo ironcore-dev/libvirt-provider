@@ -14,8 +14,8 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
-	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirtxml"
 )
@@ -25,7 +25,7 @@ var (
 )
 
 func (r *MachineReconciler) deleteNetworkInterfaces(ctx context.Context, log logr.Logger, machine *api.Machine) error {
-	machineNetworkInterfaces, err := virtlethost.ReadMachineNetworkInterfaces(r.host, machine.ID)
+	machineNetworkInterfaces, err := providerhost.ReadMachineNetworkInterfaces(r.host, machine.ID)
 	if err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return fmt.Errorf("error listing machine network interfaces: %w", err)
@@ -54,7 +54,7 @@ func (r *MachineReconciler) setDomainNetworkInterfaces(
 	machine *api.Machine,
 	domainDesc *libvirtxml.Domain,
 ) ([]api.NetworkInterfaceStatus, error) {
-	machineNics, err := virtlethost.ReadMachineNetworkInterfaces(r.host, machine.ID)
+	machineNics, err := providerhost.ReadMachineNetworkInterfaces(r.host, machine.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -66,12 +66,12 @@ func (r *MachineReconciler) setDomainNetworkInterfaces(
 	for _, nic := range machine.Spec.NetworkInterfaces {
 		specNicNames.Insert(nic.Name)
 
-		virtletNic, err := r.networkInterfacePlugin.Apply(ctx, nic, machine)
+		providerNic, err := r.networkInterfacePlugin.Apply(ctx, nic, machine)
 		if err != nil {
 			return nil, fmt.Errorf("[network interface %s] %w", nic.Name, err)
 		}
 
-		libvirtNic, err := virtletNetworkInterfaceToLibvirt(nic.Name, virtletNic)
+		libvirtNic, err := providerNetworkInterfaceToLibvirt(nic.Name, providerNic)
 		if err != nil {
 			return nil, fmt.Errorf("[network interface %s] %w", nic.Name, err)
 		}
@@ -87,7 +87,7 @@ func (r *MachineReconciler) setDomainNetworkInterfaces(
 
 		states = append(states, api.NetworkInterfaceStatus{
 			Name:   nic.Name,
-			Handle: virtletNic.Handle,
+			Handle: providerNic.Handle,
 			State:  api.NetworkInterfaceStateAttached,
 		})
 	}
@@ -197,7 +197,7 @@ func (r *MachineReconciler) attachDetachNetworkInterfaces(
 func (r *MachineReconciler) deleteNetworkInterface(
 	ctx context.Context,
 	machine *api.Machine,
-	nic virtlethost.MachineNetworkInterface,
+	nic providerhost.MachineNetworkInterface,
 ) error {
 	return r.networkInterfacePlugin.Delete(ctx, nic.NetworkInterfaceName, machine.ID)
 }
@@ -209,14 +209,14 @@ func (r *MachineReconciler) reconcileDesiredNetworkInterface(
 	mountedNics map[string]mountedNetworkInterface,
 	nic *api.NetworkInterfaceSpec,
 ) (*mountedNetworkInterface, error) {
-	virtletNic, err := r.networkInterfacePlugin.Apply(ctx, nic, machine)
+	providerNic, err := r.networkInterfacePlugin.Apply(ctx, nic, machine)
 	if err != nil {
 		return nil, err
 	}
 
 	mountedNic, ok := mountedNics[nic.Name]
-	mountedNic.networkInterface.Handle = virtletNic.Handle
-	if ok && reflect.DeepEqual(mountedNic.networkInterface, virtletNic) {
+	mountedNic.networkInterface.Handle = providerNic.Handle
+	if ok && reflect.DeepEqual(mountedNic.networkInterface, providerNic) {
 		return &mountedNic, nil
 	}
 	if ok {
@@ -225,7 +225,7 @@ func (r *MachineReconciler) reconcileDesiredNetworkInterface(
 		}
 	}
 
-	libvirtNic, err := virtletNetworkInterfaceToLibvirt(nic.Name, virtletNic)
+	libvirtNic, err := providerNetworkInterfaceToLibvirt(nic.Name, providerNic)
 	if err != nil {
 		return nil, err
 	}
@@ -234,18 +234,18 @@ func (r *MachineReconciler) reconcileDesiredNetworkInterface(
 		return nil, fmt.Errorf("error attaching network interface device: %w", err)
 	}
 	return &mountedNetworkInterface{
-		networkInterface: virtletNic,
+		networkInterface: providerNic,
 		libvirt:          libvirtNic,
 	}, nil
 }
 
-func (r *MachineReconciler) listMachineNetworkInterfaces(machineUID string) (map[string]virtlethost.MachineNetworkInterface, error) {
-	machineNics, err := virtlethost.ReadMachineNetworkInterfaces(r.host, machineUID)
+func (r *MachineReconciler) listMachineNetworkInterfaces(machineUID string) (map[string]providerhost.MachineNetworkInterface, error) {
+	machineNics, err := providerhost.ReadMachineNetworkInterfaces(r.host, machineUID)
 	if err != nil {
 		return nil, err
 	}
 
-	res := make(map[string]virtlethost.MachineNetworkInterface, len(machineNics))
+	res := make(map[string]providerhost.MachineNetworkInterface, len(machineNics))
 	for _, machineVolume := range machineNics {
 		res[machineVolume.NetworkInterfaceName] = machineVolume
 	}
@@ -253,7 +253,7 @@ func (r *MachineReconciler) listMachineNetworkInterfaces(machineUID string) (map
 }
 
 type mountedNetworkInterface struct {
-	networkInterface *virtletnetworkinterface.NetworkInterface
+	networkInterface *providernetworkinterface.NetworkInterface
 	libvirt          *libvirtNetworkInterface
 }
 
@@ -286,7 +286,7 @@ func (r *MachineReconciler) computeMountedNetworkInterfaces(domainDesc *libvirtx
 		}
 
 		hostDev := hostDev
-		nic, err := libvirtHostdevToVirtletNetworkInterface(&hostDev)
+		nic, err := libvirtHostdevToProviderNetworkInterface(&hostDev)
 		if err != nil {
 			return nil, err
 		}
@@ -309,7 +309,7 @@ func (r *MachineReconciler) computeMountedNetworkInterfaces(domainDesc *libvirtx
 		}
 
 		iface := iface
-		nic, err := libvirtInterfaceToVirtletNetworkInterface(&iface)
+		nic, err := libvirtInterfaceToProviderNetworkInterface(&iface)
 		if err != nil {
 			return nil, err
 		}
@@ -369,9 +369,9 @@ func parseNetworkInterfaceAlias(alias string) (string, error) {
 	return strings.TrimPrefix(alias, networkInterfaceAliasPrefix), nil
 }
 
-func libvirtHostdevToVirtletNetworkInterface(hostDev *libvirtxml.DomainHostdev) (*virtletnetworkinterface.NetworkInterface, error) {
+func libvirtHostdevToProviderNetworkInterface(hostDev *libvirtxml.DomainHostdev) (*providernetworkinterface.NetworkInterface, error) {
 	if hostDev.Managed != "yes" {
-		return &virtletnetworkinterface.NetworkInterface{}, fmt.Errorf("non-managed host device: %#v", hostDev)
+		return &providernetworkinterface.NetworkInterface{}, fmt.Errorf("non-managed host device: %#v", hostDev)
 	}
 	if hostDev.SubsysPCI == nil || hostDev.SubsysPCI.Source == nil || hostDev.SubsysPCI.Source.Address == nil {
 		return nil, fmt.Errorf("no pci subsystem: %#v", hostDev)
@@ -386,8 +386,8 @@ func libvirtHostdevToVirtletNetworkInterface(hostDev *libvirtxml.DomainHostdev) 
 		return nil, fmt.Errorf("missing pci subsystem source address fields: %#v", sourceAddr)
 	}
 
-	return &virtletnetworkinterface.NetworkInterface{
-		HostDevice: &virtletnetworkinterface.HostDevice{
+	return &providernetworkinterface.NetworkInterface{
+		HostDevice: &providernetworkinterface.HostDevice{
 			Domain:   *sourceAddr.Domain,
 			Bus:      *sourceAddr.Bus,
 			Slot:     *sourceAddr.Slot,
@@ -396,7 +396,7 @@ func libvirtHostdevToVirtletNetworkInterface(hostDev *libvirtxml.DomainHostdev) 
 	}, nil
 }
 
-func libvirtInterfaceToVirtletNetworkInterface(iface *libvirtxml.DomainInterface) (*virtletnetworkinterface.NetworkInterface, error) {
+func libvirtInterfaceToProviderNetworkInterface(iface *libvirtxml.DomainInterface) (*providernetworkinterface.NetworkInterface, error) {
 	src := iface.Source
 	if src == nil {
 		return nil, fmt.Errorf("no interface source specified")
@@ -404,12 +404,12 @@ func libvirtInterfaceToVirtletNetworkInterface(iface *libvirtxml.DomainInterface
 
 	switch {
 	case src.User != nil:
-		return &virtletnetworkinterface.NetworkInterface{
-			Isolated: &virtletnetworkinterface.Isolated{},
+		return &providernetworkinterface.NetworkInterface{
+			Isolated: &providernetworkinterface.Isolated{},
 		}, nil
 	case src.Network != nil:
-		return &virtletnetworkinterface.NetworkInterface{
-			ProviderNetwork: &virtletnetworkinterface.ProviderNetwork{
+		return &providernetworkinterface.NetworkInterface{
+			ProviderNetwork: &providernetworkinterface.ProviderNetwork{
 				NetworkName: src.Network.Network,
 			},
 		}, nil
@@ -422,7 +422,7 @@ func networkInterfaceAlias(name string) string {
 	return fmt.Sprintf("%s%s", networkInterfaceAliasPrefix, name)
 }
 
-func virtletNetworkInterfaceToLibvirt(name string, nic *virtletnetworkinterface.NetworkInterface) (*libvirtNetworkInterface, error) {
+func providerNetworkInterfaceToLibvirt(name string, nic *providernetworkinterface.NetworkInterface) (*libvirtNetworkInterface, error) {
 	switch {
 	case nic.HostDevice != nil:
 		var zero uint
@@ -477,6 +477,6 @@ func virtletNetworkInterfaceToLibvirt(name string, nic *virtletnetworkinterface.
 			},
 		}, nil
 	default:
-		return nil, fmt.Errorf("unsupported virtlet network interface: %#+v", nic)
+		return nil, fmt.Errorf("unsupported provider network interface: %#+v", nic)
 	}
 }

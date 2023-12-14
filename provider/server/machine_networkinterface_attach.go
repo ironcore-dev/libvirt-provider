@@ -6,10 +6,10 @@ package server
 import (
 	"context"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 )
 
-func (s *Server) AttachNetworkInterface(ctx context.Context, req *ori.AttachNetworkInterfaceRequest) (res *ori.AttachNetworkInterfaceResponse, retErr error) {
+func (s *Server) AttachNetworkInterface(ctx context.Context, req *iri.AttachNetworkInterfaceRequest) (res *iri.AttachNetworkInterfaceResponse, retErr error) {
 
-	return &ori.AttachNetworkInterfaceResponse{}, nil
+	return &iri.AttachNetworkInterfaceResponse{}, nil
 }

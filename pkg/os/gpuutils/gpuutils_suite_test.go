@@ -18,11 +18,11 @@ func TestGPUUtils(t *testing.T) {
 
 var _ = BeforeSuite(func() {
 	var err error
-	virtletDir, err = os.MkdirTemp("", "virtlet-GPUUtils-test-")
+	providerDir, err = os.MkdirTemp("", "libvirt-provider-GPUUtils-test-")
 	Expect(err).ToNot(HaveOccurred(), "error creating temporary directory for gpu test")
 })
 
 var _ = AfterSuite(func() {
-	err := os.RemoveAll(virtletDir)
+	err := os.RemoveAll(providerDir)
 	Expect(err).ToNot(HaveOccurred(), "error cleanup test folder")
 })

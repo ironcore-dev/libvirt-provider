@@ -4,7 +4,7 @@
 package networkinterfaceplugin
 
 import (
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface/isolated"
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -18,7 +18,7 @@ func (o *isolatedOptions) PluginName() string {
 	return "isolated"
 }
 
-func (o *isolatedOptions) NetworkInterfacePlugin() (virtletnetworkinterface.Plugin, func(), error) {
+func (o *isolatedOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
 	return isolated.NewPlugin(), nil, nil
 }
 

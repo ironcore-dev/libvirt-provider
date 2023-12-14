@@ -9,7 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 	"github.com/ironcore-dev/ironcore/broker/common/idgen"
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
@@ -17,7 +17,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-var _ ori.MachineRuntimeServer = (*Server)(nil)
+var _ iri.MachineRuntimeServer = (*Server)(nil)
 
 type Server struct {
 	idGen idgen.IDGen
@@ -61,6 +61,6 @@ func (s *Server) loggerFrom(ctx context.Context, keysWithValues ...interface{}) 
 }
 
 type MachineClassRegistry interface {
-	Get(volumeClassName string) (*ori.MachineClass, bool)
-	List() []*ori.MachineClass
+	Get(volumeClassName string) (*iri.MachineClass, bool)
+	List() []*iri.MachineClass
 }

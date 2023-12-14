@@ -19,8 +19,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
-	virtletvolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
-	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
+	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"k8s.io/apimachinery/pkg/util/sets"
 	utilstrings "k8s.io/utils/strings"
 	"libvirt.org/go/libvirtxml"
@@ -166,7 +166,7 @@ func (r *MachineReconciler) deleteVolume(ctx context.Context, log logr.Logger, m
 type AttachVolume struct {
 	Name   string
 	Device string
-	Spec   virtletvolume.Volume
+	Spec   providervolume.Volume
 }
 
 type VolumeAttacher interface {
@@ -338,7 +338,7 @@ func (a *libvirtVolumeAttacher) forEachVolumeAndDisk(f func(*libvirtxml.DomainDi
 			return err
 		}
 
-		volume, err := libvirtDiskToVirtletVolume(&disk)
+		volume, err := libvirtDiskToProviderVolume(&disk)
 		if err != nil {
 			return err
 		}
@@ -377,7 +377,7 @@ func (a *libvirtVolumeAttacher) AttachVolume(volume *AttachVolume) error {
 	}
 
 	if err := func() error {
-		disk, secret, encryptionSecret, secretValue, encryptionSecretValue, err := a.virtletVolumeToLibvirt(volume.Name, &volume.Spec, volume.Device)
+		disk, secret, encryptionSecret, secretValue, encryptionSecretValue, err := a.providerVolumeToLibvirt(volume.Name, &volume.Spec, volume.Device)
 		if err != nil {
 			return err
 		}
@@ -453,7 +453,7 @@ func (a *libvirtVolumeAttacher) GetVolume(name string) (*AttachVolume, error) {
 
 	disk := &a.domainDevices().Disks[idx]
 
-	volume, err := libvirtDiskToVirtletVolume(disk)
+	volume, err := libvirtDiskToProviderVolume(disk)
 	if err != nil {
 		return nil, err
 	}
@@ -470,21 +470,21 @@ func (a *libvirtVolumeAttacher) GetVolume(name string) (*AttachVolume, error) {
 	}, nil
 }
 
-type MountVolume = virtlethost.MachineVolume
+type MountVolume = providerhost.MachineVolume
 
 type volumeMounter struct {
-	host          virtlethost.Host
-	pluginManager *virtletvolume.PluginManager
+	host          providerhost.Host
+	pluginManager *providervolume.PluginManager
 	machine       *api.Machine
 }
 
 type VolumeMounter interface {
-	PluginManager() *virtletvolume.PluginManager
+	PluginManager() *providervolume.PluginManager
 
 	ForEachVolume(f func(*MountVolume) bool) error
 	ListVolumes() ([]MountVolume, error)
 	GetVolume(computeVolumeName string) (*MountVolume, error)
-	ApplyVolume(ctx context.Context, spec *api.VolumeSpec, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error)
+	ApplyVolume(ctx context.Context, spec *api.VolumeSpec, onDelete func(*MountVolume) error) (string, *providervolume.Volume, error)
 	DeleteVolume(ctx context.Context, computeVolumeName string) error
 }
 
@@ -492,11 +492,11 @@ var (
 	ErrMountedVolumeNotFound = errors.New("mounted volume not found")
 )
 
-func (m *volumeMounter) PluginManager() *virtletvolume.PluginManager {
+func (m *volumeMounter) PluginManager() *providervolume.PluginManager {
 	return m.pluginManager
 }
 
-func (m *volumeMounter) ForEachVolume(f func(*virtlethost.MachineVolume) bool) error {
+func (m *volumeMounter) ForEachVolume(f func(*providerhost.MachineVolume) bool) error {
 	machineVolumesDir := m.host.MachineVolumesDir(m.machine.ID)
 	volumeDirEntries, err := os.ReadDir(machineVolumesDir)
 	if err != nil {
@@ -533,7 +533,7 @@ func (m *volumeMounter) ForEachVolume(f func(*virtlethost.MachineVolume) bool) e
 
 func (m *volumeMounter) GetVolume(computeVolumeName string) (*MountVolume, error) {
 	var found *MountVolume
-	if err := m.ForEachVolume(func(volume *virtlethost.MachineVolume) bool {
+	if err := m.ForEachVolume(func(volume *providerhost.MachineVolume) bool {
 		if volume.ComputeVolumeName == computeVolumeName {
 			res := *volume
 			found = &res
@@ -551,7 +551,7 @@ func (m *volumeMounter) GetVolume(computeVolumeName string) (*MountVolume, error
 
 func (m *volumeMounter) ListVolumes() ([]MountVolume, error) {
 	var res []MountVolume
-	if err := m.ForEachVolume(func(volume *virtlethost.MachineVolume) bool {
+	if err := m.ForEachVolume(func(volume *providerhost.MachineVolume) bool {
 		res = append(res, *volume)
 		return true
 	}); err != nil {
@@ -578,7 +578,7 @@ func (m *volumeMounter) DeleteVolume(ctx context.Context, computeVolumeName stri
 	return nil
 }
 
-func (m *volumeMounter) ApplyVolume(ctx context.Context, spec *api.VolumeSpec, onDelete func(*MountVolume) error) (string, *virtletvolume.Volume, error) {
+func (m *volumeMounter) ApplyVolume(ctx context.Context, spec *api.VolumeSpec, onDelete func(*MountVolume) error) (string, *providervolume.Volume, error) {
 	plugin, err := m.pluginManager.FindPluginBySpec(spec)
 	if err != nil {
 		return "", nil, err
@@ -621,7 +621,7 @@ func (r *MachineReconciler) applyVolume(
 	log.V(1).Info("Getting volume spec")
 
 	log.V(1).Info("Applying volume")
-	volumeID, virtletVolume, err := mountedVolumes.ApplyVolume(ctx, desiredVolume, func(outdated *MountVolume) error {
+	volumeID, providerVolume, err := mountedVolumes.ApplyVolume(ctx, desiredVolume, func(outdated *MountVolume) error {
 		log.V(1).Info("Detaching outdated mounted volume before deleting", "PluginName", outdated.PluginName)
 		if err := attacher.DetachVolume(outdated.ComputeVolumeName); err != nil && !errors.Is(err, ErrAttachedVolumeNotFound) {
 			return fmt.Errorf("error detaching volume: %w", err)
@@ -636,7 +636,7 @@ func (r *MachineReconciler) applyVolume(
 	if err := attacher.AttachVolume(&AttachVolume{
 		Name:   desiredVolume.Name,
 		Device: desiredVolume.Device,
-		Spec:   *virtletVolume,
+		Spec:   *providerVolume,
 	}); err != nil && !errors.Is(err, ErrAttachedVolumeAlreadyExists) {
 		return "", fmt.Errorf("error ensuring volume is attached: %w", err)
 	}
@@ -687,7 +687,7 @@ func (a *libvirtVolumeAttacher) secretEncryptionUUID(computeVolumeName string) s
 	return uuid.NewHash(sha256.New(), uuid.Nil, []byte(fmt.Sprintf("enc/%s/%s", a.domainDesc.UUID, computeVolumeName)), 5).String()
 }
 
-func (a *libvirtVolumeAttacher) virtletVolumeToLibvirt(computeVolumeName string, vol *virtletvolume.Volume, dev string) (*libvirtxml.DomainDisk, *libvirtxml.Secret, *libvirtxml.Secret, []byte, []byte, error) {
+func (a *libvirtVolumeAttacher) providerVolumeToLibvirt(computeVolumeName string, vol *providervolume.Volume, dev string) (*libvirtxml.DomainDisk, *libvirtxml.Secret, *libvirtxml.Secret, []byte, []byte, error) {
 	deviceName := computeVirtioDiskTargetDeviceName(dev)
 
 	disk := &libvirtxml.DomainDisk{
@@ -812,11 +812,11 @@ func (a *libvirtVolumeAttacher) virtletVolumeToLibvirt(computeVolumeName string,
 
 		return disk, secret, encryptionSecret, secretValue, encryptionSecretValue, nil
 	default:
-		return nil, nil, nil, nil, nil, fmt.Errorf("unsupported virtlet volume %#+v", vol)
+		return nil, nil, nil, nil, nil, fmt.Errorf("unsupported provider volume %#+v", vol)
 	}
 }
 
-func libvirtDiskToVirtletVolume(disk *libvirtxml.DomainDisk) (*virtletvolume.Volume, error) {
+func libvirtDiskToProviderVolume(disk *libvirtxml.DomainDisk) (*providervolume.Volume, error) {
 	src := disk.Source
 	if src == nil {
 		return nil, fmt.Errorf("disk does not specify a source")
@@ -824,22 +824,22 @@ func libvirtDiskToVirtletVolume(disk *libvirtxml.DomainDisk) (*virtletvolume.Vol
 
 	switch {
 	case disk.Driver != nil && disk.Driver.Name == "qemu" && disk.Driver.Type == "qcow2" && src.File != nil && src.File.File != "":
-		return &virtletvolume.Volume{
+		return &providervolume.Volume{
 			QCow2File: src.File.File,
 		}, nil
 	case disk.Driver != nil && disk.Driver.Name == "qemu" && disk.Driver.Type == "raw" && src.File != nil && src.File.File != "":
-		return &virtletvolume.Volume{
+		return &providervolume.Volume{
 			RawFile: src.File.File,
 		}, nil
 	case src.Network != nil && src.Network.Protocol == "rbd":
 		netSrc := src.Network
-		monitors := make([]virtletvolume.CephMonitor, 0, len(netSrc.Hosts))
+		monitors := make([]providervolume.CephMonitor, 0, len(netSrc.Hosts))
 		for _, host := range netSrc.Hosts {
-			monitors = append(monitors, virtletvolume.CephMonitor{Name: host.Name, Port: host.Port})
+			monitors = append(monitors, providervolume.CephMonitor{Name: host.Name, Port: host.Port})
 		}
 
-		return &virtletvolume.Volume{
-			CephDisk: &virtletvolume.CephDisk{
+		return &providervolume.Volume{
+			CephDisk: &providervolume.CephDisk{
 				Name:     netSrc.Name,
 				Monitors: monitors,
 				// TODO: Check whether it's necessary to reconstruct Auth.

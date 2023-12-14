@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
-	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 )
 
 const (
@@ -18,25 +18,25 @@ const (
 )
 
 type plugin struct {
-	host virtlethost.Host
+	host providerhost.Host
 }
 
-func NewPlugin() virtletnetworkinterface.Plugin {
+func NewPlugin() providernetworkinterface.Plugin {
 	return &plugin{}
 }
 
-func (p *plugin) Init(host virtlethost.Host) error {
+func (p *plugin) Init(host providerhost.Host) error {
 	p.host = host
 	return nil
 }
 
-func (p *plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*virtletnetworkinterface.NetworkInterface, error) {
+func (p *plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*providernetworkinterface.NetworkInterface, error) {
 	if err := os.MkdirAll(p.host.MachineNetworkInterfaceDir(machine.ID, spec.Name), perm); err != nil {
 		return nil, err
 	}
 
-	return &virtletnetworkinterface.NetworkInterface{
-		ProviderNetwork: &virtletnetworkinterface.ProviderNetwork{
+	return &providernetworkinterface.NetworkInterface{
+		ProviderNetwork: &providernetworkinterface.ProviderNetwork{
 			NetworkName: spec.NetworkId,
 		},
 	}, nil

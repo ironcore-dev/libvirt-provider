@@ -6,13 +6,13 @@ package server
 import (
 	"context"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 )
 
 func (s *Server) DetachNetworkInterface(
 	ctx context.Context,
-	req *ori.DetachNetworkInterfaceRequest,
-) (*ori.DetachNetworkInterfaceResponse, error) {
+	req *iri.DetachNetworkInterfaceRequest,
+) (*iri.DetachNetworkInterfaceResponse, error) {
 
-	return &ori.DetachNetworkInterfaceResponse{}, nil
+	return &iri.DetachNetworkInterfaceResponse{}, nil
 }

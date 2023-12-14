@@ -5,7 +5,7 @@ package meta
 
 import "encoding/xml"
 
-type VirtletMetadata struct {
+type LibvirtProviderMetadata struct {
 	Namespace string `xml:"namespace"`
 	Name      string `xml:"name"`
 	SGXMemory *int64 `xml:"sgx_memory,omitempty"`
@@ -16,10 +16,10 @@ type VirtletMetadata struct {
 // we need to have two separate structs: One for marshalling, one for unmarshalling.
 // TODO: Watch the issue and clean up once resolved.
 
-func (m *VirtletMetadata) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
-	start.Name.Local = "virtlet:metadata"
+func (m *LibvirtProviderMetadata) MarshalXML(e *xml.Encoder, start xml.StartElement) error {
+	start.Name.Local = "libvirtprovider:metadata"
 	return e.EncodeElement(&marshalMetadata{
-		XMLNS:     "https://github.com/onmetal/virtlet",
+		XMLNS:     "https://github.com/ironcore-dev/libvirt-provider",
 		Namespace: m.Namespace,
 		Name:      m.Name,
 		SGXMemory: m.SGXMemory,
@@ -27,7 +27,7 @@ func (m *VirtletMetadata) MarshalXML(e *xml.Encoder, start xml.StartElement) err
 	}, start)
 }
 
-func (m *VirtletMetadata) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
+func (m *LibvirtProviderMetadata) UnmarshalXML(d *xml.Decoder, start xml.StartElement) error {
 	var unmarshal unmarshalMetadata
 	if err := d.DecodeElement(&unmarshal, &start); err != nil {
 		return err
@@ -41,12 +41,12 @@ func (m *VirtletMetadata) UnmarshalXML(d *xml.Decoder, start xml.StartElement) e
 }
 
 type marshalMetadata struct {
-	XMLName   xml.Name `xml:"virtlet:metadata"`
-	XMLNS     string   `xml:"xmlns:virtlet,attr"`
-	Namespace string   `xml:"virtlet:namespace"`
-	Name      string   `xml:"virtlet:name"`
-	SGXMemory *int64   `xml:"virtlet:sgx_memory,omitempty"`
-	SGXNode   *int     `xml:"virtlet:sgx_node,omitempty"`
+	XMLName   xml.Name `xml:"libvirtprovider:metadata"`
+	XMLNS     string   `xml:"xmlns:libvirtprovider,attr"`
+	Namespace string   `xml:"libvirtprovider:namespace"`
+	Name      string   `xml:"libvirtprovider:name"`
+	SGXMemory *int64   `xml:"libvirtprovider:sgx_memory,omitempty"`
+	SGXNode   *int     `xml:"libvirtprovider:sgx_node,omitempty"`
 }
 
 type unmarshalMetadata struct {

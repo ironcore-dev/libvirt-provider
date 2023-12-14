@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/provider/apiutils"
@@ -28,7 +28,7 @@ func (s *Server) updateAnnotations(ctx context.Context, machine *api.Machine, an
 	return nil
 }
 
-func (s *Server) UpdateMachineAnnotations(ctx context.Context, req *ori.UpdateMachineAnnotationsRequest) (*ori.UpdateMachineAnnotationsResponse, error) {
+func (s *Server) UpdateMachineAnnotations(ctx context.Context, req *iri.UpdateMachineAnnotationsRequest) (*iri.UpdateMachineAnnotationsResponse, error) {
 	log := s.loggerFrom(ctx)
 
 	log.V(1).Info("Getting machine")
@@ -44,5 +44,5 @@ func (s *Server) UpdateMachineAnnotations(ctx context.Context, req *ori.UpdateMa
 		return nil, fmt.Errorf("failed to update machine annotations: %w", err)
 	}
 
-	return &ori.UpdateMachineAnnotationsResponse{}, nil
+	return &iri.UpdateMachineAnnotationsResponse{}, nil
 }
