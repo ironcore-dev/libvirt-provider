@@ -9,7 +9,7 @@ require (
 	github.com/go-logr/logr v1.3.0
 	github.com/google/uuid v1.5.0
 	github.com/ironcore-dev/controller-utils v0.9.0
-	github.com/ironcore-dev/ironcore v0.1.2-0.20231120151107-b5c3fa09890e
+	github.com/ironcore-dev/ironcore v0.1.2-0.20231214085931-212c5a601da2
 	github.com/ironcore-dev/ironcore-image v0.2.0
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20231127161134-cf5b10137532
 	github.com/onsi/ginkgo/v2 v2.13.2
