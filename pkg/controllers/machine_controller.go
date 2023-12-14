@@ -15,16 +15,16 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/event"
-	virtletimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
+	providerimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
 	"github.com/ironcore-dev/libvirt-provider/pkg/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/pkg/os/osutils"
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
-	virtletvolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost" // TODO: Change to a better naming for all imports, libvirthost?
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
-	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost" // TODO: Change to a better naming for all imports, libvirthost?
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"libvirt.org/go/libvirtxml"
@@ -55,11 +55,11 @@ var (
 type MachineReconcilerOptions struct {
 	GuestCapabilities      guest.Capabilities
 	TCMallocLibPath        string
-	ImageCache             virtletimage.Cache
+	ImageCache             providerimage.Cache
 	Raw                    raw.Raw
-	Host                   virtlethost.Host
-	VolumePluginManager    *virtletvolume.PluginManager
-	NetworkInterfacePlugin virtletnetworkinterface.Plugin
+	Host                   providerhost.Host
+	VolumePluginManager    *providervolume.PluginManager
+	NetworkInterfacePlugin providernetworkinterface.Plugin
 }
 
 func NewMachineReconciler(
@@ -104,12 +104,12 @@ type MachineReconciler struct {
 	libvirt           *libvirt.Libvirt
 	guestCapabilities guest.Capabilities
 	tcMallocLibPath   string
-	host              virtlethost.Host
-	imageCache        virtletimage.Cache
+	host              providerhost.Host
+	imageCache        providerimage.Cache
 	raw               raw.Raw
 
-	volumePluginManager    *virtletvolume.PluginManager
-	networkInterfacePlugin virtletnetworkinterface.Plugin
+	volumePluginManager    *providervolume.PluginManager
+	networkInterfacePlugin providernetworkinterface.Plugin
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
@@ -121,8 +121,8 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	//todo make configurable
 	workerSize := 15
 
-	r.imageCache.AddListener(virtletimage.ListenerFuncs{
-		HandlePullDoneFunc: func(evt virtletimage.PullDoneEvent) {
+	r.imageCache.AddListener(providerimage.ListenerFuncs{
+		HandlePullDoneFunc: func(evt providerimage.PullDoneEvent) {
 			machines, err := r.machines.List(ctx)
 			if err != nil {
 				log.Error(err, "failed to list machine")
@@ -220,7 +220,7 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	}
 
 	log.V(1).Info("Making machine directories")
-	if err := virtlethost.MakeMachineDirs(r.host, machine.ID); err != nil {
+	if err := providerhost.MakeMachineDirs(r.host, machine.ID); err != nil {
 		return fmt.Errorf("error making machine directories: %w", err)
 	}
 	log.V(1).Info("Successfully made machine directories")
@@ -228,7 +228,7 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	log.V(1).Info("Reconciling domain")
 	state, volumeStates, nicStates, err := r.reconcileDomain(ctx, log, machine)
 	if err != nil {
-		return virtletimage.IgnoreImagePulling(err)
+		return providerimage.IgnoreImagePulling(err)
 	}
 	log.V(1).Info("Reconciled domain")
 
@@ -609,7 +609,7 @@ func (r *MachineReconciler) setDomainImage(
 ) error {
 	img, err := r.imageCache.Get(ctx, machineImgRef)
 	if err != nil {
-		if !errors.Is(err, virtletimage.ErrImagePulling) {
+		if !errors.Is(err, providerimage.ErrImagePulling) {
 			return err
 		}
 		return err

@@ -7,10 +7,10 @@ import (
 	"context"
 	"fmt"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 )
 
-func (s *Server) AttachVolume(ctx context.Context, req *ori.AttachVolumeRequest) (*ori.AttachVolumeResponse, error) {
+func (s *Server) AttachVolume(ctx context.Context, req *iri.AttachVolumeRequest) (*iri.AttachVolumeResponse, error) {
 	log := s.loggerFrom(ctx)
 	log.V(1).Info("Attaching volume to machine")
 
@@ -23,7 +23,7 @@ func (s *Server) AttachVolume(ctx context.Context, req *ori.AttachVolumeRequest)
 		return nil, fmt.Errorf("failed to get machine: %w", err)
 	}
 
-	volumeSpec, err := s.getVolumeFromORIVolume(req.Volume)
+	volumeSpec, err := s.getVolumeFromIRIVolume(req.Volume)
 	if err != nil {
 		return nil, fmt.Errorf("error converting volume: %w", err)
 	}
@@ -34,5 +34,5 @@ func (s *Server) AttachVolume(ctx context.Context, req *ori.AttachVolumeRequest)
 		return nil, fmt.Errorf("failed to update machine with new volume: %w", err)
 	}
 
-	return &ori.AttachVolumeResponse{}, nil
+	return &iri.AttachVolumeResponse{}, nil
 }

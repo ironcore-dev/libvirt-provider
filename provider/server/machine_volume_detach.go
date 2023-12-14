@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 )
 
-func (s *Server) DetachVolume(ctx context.Context, req *ori.DetachVolumeRequest) (*ori.DetachVolumeResponse, error) {
+func (s *Server) DetachVolume(ctx context.Context, req *iri.DetachVolumeRequest) (*iri.DetachVolumeResponse, error) {
 	log := s.loggerFrom(ctx)
 	log.V(1).Info("Detaching volume from machine")
 
@@ -44,5 +44,5 @@ func (s *Server) DetachVolume(ctx context.Context, req *ori.DetachVolumeRequest)
 		return nil, fmt.Errorf("failed to update machine after detaching volume: %w", err)
 	}
 
-	return &ori.DetachVolumeResponse{}, nil
+	return &iri.DetachVolumeResponse{}, nil
 }

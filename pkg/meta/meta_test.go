@@ -12,14 +12,14 @@ import (
 	"k8s.io/utils/ptr"
 )
 
-const expectedXML = `<virtlet:metadata xmlns:virtlet="https://github.com/onmetal/virtlet"><virtlet:namespace>foo</virtlet:namespace><virtlet:name>bar</virtlet:name></virtlet:metadata>`
-const sgxExpectedXML = `<virtlet:metadata xmlns:virtlet="https://github.com/onmetal/virtlet"><virtlet:namespace>foo</virtlet:namespace><virtlet:name>bar</virtlet:name><virtlet:sgx_memory>68719476736</virtlet:sgx_memory><virtlet:sgx_node>0</virtlet:sgx_node></virtlet:metadata>`
+const expectedXML = `<libvirtprovider:metadata xmlns:libvirtprovider="https://github.com/ironcore-dev/libvirt-provider"><libvirtprovider:namespace>foo</libvirtprovider:namespace><libvirtprovider:name>bar</libvirtprovider:name></libvirtprovider:metadata>`
+const sgxExpectedXML = `<libvirtprovider:metadata xmlns:libvirtprovider="https://github.com/ironcore-dev/libvirt-provider"><libvirtprovider:namespace>foo</libvirtprovider:namespace><libvirtprovider:name>bar</libvirtprovider:name><libvirtprovider:sgx_memory>68719476736</libvirtprovider:sgx_memory><libvirtprovider:sgx_node>0</libvirtprovider:sgx_node></libvirtprovider:metadata>`
 
 var _ = Describe("Meta", func() {
-	Context("VirtletMetadata", func() {
+	Context("LibvirtProviderMetadata", func() {
 		Describe("Marshal", func() {
 			It("should correctly marshal the metadata", func() {
-				metadata := &VirtletMetadata{
+				metadata := &LibvirtProviderMetadata{
 					Namespace: "foo",
 					Name:      "bar",
 				}
@@ -32,9 +32,9 @@ var _ = Describe("Meta", func() {
 
 		Describe("Unmarshal", func() {
 			It("should correctly unmarshal the metadata", func() {
-				metadata := &VirtletMetadata{}
+				metadata := &LibvirtProviderMetadata{}
 				Expect(xml.Unmarshal([]byte(expectedXML), metadata)).To(Succeed())
-				Expect(metadata).To(Equal(&VirtletMetadata{
+				Expect(metadata).To(Equal(&LibvirtProviderMetadata{
 					Namespace: "foo",
 					Name:      "bar",
 				}))
@@ -43,7 +43,7 @@ var _ = Describe("Meta", func() {
 
 		Describe("SGX Marshal", func() {
 			It("should correctly marshal the SGX metadata", func() {
-				metadata := &VirtletMetadata{
+				metadata := &LibvirtProviderMetadata{
 					Namespace: "foo",
 					Name:      "bar",
 					SGXMemory: ptr.To[int64](68719476736),
@@ -58,9 +58,9 @@ var _ = Describe("Meta", func() {
 
 		Describe("SGX Unmarshal", func() {
 			It("should correctly unmarshal the SGX metadata", func() {
-				metadata := &VirtletMetadata{}
+				metadata := &LibvirtProviderMetadata{}
 				Expect(xml.Unmarshal([]byte(sgxExpectedXML), metadata)).To(Succeed())
-				Expect(metadata).To(Equal(&VirtletMetadata{
+				Expect(metadata).To(Equal(&LibvirtProviderMetadata{
 					Namespace: "foo",
 					Name:      "bar",
 					SGXMemory: ptr.To[int64](68719476736),

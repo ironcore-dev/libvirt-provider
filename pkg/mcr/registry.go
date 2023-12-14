@@ -14,12 +14,12 @@ import (
 	"github.com/shirou/gopsutil/v3/mem"
 	"k8s.io/apimachinery/pkg/api/resource"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-func LoadMachineClasses(reader io.Reader) ([]ori.MachineClass, error) {
-	var classList []ori.MachineClass
+func LoadMachineClasses(reader io.Reader) ([]iri.MachineClass, error) {
+	var classList []iri.MachineClass
 	if err := yaml.NewYAMLOrJSONDecoder(reader, 4096).Decode(&classList); err != nil {
 		return nil, fmt.Errorf("unable to unmarshal machine classes: %w", err)
 	}
@@ -27,7 +27,7 @@ func LoadMachineClasses(reader io.Reader) ([]ori.MachineClass, error) {
 	return classList, nil
 }
 
-func LoadMachineClassesFile(filename string) ([]ori.MachineClass, error) {
+func LoadMachineClassesFile(filename string) ([]iri.MachineClass, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open machine class file (%s): %w", filename, err)
@@ -36,9 +36,9 @@ func LoadMachineClassesFile(filename string) ([]ori.MachineClass, error) {
 	return LoadMachineClasses(file)
 }
 
-func NewMachineClassRegistry(classes []ori.MachineClass) (*Mcr, error) {
+func NewMachineClassRegistry(classes []iri.MachineClass) (*Mcr, error) {
 	registry := Mcr{
-		classes: map[string]ori.MachineClass{},
+		classes: map[string]iri.MachineClass{},
 	}
 
 	for _, class := range classes {
@@ -52,16 +52,16 @@ func NewMachineClassRegistry(classes []ori.MachineClass) (*Mcr, error) {
 }
 
 type Mcr struct {
-	classes map[string]ori.MachineClass
+	classes map[string]iri.MachineClass
 }
 
-func (m *Mcr) Get(machineClassName string) (*ori.MachineClass, bool) {
+func (m *Mcr) Get(machineClassName string) (*iri.MachineClass, bool) {
 	class, found := m.classes[machineClassName]
 	return &class, found
 }
 
-func (m *Mcr) List() []*ori.MachineClass {
-	var classes []*ori.MachineClass
+func (m *Mcr) List() []*iri.MachineClass {
+	var classes []*iri.MachineClass
 	for name := range m.classes {
 		class := m.classes[name]
 		classes = append(classes, &class)
@@ -69,7 +69,7 @@ func (m *Mcr) List() []*ori.MachineClass {
 	return classes
 }
 
-func GetQuantity(class *ori.MachineClass, host *Host) int64 {
+func GetQuantity(class *iri.MachineClass, host *Host) int64 {
 	cpuRatio := host.Cpu.Value() / class.Capabilities.CpuMillis
 	memoryRatio := host.Mem.Value() / class.Capabilities.MemoryBytes
 

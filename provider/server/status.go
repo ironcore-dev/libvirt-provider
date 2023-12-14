@@ -7,11 +7,11 @@ import (
 	"context"
 	"fmt"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/mcr"
 )
 
-func (s *Server) Status(ctx context.Context, req *ori.StatusRequest) (*ori.StatusResponse, error) {
+func (s *Server) Status(ctx context.Context, req *iri.StatusRequest) (*iri.StatusResponse, error) {
 	log := s.loggerFrom(ctx)
 
 	host, err := mcr.GetResources(ctx)
@@ -22,16 +22,16 @@ func (s *Server) Status(ctx context.Context, req *ori.StatusRequest) (*ori.Statu
 	log.V(1).Info("Listing machine classes")
 	machineClassList := s.machineClasses.List()
 
-	var machineClassStatus []*ori.MachineClassStatus
+	var machineClassStatus []*iri.MachineClassStatus
 	for _, machineClass := range machineClassList {
-		machineClassStatus = append(machineClassStatus, &ori.MachineClassStatus{
+		machineClassStatus = append(machineClassStatus, &iri.MachineClassStatus{
 			MachineClass: machineClass,
 			Quantity:     mcr.GetQuantity(machineClass, host),
 		})
 	}
 
 	log.V(1).Info("Returning machine classes")
-	return &ori.StatusResponse{
+	return &iri.StatusResponse{
 		MachineClassStatus: machineClassStatus,
 	}, nil
 }

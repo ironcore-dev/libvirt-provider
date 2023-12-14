@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"sort"
 
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	"github.com/spf13/pflag"
 )
 
 type TypeOptions interface {
 	PluginName() string
 	AddFlags(fs *pflag.FlagSet)
-	NetworkInterfacePlugin() (virtletnetworkinterface.Plugin, func(), error)
+	NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error)
 }
 
 type TypeOptionsRegistry struct {
@@ -104,7 +104,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	})
 }
 
-func (o *Options) NetworkInterfacePlugin() (virtletnetworkinterface.Plugin, func(), error) {
+func (o *Options) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
 	pluginOpts, err := o.registry.PluginTypeOptsByName(o.PluginName)
 	if err != nil {
 		return nil, nil, err

@@ -23,14 +23,14 @@ const (
 )
 
 var (
-	log        logr.Logger
-	virtletDir string
+	log         logr.Logger
+	providerDir string
 )
 
 var _ = Describe("GetGPUAddress", Ordered, func() {
 	BeforeAll(func() {
 		for i := 0; i < 10; i++ {
-			devicePath := filepath.Join(virtletDir, fmt.Sprintf("0000:00:00.%d", i))
+			devicePath := filepath.Join(providerDir, fmt.Sprintf("0000:00:00.%d", i))
 			err := os.MkdirAll(devicePath, os.ModePerm)
 			Expect(err).ToNot(HaveOccurred(), "error creating test folder")
 
@@ -52,13 +52,13 @@ var _ = Describe("GetGPUAddress", Ordered, func() {
 	})
 	When("The PCI devices path exists", func() {
 		It("Should return error if there is no controller with NVIDIA vendor ID", func() {
-			_, err := GetGPUAddress(log, virtletDir)
+			_, err := GetGPUAddress(log, providerDir)
 			Expect(err).To(HaveOccurred())
 			Expect(err).Should(MatchError(errNoNVIDIAGPUController))
 		})
 
 		It("Should return error if the controller with NVIDIA vendor ID exists but its class ID does not match", func() {
-			devicePath := filepath.Join(virtletDir, "0000:vi:00.0")
+			devicePath := filepath.Join(providerDir, "0000:vi:00.0")
 			err := os.MkdirAll(devicePath, os.ModePerm)
 			Expect(err).ToNot(HaveOccurred(), "error creating test folder")
 
@@ -70,13 +70,13 @@ var _ = Describe("GetGPUAddress", Ordered, func() {
 			err = os.WriteFile(classFile, []byte(testClassID), filePerm)
 			Expect(err).ToNot(HaveOccurred(), "error writing to class file")
 
-			_, err = GetGPUAddress(log, virtletDir)
+			_, err = GetGPUAddress(log, providerDir)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(errNoNVIDIAGPUController))
 		})
 
 		It("Should return error if the controller with NVIDIA class ID exists but its vendor ID does not match", func() {
-			devicePath := filepath.Join(virtletDir, "0000:ci:00.0")
+			devicePath := filepath.Join(providerDir, "0000:ci:00.0")
 			err := os.MkdirAll(devicePath, os.ModePerm)
 			Expect(err).ToNot(HaveOccurred(), "error creating test folder")
 
@@ -88,13 +88,13 @@ var _ = Describe("GetGPUAddress", Ordered, func() {
 			err = os.WriteFile(classFile, []byte(fmt.Sprintf("%s0000", controllerClassIdPrefix)), filePerm)
 			Expect(err).ToNot(HaveOccurred(), "error writing to class file")
 
-			_, err = GetGPUAddress(log, virtletDir)
+			_, err = GetGPUAddress(log, providerDir)
 			Expect(err).To(HaveOccurred())
 			Expect(err).To(Equal(errNoNVIDIAGPUController))
 		})
 
 		It("Should return the desired DomainAddressPCI if the controller with NVIDIA vendor ID and class ID exists", func() {
-			devicePath := filepath.Join(virtletDir, "0000:ca:00.0")
+			devicePath := filepath.Join(providerDir, "0000:ca:00.0")
 			err := os.MkdirAll(devicePath, os.ModePerm)
 			Expect(err).ToNot(HaveOccurred(), "error creating test folder")
 
@@ -106,7 +106,7 @@ var _ = Describe("GetGPUAddress", Ordered, func() {
 			err = os.WriteFile(classFile, []byte(fmt.Sprintf("%s0000", controllerClassIdPrefix)), filePerm)
 			Expect(err).ToNot(HaveOccurred(), "error writing to vendor file")
 
-			domainAddressPCI, err := GetGPUAddress(log, virtletDir)
+			domainAddressPCI, err := GetGPUAddress(log, providerDir)
 			Expect(err).NotTo(HaveOccurred())
 
 			expectedDomain := uint(0)
@@ -168,10 +168,10 @@ var _ = DescribeTable("parsePCIAddress",
 )
 
 var _ = DescribeTable("readPCIAttributeWithBufio",
-	func(log logr.Logger, virtletDir, testAttribute string) {
-		_, err := readPCIAttributeWithBufio(log, virtletDir, testAttribute)
+	func(log logr.Logger, providerDir, testAttribute string) {
+		_, err := readPCIAttributeWithBufio(log, providerDir, testAttribute)
 		Expect(err).To(HaveOccurred())
 		Expect(errors.Is(err, os.ErrNotExist)).To(BeTrue())
 	},
-	Entry("should return an error", log, virtletDir, testAttribute),
+	Entry("should return an error", log, providerDir, testAttribute),
 )

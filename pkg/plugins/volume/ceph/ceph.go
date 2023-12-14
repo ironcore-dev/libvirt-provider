@@ -169,7 +169,7 @@ func (p *plugin) getVolumeData(ctx context.Context, spec *api.VolumeSpec, machin
 		return nil, fmt.Errorf("error reading secret: %w", err)
 	}
 
-	//TODO currently not supported in ORI
+	//TODO currently not supported in iri
 	//storageSpec := spec.Storage.Spec
 	//if storageSpec.Encryption != nil {
 	//	encryptionSecret := &corev1.Secret{}

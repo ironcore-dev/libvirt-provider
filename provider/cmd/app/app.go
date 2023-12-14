@@ -16,22 +16,22 @@ import (
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
 	"github.com/ironcore-dev/ironcore/broker/common"
 	commongrpc "github.com/ironcore-dev/ironcore/broker/common/grpc"
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/controllers"
 	"github.com/ironcore-dev/libvirt-provider/pkg/event"
 	"github.com/ironcore-dev/libvirt-provider/pkg/host"
-	virtletimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
+	providerimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
 	"github.com/ironcore-dev/libvirt-provider/pkg/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/pkg/mcr"
 	volumeplugin "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume/ceph"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume/emptydisk"
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"github.com/ironcore-dev/libvirt-provider/pkg/qcow2"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
-	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	"github.com/ironcore-dev/libvirt-provider/provider/server"
 	"github.com/spf13/cobra"
@@ -83,8 +83,8 @@ type LibvirtOptions struct {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.Address, "address", "/var/run/ori-machinebroker.sock", "Address to listen on.")
-	fs.StringVar(&o.RootDir, "virtlet-dir", filepath.Join(homeDir, ".virtlet"), "Path to the directory virtlet manages its content at.")
+	fs.StringVar(&o.Address, "address", "/var/run/iri-machinebroker.sock", "Address to listen on.")
+	fs.StringVar(&o.RootDir, "libvirt-provider-dir", filepath.Join(homeDir, ".libvirt-provider"), "Path to the directory libvirt-provider manages its content at.")
 
 	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
 
@@ -169,9 +169,9 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 
-	virtletHost, err := virtlethost.NewLibvirtAt(apinetClient, opts.RootDir, libvirt)
+	providerHost, err := providerhost.NewLibvirtAt(apinetClient, opts.RootDir, libvirt)
 	if err != nil {
-		setupLog.Error(err, "error creating virtlet host")
+		setupLog.Error(err, "error creating provider host")
 		return err
 	}
 
@@ -181,7 +181,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	imgCache, err := virtletimage.NewLocalCache(log, reg, virtletHost.OCIStore())
+	imgCache, err := providerimage.NewLocalCache(log, reg, providerHost.OCIStore())
 	if err != nil {
 		setupLog.Error(err, "error setting up image manager")
 		return err
@@ -210,7 +210,7 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	volumePlugins := volumeplugin.NewPluginManager()
-	if err := volumePlugins.InitPlugins(virtletHost, []volumeplugin.Plugin{
+	if err := volumePlugins.InitPlugins(providerHost, []volumeplugin.Plugin{
 		ceph.NewPlugin(),
 		emptydisk.NewPlugin(qcow2Inst, rawInst),
 	}); err != nil {
@@ -228,16 +228,16 @@ func Run(ctx context.Context, opts Options) error {
 
 	setupLog.Info("Initializing network interface plugin")
 
-	if err := nicPlugin.Init(virtletHost); err != nil {
+	if err := nicPlugin.Init(providerHost); err != nil {
 		setupLog.Error(err, "Error initializing network plugin")
 		return err
 	}
 
-	setupLog.Info("Configuring machine store", "Directory", virtletHost.MachineStoreDir())
+	setupLog.Info("Configuring machine store", "Directory", providerHost.MachineStoreDir())
 	machineStore, err := host.NewStore(host.Options[*api.Machine]{
 		NewFunc:        func() *api.Machine { return &api.Machine{} },
 		CreateStrategy: utils.MachineStrategy,
-		Dir:            virtletHost.MachineStoreDir(),
+		Dir:            providerHost.MachineStoreDir(),
 	})
 	if err != nil {
 		return fmt.Errorf("failed to initialize machine store: %w", err)
@@ -261,7 +261,7 @@ func Run(ctx context.Context, opts Options) error {
 			GuestCapabilities:      caps,
 			ImageCache:             imgCache,
 			Raw:                    rawInst,
-			Host:                   virtletHost,
+			Host:                   providerHost,
 			VolumePluginManager:    volumePlugins,
 			NetworkInterfacePlugin: nicPlugin,
 		},
@@ -337,7 +337,7 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 			commongrpc.LogRequest,
 		),
 	)
-	ori.RegisterMachineRuntimeServer(grpcSrv, srv)
+	iri.RegisterMachineRuntimeServer(grpcSrv, srv)
 
 	setupLog.V(1).Info("Start listening on unix socket", "Address", opts.Address)
 	l, err := net.Listen("unix", opts.Address)

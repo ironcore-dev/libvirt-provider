@@ -8,40 +8,40 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/provider/apiutils"
 )
 
-func calcResources(class *ori.MachineClass) (int64, int64) {
+func calcResources(class *iri.MachineClass) (int64, int64) {
 	//Todo do some magic
 	return class.Capabilities.CpuMillis, class.Capabilities.MemoryBytes
 }
 
-func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logger, oriMachine *ori.Machine) (*api.Machine, error) {
+func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
 	log.V(2).Info("Getting libvirt machine config")
 
-	if oriMachine == nil {
-		return nil, fmt.Errorf("ori machine is nil")
+	if iriMachine == nil {
+		return nil, fmt.Errorf("iri machine is nil")
 	}
 
-	class, found := s.machineClasses.Get(oriMachine.Spec.Class)
+	class, found := s.machineClasses.Get(iriMachine.Spec.Class)
 	if !found {
-		return nil, fmt.Errorf("machine class '%s' not supported", oriMachine.Spec.Class)
+		return nil, fmt.Errorf("machine class '%s' not supported", iriMachine.Spec.Class)
 	}
 	log.V(2).Info("Validated class")
 
 	cpu, memory := calcResources(class)
 
-	power, err := s.getPowerStateFromOri(oriMachine.Spec.Power)
+	power, err := s.getPowerStateFromIRI(iriMachine.Spec.Power)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get power state: %w", err)
 	}
 
 	var volumes []*api.VolumeSpec
-	for _, oriVolume := range oriMachine.Spec.Volumes {
-		volumeSpec, err := s.getVolumeFromORIVolume(oriVolume)
+	for _, iriVolume := range iriMachine.Spec.Volumes {
+		volumeSpec, err := s.getVolumeFromIRIVolume(iriVolume)
 		if err != nil {
 			return nil, fmt.Errorf("error converting volume: %w", err)
 		}
@@ -50,12 +50,12 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 	}
 
 	var networkInterfaces []*api.NetworkInterfaceSpec
-	for _, oriNetworkInterface := range oriMachine.Spec.NetworkInterfaces {
+	for _, iriNetworkInterface := range iriMachine.Spec.NetworkInterfaces {
 		networkInterfaceSpec := &api.NetworkInterfaceSpec{
-			Name:       oriNetworkInterface.Name,
-			NetworkId:  oriNetworkInterface.NetworkId,
-			Ips:        oriNetworkInterface.Ips,
-			Attributes: oriNetworkInterface.Attributes,
+			Name:       iriNetworkInterface.Name,
+			NetworkId:  iriNetworkInterface.NetworkId,
+			Ips:        iriNetworkInterface.Ips,
+			Attributes: iriNetworkInterface.Attributes,
 		}
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}
@@ -69,19 +69,19 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 			CpuMillis:         cpu,
 			MemoryBytes:       memory,
 			Volumes:           volumes,
-			Ignition:          oriMachine.Spec.IgnitionData,
+			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
 		},
 	}
 
-	if err := apiutils.SetObjectMetadata(machine, oriMachine.Metadata); err != nil {
+	if err := apiutils.SetObjectMetadata(machine, iriMachine.Metadata); err != nil {
 		return nil, fmt.Errorf("failed to set metadata: %w", err)
 	}
-	apiutils.SetClassLabel(machine, oriMachine.Spec.Class)
+	apiutils.SetClassLabel(machine, iriMachine.Spec.Class)
 	apiutils.SetManagerLabel(machine, machinev1alpha1.MachineManager)
 
-	if oriMachine.Spec.Image != nil {
-		machine.Spec.Image = &oriMachine.Spec.Image.Image
+	if iriMachine.Spec.Image != nil {
+		machine.Spec.Image = &iriMachine.Spec.Image.Image
 	}
 
 	apiMachine, err := s.machineStore.Create(ctx, machine)
@@ -92,22 +92,22 @@ func (s *Server) createMachineFromORIMachine(ctx context.Context, log logr.Logge
 	return apiMachine, nil
 }
 
-func (s *Server) CreateMachine(ctx context.Context, req *ori.CreateMachineRequest) (res *ori.CreateMachineResponse, retErr error) {
+func (s *Server) CreateMachine(ctx context.Context, req *iri.CreateMachineRequest) (res *iri.CreateMachineResponse, retErr error) {
 	log := s.loggerFrom(ctx)
 
-	log.V(1).Info("Creating machine from ori machine")
-	machine, err := s.createMachineFromORIMachine(ctx, log, req.Machine)
+	log.V(1).Info("Creating machine from iri machine")
+	machine, err := s.createMachineFromIRIMachine(ctx, log, req.Machine)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get libvirt machine config: %w", err)
 	}
 
-	log.V(1).Info("Converting machine to ori machine")
-	oriMachine, err := s.convertMachineToOriMachine(ctx, log, machine)
+	log.V(1).Info("Converting machine to iri machine")
+	iriMachine, err := s.convertMachineToIRIMachine(ctx, log, machine)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert machine: %w", err)
 	}
 
-	return &ori.CreateMachineResponse{
-		Machine: oriMachine,
+	return &iri.CreateMachineResponse{
+		Machine: iriMachine,
 	}, nil
 }

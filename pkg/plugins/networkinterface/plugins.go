@@ -10,7 +10,7 @@ import (
 	computev1alpha1 "github.com/ironcore-dev/ironcore/api/compute/v1alpha1"
 	networkingv1alpha1 "github.com/ironcore-dev/ironcore/api/networking/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
-	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -89,7 +89,7 @@ func GetSpec(ctx context.Context, c client.Reader, namespace, machineName string
 
 type Plugin interface {
 	Name() string
-	Init(host virtlethost.Host) error
+	Init(host providerhost.Host) error
 
 	Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*NetworkInterface, error)
 	Delete(ctx context.Context, computeNicName string, machineID string) error

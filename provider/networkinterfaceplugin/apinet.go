@@ -6,7 +6,7 @@ package networkinterfaceplugin
 import (
 	"fmt"
 
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface/apinet"
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -24,7 +24,7 @@ func (o *apinetOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.APInetNodeName, "apinet-node-name", "", "APInet node name")
 }
 
-func (o *apinetOptions) NetworkInterfacePlugin() (virtletnetworkinterface.Plugin, func(), error) {
+func (o *apinetOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
 	if o.APInetNodeName == "" {
 		return nil, nil, fmt.Errorf("must specify apinet-node-name")
 	}

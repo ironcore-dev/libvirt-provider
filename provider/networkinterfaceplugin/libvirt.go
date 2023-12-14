@@ -4,7 +4,7 @@
 package networkinterfaceplugin
 
 import (
-	virtletnetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface/providernetwork"
 	"github.com/spf13/pflag"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -18,7 +18,7 @@ func (o *libvirtNetworkOptions) PluginName() string {
 	return "providernet"
 }
 
-func (o *libvirtNetworkOptions) NetworkInterfacePlugin() (virtletnetworkinterface.Plugin, func(), error) {
+func (o *libvirtNetworkOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
 	return providernetwork.NewPlugin(), nil, nil
 }
 

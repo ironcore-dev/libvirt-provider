@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	ori "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/host"
 	"github.com/ironcore-dev/libvirt-provider/pkg/mcr"
@@ -52,11 +52,11 @@ var _ = BeforeSuite(func() {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	machineClasses, err := mcr.NewMachineClassRegistry([]ori.MachineClass{
+	machineClasses, err := mcr.NewMachineClassRegistry([]iri.MachineClass{
 		{
 			//TODO
 			Name: "x3-xlarge",
-			Capabilities: &ori.MachineClassCapabilities{
+			Capabilities: &iri.MachineClassCapabilities{
 				CpuMillis:   4000,
 				MemoryBytes: 8589934592,
 			},
