@@ -52,9 +52,12 @@ var (
 	}
 )
 
+type TuneFunc func(context.Context, *libvirtxml.Domain, *api.Machine, *MachineReconciler) error
+
 type MachineReconcilerOptions struct {
 	GuestCapabilities      guest.Capabilities
 	TCMallocLibPath        string
+	DomainTuners           []TuneFunc
 	ImageCache             virtletimage.Cache
 	Raw                    raw.Raw
 	Host                   virtlethost.Host
@@ -89,6 +92,7 @@ func NewMachineReconciler(
 		machineEvents:          machineEvents,
 		guestCapabilities:      opts.GuestCapabilities,
 		tcMallocLibPath:        opts.TCMallocLibPath,
+		DomainTuners:           opts.DomainTuners,
 		host:                   opts.Host,
 		imageCache:             opts.ImageCache,
 		raw:                    opts.Raw,
@@ -104,6 +108,7 @@ type MachineReconciler struct {
 	libvirt           *libvirt.Libvirt
 	guestCapabilities guest.Capabilities
 	tcMallocLibPath   string
+	DomainTuners      []TuneFunc
 	host              virtlethost.Host
 	imageCache        virtletimage.Cache
 	raw               raw.Raw
@@ -396,6 +401,12 @@ func (r *MachineReconciler) createDomain(
 	domainXML, volumeStates, nicStates, err := r.domainFor(ctx, log, machine)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	for _, tune := range r.DomainTuners {
+		if err := tune(ctx, domainXML, machine, r); err != nil {
+			return nil, nil, err
+		}
 	}
 
 	domainXMLData, err := domainXML.Marshal()

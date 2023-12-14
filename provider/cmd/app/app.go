@@ -34,6 +34,7 @@ import (
 	virtlethost "github.com/ironcore-dev/libvirt-provider/pkg/virtlethost"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	"github.com/ironcore-dev/libvirt-provider/provider/server"
+	"github.com/prometheus/procfs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
@@ -80,6 +81,10 @@ type LibvirtOptions struct {
 	PreferredMachineTypes []string
 
 	Qcow2Type string
+
+	DisableNuma      bool
+	BlockedCPUs      []int
+	DisableHugepages bool
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
@@ -94,6 +99,11 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Libvirt.Socket, "libvirt-socket", o.Libvirt.Socket, "Path to the libvirt socket to use.")
 	fs.StringVar(&o.Libvirt.Address, "libvirt-address", o.Libvirt.Address, "Address of a RPC libvirt socket to connect to.")
 	fs.StringVar(&o.Libvirt.URI, "libvirt-uri", o.Libvirt.URI, "URI to connect to inside the libvirt system.")
+
+	// Numa and Hugepages
+	fs.BoolVar(&o.Libvirt.DisableHugepages, "disable-hugepages", false, "Disable using Hugepages.")
+	fs.BoolVar(&o.Libvirt.DisableNuma, "disable-numa", false, "Disable using NUMA aware memory allocation. Effective only if --disable-hugepages is disabled.")
+	fs.IntSliceVar(&o.Libvirt.BlockedCPUs, "blocked-cpus", []int{}, "List of CPU cores where VMs are not scheduled. Effective only if --disable-numa is disabled.")
 
 	// Guest Capabilities
 	fs.StringSliceVar(&o.Libvirt.PreferredDomainTypes, "preferred-domain-types", []string{"kvm", "qemu"}, "Ordered list of preferred domain types to use.")
@@ -252,6 +262,45 @@ func Run(ctx context.Context, opts Options) error {
 		return fmt.Errorf("failed to initialize machine events: %w", err)
 	}
 
+	var tuneFuncs []controllers.TuneFunc
+	if !opts.Libvirt.DisableHugepages {
+		fs, err := procfs.NewDefaultFS()
+		if err != nil {
+			setupLog.Error(err, "unable to setup procfs")
+			os.Exit(1)
+		}
+		meminfo, err := fs.Meminfo()
+		if err != nil {
+			setupLog.Error(err, "unable to get memory info")
+			os.Exit(1)
+		}
+		tuneFunc, err := host.InitHugepageTuner(libvirt, *meminfo.Hugepagesize)
+		if err != nil {
+			setupLog.Error(err, "unable setup numa tuner")
+			os.Exit(1)
+		}
+		tuneFuncs = append(tuneFuncs, tuneFunc)
+	}
+
+	if !opts.Libvirt.DisableNuma {
+		fs, err := procfs.NewDefaultFS()
+		if err != nil {
+			setupLog.Error(err, "unable to setup procfs")
+			os.Exit(1)
+		}
+		meminfo, err := fs.Meminfo()
+		if err != nil {
+			setupLog.Error(err, "unable to get memory info")
+			os.Exit(1)
+		}
+		tuneFunc, err := host.InitNumaTuneFunc(libvirt, *meminfo.Hugepagesize, opts.Libvirt.BlockedCPUs)
+		if err != nil {
+			setupLog.Error(err, "unable setup numa tuner")
+			os.Exit(1)
+		}
+		tuneFuncs = append(tuneFuncs, tuneFunc)
+	}
+
 	machineReconciler, err := controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
 		libvirt,
@@ -264,6 +313,7 @@ func Run(ctx context.Context, opts Options) error {
 			Host:                   virtletHost,
 			VolumePluginManager:    volumePlugins,
 			NetworkInterfacePlugin: nicPlugin,
+			DomainTuners:           tuneFuncs,
 		},
 	)
 	if err != nil {
