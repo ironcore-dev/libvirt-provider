@@ -132,7 +132,7 @@ deploy: kustomize ## Deploy libvirt-provider into the K8s cluster specified in ~
 undeploy: #kustomize ## Undeploy libvirt-provider from the K8s cluster specified in ~/.kube/config.
 	kubectl delete -k config/default
 
-##@ Tools
+##@ Tools (The command takes tool binaries, path and then correct tool versions as an arguments.)
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -178,6 +178,8 @@ clean-tools: ## Clean any artifacts that can be regenerated.
 .PHONY: addlicense 
 addlicense: $(LOCALBIN) ## Add license headers to all go files.
 	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
+
+## Please provide correct command, tool binaries, ppath and then correct tool versions.
 
 
 # go-install-tool will 'go install' any $1 package.
