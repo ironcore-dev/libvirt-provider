@@ -20,9 +20,9 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/sync v0.5.0
 	google.golang.org/grpc v1.60.0
-	k8s.io/api v0.28.4
+	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
-	k8s.io/client-go v0.28.4
+	k8s.io/client-go v0.29.0
 	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
 	libvirt.org/go/libvirtxml v1.9008.0
 	sigs.k8s.io/controller-runtime v0.16.3
