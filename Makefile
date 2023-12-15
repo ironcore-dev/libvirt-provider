@@ -172,11 +172,13 @@ clean-tools: ## Clean any artifacts that can be regenerated.
 	rm -rf $(LOCALBIN)
 
 .PHONY: addlicense
-addlicense: $(LOCALBIN) ## Add license headers to all go files. The command takes tool binaries, path and then correct tool versions as an arguments.
+addlicense: $(LOCALBIN) ## Add license headers to all go files.
 	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
 
-# go-install-tool will 'go install' any $1 package.
-# it will add v. prefix into url, if url isn't contain version
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary (ideally with version)
+# $2 - package url which can be installed
+# $3 - specific version of package
 define go-install-tool
 @[ -f $(1) ] || { \
 set -e; \
