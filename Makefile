@@ -1,4 +1,3 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 
@@ -73,7 +72,6 @@ add-license: addlicense ## Add license headers to all go files.
 check-license: addlicense ## Check that every file has a license header present.
 	find . -name '*.go' -exec $(ADDLICENSE) -check -c 'IronCore authors' {} +
 
-
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -132,7 +130,7 @@ deploy: kustomize ## Deploy libvirt-provider into the K8s cluster specified in ~
 undeploy: #kustomize ## Undeploy libvirt-provider from the K8s cluster specified in ~/.kube/config.
 	kubectl delete -k config/default
 
-##@ Tools (The command takes tool binaries, path and then correct tool versions as an arguments.)
+##@ Tools
 
 ## Location to install dependencies to
 LOCALBIN ?= $(shell pwd)/bin
@@ -158,29 +156,24 @@ kustomize: $(LOCALBIN) ## Download kustomize locally if necessary.
     $(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
-controller-gen: $(LOCALBIN)
+controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary.
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,${CONTROLLER_GEN_VERSION})
-
 
 .PHONY: envtest
 envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
-#	test -s $(ENVTEST) || true
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,${ENVTEST_VERSION})
 
-.PHONY: golangci-lint 
+.PHONY: golangci-lint
 golangci-lint: $(LOCALBIN) ## Run golangci-lint on the code.
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
 
-.PHONY: clean-tools  
+.PHONY: clean-tools
 clean-tools: ## Clean any artifacts that can be regenerated.
 	rm -rf $(LOCALBIN)
 
-.PHONY: addlicense 
-addlicense: $(LOCALBIN) ## Add license headers to all go files.
+.PHONY: addlicense
+addlicense: $(LOCALBIN) ## Add license headers to all go files. The command takes tool binaries, path and then correct tool versions as an arguments.
 	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
-
-## Please provide correct command, tool binaries, ppath and then correct tool versions.
-
 
 # go-install-tool will 'go install' any $1 package.
 # it will add v. prefix into url, if url isn't contain version
