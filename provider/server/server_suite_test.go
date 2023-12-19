@@ -27,6 +27,7 @@ const (
 	eventuallyTimeout    = 3 * time.Second
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
+	baseURL              = "http://localhost:8080"
 )
 
 func TestServer(t *testing.T) {
@@ -65,6 +66,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	srv, err = server.New(server.Options{
+		BaseURL:        baseURL,
 		MachineStore:   machineStore,
 		MachineClasses: machineClasses,
 	})

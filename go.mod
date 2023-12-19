@@ -5,13 +5,16 @@ go 1.21
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/containerd/containerd v1.7.11
+	github.com/creack/pty v1.1.18
 	github.com/digitalocean/go-libvirt v0.0.0-20221205150000-2939327a8519
+	github.com/go-chi/chi/v5 v5.0.10
 	github.com/go-logr/logr v1.4.0
 	github.com/google/uuid v1.5.0
 	github.com/ironcore-dev/controller-utils v0.9.1
 	github.com/ironcore-dev/ironcore v0.1.2-0.20231214085931-212c5a601da2
 	github.com/ironcore-dev/ironcore-image v0.2.0
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20231127161134-cf5b10137532
+	github.com/moby/term v0.5.0
 	github.com/onsi/ginkgo/v2 v2.13.2
 	github.com/onsi/gomega v1.30.0
 	github.com/opencontainers/image-spec v1.1.0-rc5
@@ -63,6 +66,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20210720184732-4bb14d4b1be1 // indirect
 	github.com/gorilla/mux v1.8.0 // indirect
+	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/imdario/mergo v0.3.13 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
@@ -72,11 +76,12 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/moby/locker v1.0.1 // indirect
-	github.com/moby/term v0.5.0 // indirect
+	github.com/moby/spdystream v0.2.0 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
+	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
@@ -113,6 +118,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/apiextensions-apiserver v0.29.0 // indirect
+	k8s.io/apiserver v0.29.0 // indirect
 	k8s.io/component-base v0.29.0 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
