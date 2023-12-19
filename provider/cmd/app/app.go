@@ -313,6 +313,7 @@ func Run(ctx context.Context, opts Options) error {
 		setupLog.Info("Starting machine events")
 		if err := machineEvents.Start(ctx); err != nil {
 			log.Error(err, "failed to start machine events")
+			return err
 		}
 		return nil
 	})
