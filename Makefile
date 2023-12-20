@@ -11,7 +11,8 @@ MKDOCS_IMG=onmetal/libvirt-provider-docs
 TARGET_OS ?= linux
 TARGET_ARCH ?= amd64
 
-LIBVERTPROVIDERBIN=$(LOCALBIN)/libvert-provider
+LIBVERTPROVIDERBIN=$(LOCALBIN)/libvirt-provider
+LIBVERTPROVIDERMAINPATH=$(shell pwd)/provider/cmd
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -106,7 +107,7 @@ clean-docs: ## Remove all local mkdocs Docker images (cleanup).
 
 .PHONY: build
 build: generate fmt add-license lint ## Build the binary
-	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o $(LIBVERTPROVIDERBIN) ./main.go
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o LIBVERTPROVIDERBIN $(LIBVERTPROVIDERMAINPATH)/main.go
 
 .PHONY: run
 run-base: generate fmt lint ## Run the binary
@@ -145,8 +146,8 @@ GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
 ADDLICENSE ?= $(LOCALBIN)/addlicense-$(ADDLICENSE_VERSION)
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v0.13.0
-CONTROLLER_GEN_VERSION ?= v0.9.0
+KUSTOMIZE_VERSION ?= v5.3.0
+CONTROLLER_GEN_VERSION ?= v0.13.0
 ENVTEST_VERSION ?= release-0.15
 GOLANGCI_LINT_VERSION ?= v1.55.2
 ADDLICENSE_VERSION ?= v1.1.1
