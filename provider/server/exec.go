@@ -5,6 +5,7 @@ package server
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,7 +21,10 @@ import (
 	remotecommandserver "github.com/ironcore-dev/ironcore/poollet/machinepoollet/iri/streaming/remotecommand"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
+	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/moby/term"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	"k8s.io/client-go/tools/remotecommand"
 )
 
@@ -39,6 +43,14 @@ type executorExec struct {
 func (s *Server) Exec(ctx context.Context, req *iri.ExecRequest) (*iri.ExecResponse, error) {
 	machineID := req.MachineId
 	log := s.loggerFrom(ctx, "MachineID", machineID)
+
+	log.V(1).Info("Verifying machine in the store")
+	if _, err := s.machineStore.Get(ctx, req.MachineId); err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("error getting machine: %w", err)
+		}
+		return nil, status.Errorf(codes.NotFound, "machine %s not found", req.MachineId)
+	}
 
 	log.V(1).Info("Inserting request into cache")
 	token, err := s.execRequestCache.Insert(req)
@@ -65,6 +77,11 @@ func (s *Server) ServeExec(w http.ResponseWriter, req *http.Request, token strin
 	apiMachine, err := s.machineStore.Get(ctx, request.MachineId)
 	if err != nil {
 		log.Error(err, "error getting the apiMachine")
+		if errors.Is(err, store.ErrNotFound) {
+			http.NotFound(w, req)
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusInternalServerError), http.StatusInternalServerError)
 		return
 	}
 
@@ -97,7 +114,7 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 
 	// Check if the apiMachine doesn't exist, to avoid making the libvirt-lookup call.
 	if e.Machine == nil {
-		return fmt.Errorf("apiMachine not found")
+		return fmt.Errorf("apiMachine %w in the store", store.ErrNotFound)
 	}
 
 	_, err := e.Libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
