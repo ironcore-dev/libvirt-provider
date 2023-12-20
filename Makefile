@@ -111,7 +111,7 @@ build: generate fmt add-license lint ## Build the binary
 
 .PHONY: run
 run-base: generate fmt lint ## Run the binary
-	go run ./main.go
+	go run $(LIBVIRTPROVIDERMAINPATH)/main.go
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with partitionlet.
