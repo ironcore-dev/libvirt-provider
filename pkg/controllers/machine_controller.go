@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"os"
@@ -13,11 +14,13 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
+	ironcorev1alpha1 "github.com/ironcore-dev/ironcore/poollet/machinepoollet/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/event"
 	providerimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
 	"github.com/ironcore-dev/libvirt-provider/pkg/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
+	providermeta "github.com/ironcore-dev/libvirt-provider/pkg/meta"
 	"github.com/ironcore-dev/libvirt-provider/pkg/os/osutils"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
@@ -512,6 +515,10 @@ func (r *MachineReconciler) domainFor(
 		},
 	}
 
+	if err := r.setDomainMetadata(machine, domainDesc); err != nil {
+		return nil, nil, nil, err
+	}
+
 	if err := r.setDomainResources(ctx, log, machine, domainDesc); err != nil {
 		return nil, nil, nil, err
 	}
@@ -552,6 +559,21 @@ func (r *MachineReconciler) domainFor(
 	}
 
 	return domainDesc, volumeStates, nicStates, nil
+}
+
+func (r *MachineReconciler) setDomainMetadata(machine *api.Machine, domain *libvirtxml.Domain) error {
+	domainMetadata := &providermeta.LibvirtProviderMetadata{
+		Namespace: machine.Metadata.Labels[ironcorev1alpha1.MachineNamespaceLabel],
+		Name:      machine.Metadata.Labels[ironcorev1alpha1.MachineNameLabel],
+	}
+	domainMetadataXML, err := xml.Marshal(domainMetadata)
+	if err != nil {
+		return err
+	}
+	domain.Metadata = &libvirtxml.DomainMetadata{
+		XML: string(domainMetadataXML),
+	}
+	return nil
 }
 
 func (r *MachineReconciler) setDomainResources(ctx context.Context, log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {

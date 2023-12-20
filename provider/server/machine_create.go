@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	ironcorev1alpha1 "github.com/ironcore-dev/ironcore/poollet/machinepoollet/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/provider/apiutils"
@@ -78,6 +79,8 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		return nil, fmt.Errorf("failed to set metadata: %w", err)
 	}
 	apiutils.SetClassLabel(machine, iriMachine.Spec.Class)
+	apiutils.SetMachineNamespaceLabel(machine, iriMachine.Metadata.Labels[ironcorev1alpha1.MachineNamespaceLabel])
+	apiutils.SetMachineNameLabel(machine, iriMachine.Metadata.Labels[ironcorev1alpha1.MachineNameLabel])
 	apiutils.SetManagerLabel(machine, machinev1alpha1.MachineManager)
 
 	if iriMachine.Spec.Image != nil {
