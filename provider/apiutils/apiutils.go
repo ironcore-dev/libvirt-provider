@@ -114,8 +114,8 @@ func SetMachineNamespaceLabel(o api.Object, namespace string) {
 	metautils.SetLabel(o, ironcorev1alpha1.MachineNamespaceLabel, namespace)
 }
 
-func SetMachineNameLabel(o api.Object, namespace string) {
-	metautils.SetLabel(o, ironcorev1alpha1.MachineNameLabel, namespace)
+func SetMachineNameLabel(o api.Object, name string) {
+	metautils.SetLabel(o, ironcorev1alpha1.MachineNameLabel, name)
 }
 
 func IsManagedBy(o api.Object, manager string) bool {
