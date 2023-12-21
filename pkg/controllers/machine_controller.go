@@ -516,7 +516,7 @@ func (r *MachineReconciler) domainFor(
 		},
 	}
 
-	if err := r.setDomainMetadata(machine, domainDesc); err != nil {
+	if err := r.setDomainMetadata(log, machine, domainDesc); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -562,10 +562,14 @@ func (r *MachineReconciler) domainFor(
 	return domainDesc, volumeStates, nicStates, nil
 }
 
-func (r *MachineReconciler) setDomainMetadata(machine *api.Machine, domain *libvirtxml.Domain) error {
+func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {
+	labels, found := machine.Metadata.Annotations[machinev1alpha1.LabelsAnnotation]
+	if !found {
+		log.V(1).Info("IRI machine labels are not annotated in the API machine", "Machine", machine.ID)
+		return nil
+	}
 	var irimachineLabels map[string]string
-
-	err := json.Unmarshal([]byte(machine.Metadata.Annotations[machinev1alpha1.LabelsAnnotation]), &irimachineLabels)
+	err := json.Unmarshal([]byte(labels), &irimachineLabels)
 	if err != nil {
 		return fmt.Errorf("error unmarshalling iri machine labels: %w", err)
 	}
