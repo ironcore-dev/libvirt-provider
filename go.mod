@@ -8,7 +8,7 @@ require (
 	github.com/digitalocean/go-libvirt v0.0.0-20221205150000-2939327a8519
 	github.com/go-logr/logr v1.3.0
 	github.com/google/uuid v1.5.0
-	github.com/ironcore-dev/controller-utils v0.9.0
+	github.com/ironcore-dev/controller-utils v0.9.1
 	github.com/ironcore-dev/ironcore v0.1.2-0.20231214085931-212c5a601da2
 	github.com/ironcore-dev/ironcore-image v0.2.0
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20231127161134-cf5b10137532
@@ -23,7 +23,7 @@ require (
 	k8s.io/api v0.29.0
 	k8s.io/apimachinery v0.29.0
 	k8s.io/client-go v0.29.0
-	k8s.io/utils v0.0.0-20230726121419-3b25d923346b
+	k8s.io/utils v0.0.0-20231127182322-b307cd553661
 	libvirt.org/go/libvirtxml v1.9008.0
 	sigs.k8s.io/controller-runtime v0.16.3
 )
@@ -47,7 +47,7 @@ require (
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/felixge/httpsnoop v1.0.3 // indirect
-	github.com/fsnotify/fsnotify v1.6.0 // indirect
+	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
@@ -112,8 +112,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
-	k8s.io/apiextensions-apiserver v0.28.4 // indirect
-	k8s.io/component-base v0.28.4 // indirect
+	k8s.io/apiextensions-apiserver v0.29.0 // indirect
+	k8s.io/component-base v0.29.0 // indirect
 	k8s.io/klog/v2 v2.110.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	oras.land/oras-go v1.2.4 // indirect
