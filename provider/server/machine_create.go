@@ -22,8 +22,13 @@ func calcResources(class *iri.MachineClass) (int64, int64) {
 func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
 	log.V(2).Info("Getting libvirt machine config")
 
-	if iriMachine == nil {
+	switch {
+	case iriMachine == nil:
 		return nil, fmt.Errorf("iri machine is nil")
+	case iriMachine.Spec == nil:
+		return nil, fmt.Errorf("iri machine spec is nil")
+	case iriMachine.Metadata == nil:
+		return nil, fmt.Errorf("iri machine metadata is nil")
 	}
 
 	class, found := s.machineClasses.Get(iriMachine.Spec.Class)

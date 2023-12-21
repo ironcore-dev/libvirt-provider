@@ -5,6 +5,8 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"os"
@@ -18,6 +20,7 @@ import (
 	providerimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
 	"github.com/ironcore-dev/libvirt-provider/pkg/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
+	providermeta "github.com/ironcore-dev/libvirt-provider/pkg/meta"
 	"github.com/ironcore-dev/libvirt-provider/pkg/os/osutils"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
@@ -25,6 +28,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
+	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"libvirt.org/go/libvirtxml"
@@ -512,6 +516,10 @@ func (r *MachineReconciler) domainFor(
 		},
 	}
 
+	if err := r.setDomainMetadata(log, machine, domainDesc); err != nil {
+		return nil, nil, nil, err
+	}
+
 	if err := r.setDomainResources(ctx, log, machine, domainDesc); err != nil {
 		return nil, nil, nil, err
 	}
@@ -552,6 +560,34 @@ func (r *MachineReconciler) domainFor(
 	}
 
 	return domainDesc, volumeStates, nicStates, nil
+}
+
+func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {
+	labels, found := machine.Metadata.Annotations[machinev1alpha1.LabelsAnnotation]
+	if !found {
+		log.V(1).Info("IRI machine labels are not annotated in the API machine")
+		return nil
+	}
+	var irimachineLabels map[string]string
+	err := json.Unmarshal([]byte(labels), &irimachineLabels)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling iri machine labels: %w", err)
+	}
+
+	encodedLabels := providermeta.IRIMachineLabelsEncoder(irimachineLabels)
+
+	domainMetadata := &providermeta.LibvirtProviderMetadata{
+		IRIMmachineLabels: encodedLabels,
+	}
+
+	domainMetadataXML, err := xml.Marshal(domainMetadata)
+	if err != nil {
+		return err
+	}
+	domain.Metadata = &libvirtxml.DomainMetadata{
+		XML: string(domainMetadataXML),
+	}
+	return nil
 }
 
 func (r *MachineReconciler) setDomainResources(ctx context.Context, log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {

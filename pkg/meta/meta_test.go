@@ -9,64 +9,70 @@ import (
 	. "github.com/ironcore-dev/libvirt-provider/pkg/meta"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/utils/ptr"
 )
 
-const expectedXML = `<libvirtprovider:metadata xmlns:libvirtprovider="https://github.com/ironcore-dev/libvirt-provider"><libvirtprovider:namespace>foo</libvirtprovider:namespace><libvirtprovider:name>bar</libvirtprovider:name></libvirtprovider:metadata>`
-const sgxExpectedXML = `<libvirtprovider:metadata xmlns:libvirtprovider="https://github.com/ironcore-dev/libvirt-provider"><libvirtprovider:namespace>foo</libvirtprovider:namespace><libvirtprovider:name>bar</libvirtprovider:name><libvirtprovider:sgx_memory>68719476736</libvirtprovider:sgx_memory><libvirtprovider:sgx_node>0</libvirtprovider:sgx_node></libvirtprovider:metadata>`
+const libvirtProviderURL = "https://github.com/ironcore-dev/libvirt-provider"
 
-var _ = Describe("Meta", func() {
-	Context("LibvirtProviderMetadata", func() {
-		Describe("Marshal", func() {
-			It("should correctly marshal the metadata", func() {
-				metadata := &LibvirtProviderMetadata{
-					Namespace: "foo",
-					Name:      "bar",
-				}
+var _ = Describe("LibvirtProviderMetadata", func() {
+	Context("Marshalling", func() {
+		It("marshals LibvirtProviderMetadata correctly when metadata is populated", func() {
+			metadata := &LibvirtProviderMetadata{
+				IRIMmachineLabels: "test-labels",
+			}
 
-				data, err := xml.Marshal(metadata)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(data)).To(Equal(expectedXML))
-			})
+			data, err := xml.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(data)).To(Equal(createExpectedXML("test-labels")))
 		})
 
-		Describe("Unmarshal", func() {
-			It("should correctly unmarshal the metadata", func() {
-				metadata := &LibvirtProviderMetadata{}
-				Expect(xml.Unmarshal([]byte(expectedXML), metadata)).To(Succeed())
-				Expect(metadata).To(Equal(&LibvirtProviderMetadata{
-					Namespace: "foo",
-					Name:      "bar",
-				}))
-			})
+		It("marshals LibvirtProviderMetadata correctly when no metadata present", func() {
+			metadata := &LibvirtProviderMetadata{}
+
+			data, err := xml.Marshal(metadata)
+			Expect(err).NotTo(HaveOccurred())
+			Expect(string(data)).To(Equal(createExpectedXML("")))
+		})
+	})
+
+	Context("Unmarshalling", func() {
+		It("unmarshals XML to LibvirtProviderMetadata correctly when metadata is populated", func() {
+			metadata := &LibvirtProviderMetadata{}
+			Expect(xml.Unmarshal([]byte(createExpectedXML("test-labels")), metadata)).To(Succeed())
+			Expect(metadata).To(Equal(&LibvirtProviderMetadata{
+				IRIMmachineLabels: "test-labels",
+			}))
 		})
 
-		Describe("SGX Marshal", func() {
-			It("should correctly marshal the SGX metadata", func() {
-				metadata := &LibvirtProviderMetadata{
-					Namespace: "foo",
-					Name:      "bar",
-					SGXMemory: ptr.To[int64](68719476736),
-					SGXNode:   ptr.To[int](0),
-				}
-
-				data, err := xml.Marshal(metadata)
-				Expect(err).NotTo(HaveOccurred())
-				Expect(string(data)).To(Equal(sgxExpectedXML))
-			})
+		It("unmarshals XML to LibvirtProviderMetadata correctly when no metadata present", func() {
+			metadata := &LibvirtProviderMetadata{}
+			Expect(xml.Unmarshal([]byte(createExpectedXML("")), metadata)).To(Succeed())
+			Expect(metadata).To(Equal(&LibvirtProviderMetadata{}))
 		})
+	})
 
-		Describe("SGX Unmarshal", func() {
-			It("should correctly unmarshal the SGX metadata", func() {
-				metadata := &LibvirtProviderMetadata{}
-				Expect(xml.Unmarshal([]byte(sgxExpectedXML), metadata)).To(Succeed())
-				Expect(metadata).To(Equal(&LibvirtProviderMetadata{
-					Namespace: "foo",
-					Name:      "bar",
-					SGXMemory: ptr.To[int64](68719476736),
-					SGXNode:   ptr.To[int](0),
-				}))
-			})
+	Context("IRIMachineLabelsEncoder", func() {
+		It("encodes IRIMachineLabels correctly when labels are populated", func() {
+			labels := map[string]string{
+				"machinepoollet.ironcore.dev/machine-uid":                         "test-uid",
+				"downward-api.machinepoollet.ironcore.dev/root-machine-name":      "root-test-name",
+				"downward-api.machinepoollet.ironcore.dev/root-machine-namespace": "root-test-namespace",
+				"downward-api.machinepoollet.ironcore.dev/root-machine-uid":       "root-test-uid",
+				"machinepoollet.ironcore.dev/machine-namespace":                   "test-namespace",
+				"machinepoollet.ironcore.dev/machine-name":                        "test-name",
+			}
+
+			data := IRIMachineLabelsEncoder(labels)
+
+			Expect(data).To(ContainSubstring(`"machinepoollet.ironcore.dev/machine-uid": "test-uid"`))
+			Expect(data).To(ContainSubstring(`"downward-api.machinepoollet.ironcore.dev/root-machine-name": "root-test-name"`))
+			Expect(data).To(ContainSubstring(`"downward-api.machinepoollet.ironcore.dev/root-machine-namespace": "root-test-namespace"`))
+			Expect(data).To(ContainSubstring(`"downward-api.machinepoollet.ironcore.dev/root-machine-uid": "root-test-uid"`))
+			Expect(data).To(ContainSubstring(`"machinepoollet.ironcore.dev/machine-namespace": "test-namespace"`))
+			Expect(data).To(ContainSubstring(`"machinepoollet.ironcore.dev/machine-name": "test-name"`))
 		})
 	})
 })
+
+func createExpectedXML(labels string) string {
+	return `<libvirtprovider:metadata xmlns:libvirtprovider="` + libvirtProviderURL + `"><libvirtprovider:irimachinelabels>` + labels + `</libvirtprovider:irimachinelabels></libvirtprovider:metadata>`
+}
