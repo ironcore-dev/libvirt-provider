@@ -9,7 +9,6 @@ import (
 
 	"github.com/ironcore-dev/controller-utils/metautils"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
-	ironcorev1alpha1 "github.com/ironcore-dev/ironcore/poollet/machinepoollet/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 )
@@ -108,14 +107,6 @@ func SetClassLabel(o api.Object, class string) {
 func GetClassLabel(o api.Object) (string, bool) {
 	class, found := o.GetLabels()[machinev1alpha1.ClassLabel]
 	return class, found
-}
-
-func SetMachineNamespaceLabel(o api.Object, namespace string) {
-	metautils.SetLabel(o, ironcorev1alpha1.MachineNamespaceLabel, namespace)
-}
-
-func SetMachineNameLabel(o api.Object, name string) {
-	metautils.SetLabel(o, ironcorev1alpha1.MachineNameLabel, name)
 }
 
 func IsManagedBy(o api.Object, manager string) bool {

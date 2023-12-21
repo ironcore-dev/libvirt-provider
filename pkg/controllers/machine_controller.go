@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"context"
+	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
@@ -14,7 +15,6 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
-	ironcorev1alpha1 "github.com/ironcore-dev/ironcore/poollet/machinepoollet/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/event"
 	providerimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
@@ -28,6 +28,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
+	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"libvirt.org/go/libvirtxml"
@@ -562,10 +563,19 @@ func (r *MachineReconciler) domainFor(
 }
 
 func (r *MachineReconciler) setDomainMetadata(machine *api.Machine, domain *libvirtxml.Domain) error {
-	domainMetadata := &providermeta.LibvirtProviderMetadata{
-		Namespace: machine.Metadata.Labels[ironcorev1alpha1.MachineNamespaceLabel],
-		Name:      machine.Metadata.Labels[ironcorev1alpha1.MachineNameLabel],
+	var irimachineLabels map[string]string
+
+	err := json.Unmarshal([]byte(machine.Metadata.Annotations[machinev1alpha1.LabelsAnnotation]), &irimachineLabels)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling iri machine labels: %w", err)
 	}
+
+	encodedLabels := providermeta.IRIMachineLabelsEncoder(irimachineLabels)
+
+	domainMetadata := &providermeta.LibvirtProviderMetadata{
+		IRIMmachineLabels: encodedLabels,
+	}
+
 	domainMetadataXML, err := xml.Marshal(domainMetadata)
 	if err != nil {
 		return err
