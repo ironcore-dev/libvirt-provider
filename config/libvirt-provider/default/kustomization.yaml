@@ -13,7 +13,7 @@ namePrefix: libvirt-provider-
 #  someName: someValue
 
 resources:
-  - ../libvirt-provider-rbac
+  - ../provider-rbac
   - ../manager
 #  - ../webhook
 #  - ../certmanager
@@ -22,11 +22,11 @@ resources:
 
 patchesStrategicMerge:
   - manager_auth_proxy_patch.yaml
-  
+
   # Mount the controller config file for loading manager configurations
   # through a ComponentConfig type
   #- manager_config_patch.yaml
-  
+
   #- manager_webhook_patch.yaml
   #- webhookcainjection_patch.yaml
 
