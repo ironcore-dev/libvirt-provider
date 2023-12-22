@@ -41,9 +41,7 @@ type executorExec struct {
 }
 
 func (s *Server) Exec(ctx context.Context, req *iri.ExecRequest) (*iri.ExecResponse, error) {
-	machineID := req.MachineId
-	log := s.loggerFrom(ctx, "MachineID", machineID)
-
+	log := s.loggerFrom(ctx, "MachineID", req.MachineId)
 	log.V(1).Info("Verifying machine in the store")
 	if _, err := s.machineStore.Get(ctx, req.MachineId); err != nil {
 		if !errors.Is(err, store.ErrNotFound) {
