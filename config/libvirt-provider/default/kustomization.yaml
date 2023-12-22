@@ -13,7 +13,7 @@ namePrefix: libvirt-provider-
 #  someName: someValue
 
 resources:
-  - ../provider-rbac
+  - ../rbac
   - ../manager
 #  - ../webhook
 #  - ../certmanager
