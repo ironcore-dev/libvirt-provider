@@ -5,9 +5,13 @@ package app
 
 import (
 	"context"
+	"errors"
+	"flag"
 	goflag "flag"
 	"fmt"
 	"net"
+	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 
@@ -32,6 +36,8 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/qcow2"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
+
+	providerhttp "github.com/ironcore-dev/libvirt-provider/provider/http"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	"github.com/ironcore-dev/libvirt-provider/provider/server"
 	"github.com/spf13/cobra"
@@ -48,8 +54,9 @@ import (
 )
 
 var (
-	homeDir string
-	scheme  = runtime.NewScheme()
+	homeDir         string
+	scheme          = runtime.NewScheme()
+	virshExecutable string
 )
 
 func init() {
@@ -60,7 +67,10 @@ func init() {
 }
 
 type Options struct {
-	Address string
+	Address          string
+	StreamingAddress string
+	BaseURL          string
+
 	RootDir string
 
 	PathSupportedMachineClasses string
@@ -90,6 +100,12 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
+	fs.StringVar(&o.StreamingAddress, "streaming-address", "127.0.0.1:20251", "Address to run the streaming server on")
+	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
+		"constructed from the streaming-address")
+
+	flag.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
+
 	// LibvirtOptions
 	fs.StringVar(&o.Libvirt.Socket, "libvirt-socket", o.Libvirt.Socket, "Path to the libvirt socket to use.")
 	fs.StringVar(&o.Libvirt.Address, "libvirt-address", o.Libvirt.Address, "Address of a RPC libvirt socket to connect to.")
@@ -116,7 +132,7 @@ func Command() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use: "machinebroker",
+		Use: "libvirt-provider",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			logger := zap.New(zap.UseFlagOptions(&zapOpts))
 			ctrl.SetLogger(logger)
@@ -152,6 +168,15 @@ func Run(ctx context.Context, opts Options) error {
 			setupLog.Error(err, "Error closing libvirt connection")
 		}
 	}()
+
+	baseURL := opts.BaseURL
+	if baseURL == "" {
+		u := &url.URL{
+			Scheme: "http",
+			Host:   opts.StreamingAddress,
+		}
+		baseURL = u.String()
+	}
 
 	// Check if apinetKubeconfig is provided
 	var apinetClient client.Client
@@ -282,9 +307,12 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	srv, err := server.New(server.Options{
-		MachineStore:   machineStore,
-		MachineClasses: machineClasses,
-		VolumePlugins:  volumePlugins,
+		BaseURL:         baseURL,
+		Libvirt:         libvirt,
+		MachineStore:    machineStore,
+		MachineClasses:  machineClasses,
+		VolumePlugins:   volumePlugins,
+		VirshExecutable: virshExecutable,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating server: %w", err)
@@ -323,6 +351,11 @@ func Run(ctx context.Context, opts Options) error {
 		return runGRPCServer(ctx, setupLog, log, srv, opts)
 	})
 
+	g.Go(func() error {
+		setupLog.Info("Starting streaming server")
+		return runStreamingServer(ctx, setupLog, log, srv, opts)
+	})
+
 	return g.Wait()
 }
 
@@ -355,6 +388,30 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 	}()
 	if err := grpcSrv.Serve(l); err != nil {
 		return fmt.Errorf("error serving grpc: %w", err)
+	}
+	return nil
+}
+
+func runStreamingServer(ctx context.Context, setupLog, log logr.Logger, srv *server.Server, opts Options) error {
+	httpHandler := providerhttp.NewHandler(srv, providerhttp.HandlerOptions{
+		Log: log.WithName("server"),
+	})
+
+	httpSrv := &http.Server{
+		Addr:    opts.StreamingAddress,
+		Handler: httpHandler,
+	}
+
+	go func() {
+		<-ctx.Done()
+		setupLog.Info("Shutting down streaming server")
+		_ = httpSrv.Close()
+		setupLog.Info("Shut down streaming server")
+	}()
+
+	log.V(1).Info("Starting streaming server", "Address", opts.StreamingAddress)
+	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("error listening / serving streaming server: %w", err)
 	}
 	return nil
 }
