@@ -26,7 +26,7 @@ var _ = Describe("CreateMachine", func() {
 					Image: &iri.ImageSpec{
 						Image: "example.org/foo:latest",
 					},
-					Class: "x3-xlarge",
+					Class: machineClassx3xlarge,
 				},
 			},
 		})
