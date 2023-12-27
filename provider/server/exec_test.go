@@ -16,7 +16,7 @@ var _ = Describe("Exec", func() {
 
 	It("should return an exec-url with a token", func(ctx SpecContext) {
 		By("creating the test machine")
-		resCreate, err := srv.CreateMachine(ctx, &iri.CreateMachineRequest{
+		resCreate, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
@@ -29,7 +29,7 @@ var _ = Describe("Exec", func() {
 		machineID := resCreate.GetMachine().Metadata.Id
 
 		By("issuing exec for the test machine")
-		resExec, err := srv.Exec(ctx, &iri.ExecRequest{MachineId: machineID})
+		resExec, err := machineClient.Exec(ctx, &iri.ExecRequest{MachineId: machineID})
 		Expect(err).NotTo(HaveOccurred())
 
 		By("inspecting the result")

@@ -14,7 +14,7 @@ var _ = Describe("CreateMachine", func() {
 
 	It("should correctly create a machine", func(ctx SpecContext) {
 		By("creating a machine")
-		res, err := srv.CreateMachine(ctx, &iri.CreateMachineRequest{
+		res, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
 					Labels: map[string]string{
