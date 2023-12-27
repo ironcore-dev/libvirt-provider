@@ -1,0 +1,31 @@
+name: Run integration tests
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+    paths-ignore:
+      - 'docs/**'
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-22.04
+    if: contains(github.event.pull_request.labels.*.name, 'integration-tests')
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Install dependencies
+        run: |
+          apt-get update && apt-get install -y --no-install-recommends
+          qemu-utils ca-certificates libvirt-clients libcephfs-dev librbd-dev librados-dev libc-bin gcc && update-ca-certificates && rm -rf /var/lib/apt/lists
+
+      - name: Run go tests
+        run: |
+          make integration-tests 
+          
+          # Add more steps if necessary (e.g., configuring networking, creating VMs, etc.)
