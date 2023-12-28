@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	libvirtserver "github.com/ironcore-dev/libvirt-provider/provider/server"
-	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
 
