@@ -14,20 +14,18 @@ import (
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/provider/cmd/app"
-
+	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
+
 	. "github.com/onsi/gomega"
+	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
-	"k8s.io/client-go/rest"
-	"sigs.k8s.io/controller-runtime/pkg/envtest"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
 var (
 	machineClient iriv1alpha1.MachineRuntimeClient
-	testEnv       *envtest.Environment
-	cfg           *rest.Config
 )
 
 const (
@@ -72,19 +70,15 @@ var _ = BeforeSuite(func() {
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0666)).To(Succeed())
 
 	By("starting the app")
-	user, err := testEnv.AddUser(envtest.User{
-		Name:   "dummy",
-		Groups: []string{"system:authenticated", "system:masters"},
-	}, cfg)
-	Expect(err).NotTo(HaveOccurred())
-	kubeconfig, err := user.KubeConfig()
-	Expect(err).NotTo(HaveOccurred())
-	kubeConfigFile, err := os.CreateTemp(GinkgoT().TempDir(), "kubeconfig")
-	Expect(err).NotTo(HaveOccurred())
-	defer os.Remove(kubeConfigFile.Name())
-	Expect(os.WriteFile(kubeConfigFile.Name(), kubeconfig, 0600)).To(Succeed())
 
 	userHomeDir, err := os.UserHomeDir()
+	Expect(err).NotTo(HaveOccurred())
+
+	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
+	pluginOpts, err := networkinterfaceplugin.DefaultPluginTypeRegistry.PluginTypeOptsByName("apinet")
+	Expect(err).NotTo(HaveOccurred())
+	pluginOpts.AddFlags(fs)
+	err = fs.Set("apinet-node-name", "test-node")
 	Expect(err).NotTo(HaveOccurred())
 
 	opts := app.Options{
@@ -94,9 +88,17 @@ var _ = BeforeSuite(func() {
 		PathSupportedMachineClasses: machineClassesFile.Name(),
 		RootDir:                     fmt.Sprintf("%s.libvirt-provider", userHomeDir),
 		StreamingAddress:            streamingAddress,
-		ApinetKubeconfig:            kubeConfigFile.Name(),
+		Libvirt: app.LibvirtOptions{
+			Socket: "/var/run/libvirt/libvirt-sock",
+			URI:    "qemu:///system",
+			// PreferredDomainTypes:  []string{"kvm", "qemu"},
+			// PreferredMachineTypes: []string{"pc-i440fx-2.9", "pc-i440fx-2.8"},
+			// Qcow2Type: "qcow2",
+		},
+		NicPlugin: networkinterfaceplugin.NewDefaultOptions(),
 		// TODO: add other required fields
 	}
+	opts.NicPlugin.PluginName = networkinterfaceplugin.DefaultPluginTypeRegistry.DefaultPluginName()
 
 	srvCtx, cancel := context.WithCancel(context.Background())
 	DeferCleanup(cancel)
