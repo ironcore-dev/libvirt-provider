@@ -1,6 +1,10 @@
 name: Run integration tests
 
 on:
+  workflow_dispatch:
+  push:
+    branches:
+      - enh/integration-tests
   pull_request:
     types: [labeled, synchronize, reopened]
     paths-ignore:
@@ -9,7 +13,7 @@ on:
 jobs:
   integration-tests:
     runs-on: ubuntu-22.04
-    if: contains(github.event.pull_request.labels.*.name, 'integration-tests')
+    #if: contains(github.event.pull_request.labels.*.name, 'integration-tests')
 
     steps:
       - name: Checkout Repository
@@ -21,8 +25,18 @@ jobs:
 
       - name: Install dependencies
         run: |
-          apt-get update && apt-get install -y --no-install-recommends
-          qemu-utils ca-certificates libvirt-clients libcephfs-dev librbd-dev librados-dev libc-bin gcc && update-ca-certificates && rm -rf /var/lib/apt/lists
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends qemu-utils ca-certificates libvirt-clients libcephfs-dev librbd-dev librados-dev libc-bin gcc
+          sudo apt-get install -y cpu-checker
+          sudo kvm-ok
+          sudo apt-get install -y qemu-kvm libvirt-daemon-system
+          sudo usermod -aG libvirt $USER
+          sudo setfacl -m user:$USER:rw /var/run/libvirt/libvirt-sock
+          sudo systemctl enable --now libvirtd
+          sudo systemctl start libvirtd
+          sudo systemctl status libvirtd
+          sudo update-ca-certificates
+          sudo rm -rf /var/lib/apt/lists
 
       - name: Run go tests
         run: |
