@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/digitalocean/go-libvirt"
+	"github.com/digitalocean/go-libvirt/socket/dialers"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/provider/cmd/app"
@@ -26,10 +28,11 @@ import (
 
 var (
 	machineClient iriv1alpha1.MachineRuntimeClient
+	libvirtConn   *libvirt.Libvirt
 )
 
 const (
-	eventuallyTimeout    = 3 * time.Second
+	eventuallyTimeout    = 30 * time.Second
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
 	baseURL              = "http://localhost:8080"
@@ -89,11 +92,11 @@ var _ = BeforeSuite(func() {
 		RootDir:                     fmt.Sprintf("%s/libvirt-provider", userHomeDir),
 		StreamingAddress:            streamingAddress,
 		Libvirt: app.LibvirtOptions{
-			Socket: "/var/run/libvirt/libvirt-sock",
-			URI:    "qemu:///system",
-			// PreferredDomainTypes:  []string{"kvm", "qemu"},
-			// PreferredMachineTypes: []string{"pc-i440fx-2.9", "pc-i440fx-2.8"},
-			Qcow2Type: "exec",
+			Socket:                "/var/run/libvirt/libvirt-sock",
+			URI:                   "qemu:///system",
+			PreferredDomainTypes:  []string{"kvm", "qemu"},
+			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx-2.9", "pc-i440fx-2.8"},
+			Qcow2Type:             "exec",
 		},
 		NicPlugin: apinetPlugin,
 		// TODO: add other required fields
@@ -120,8 +123,13 @@ var _ = BeforeSuite(func() {
 	machineClient = iriv1alpha1.NewMachineRuntimeClient(gconn)
 	DeferCleanup(gconn.Close)
 
-	//TODO: setup libvirt client/connection to assert the results
+	c := dialers.NewLocal()
+	libvirtConn = libvirt.NewWithDialer(c)
+	err = libvirtConn.Connect()
+	Expect(err).NotTo(HaveOccurred())
+	Expect(libvirtConn.IsConnected(), BeTrue())
 
+	DeferCleanup(libvirtConn.ConnectClose)
 })
 
 func isSocketAvailable(socketPath string) (bool, error) {
