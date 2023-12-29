@@ -28,6 +28,10 @@ var _ = Describe("Exec", func() {
 		Expect(resCreate).NotTo(BeNil())
 		machineID := resCreate.GetMachine().Metadata.Id
 
+		DeferCleanup(machineClient.DeleteMachine, &iri.DeleteMachineRequest{
+			MachineId: machineID,
+		})
+
 		By("issuing exec for the test machine")
 		resExec, err := machineClient.Exec(ctx, &iri.ExecRequest{MachineId: machineID})
 		Expect(err).NotTo(HaveOccurred())

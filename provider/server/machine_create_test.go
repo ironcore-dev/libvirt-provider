@@ -4,8 +4,10 @@
 package server_test
 
 import (
+	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
+	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -25,7 +27,7 @@ var _ = Describe("Create Machine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: "example.org/foo:latest",
+						Image: "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1",
 					},
 					Class:        machineClassx3xlarge,
 					IgnitionData: ignitionData,
@@ -57,7 +59,34 @@ var _ = Describe("Create Machine", func() {
 			MachineId: createResp.Machine.Metadata.Id,
 		})
 
-		By("ensuring machine is in running state and other state fields have been updated")
+		By("ensuring domain and domain XML is created for machine")
+		var domain libvirt.Domain
+		Eventually(func() error {
+			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+			return err
+		}).Should(Succeed())
+		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainXMLData).NotTo(BeEmpty())
+
+		By("ensuring domain for machine is in running state")
+		Eventually(func() libvirt.DomainState {
+			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
+			Expect(err).NotTo(HaveOccurred())
+			return libvirt.DomainState(domainState)
+		}).Should(Equal(libvirt.DomainRunning))
+
+		By("updating machine annotations")
+		Eventually(func() error {
+			_, err := machineClient.UpdateMachineAnnotations(ctx, &iri.UpdateMachineAnnotationsRequest{
+				MachineId: createResp.Machine.Metadata.Id,
+				Annotations: map[string]string{
+					"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
+				}})
+			return err
+		}).Should(Succeed())
+
+		By("ensuring machine is in running state and other status fields have been updated")
 		Eventually(func() *iri.MachineStatus {
 			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
@@ -68,19 +97,11 @@ var _ = Describe("Create Machine", func() {
 			Expect(resp.Machines).NotTo(BeEmpty())
 			return resp.Machines[0].Status
 		}).Should(SatisfyAll(
+			HaveField("ObservedGeneration", BeZero()),
+			HaveField("ImageRef", BeEmpty()),
+			HaveField("Volumes", BeNil()),
+			HaveField("NetworkInterfaces", BeNil()),
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
-			// HaveField("Access", SatisfyAll(
-			// 	HaveField("Driver", "ceph"),
-			// HaveField("Handle", image.Spec.WWN),
-			// HaveField("Attributes", SatisfyAll(
-			// 	HaveKeyWithValue("monitors", image.Status.Access.Monitors),
-			// 	HaveKeyWithValue("image", image.Status.Access.Handle),
-			// )),
-			// HaveField("SecretData", SatisfyAll(
-			// 	HaveKeyWithValue("userID", []byte(image.Status.Access.User)),
-			// 	HaveKeyWithValue("userKey", []byte(image.Status.Access.UserKey)),
-			// )),
-			// )),
 		))
 	})
 })

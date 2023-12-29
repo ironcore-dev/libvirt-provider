@@ -23,15 +23,19 @@ var _ = Describe("ListMachine", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
-					Image: &iri.ImageSpec{
-						Image: "example.org/foo:latest",
-					},
+					// Image: &iri.ImageSpec{
+					// 	Image: "example.org/foo:latest",
+					// },
 					Class: machineClassx3xlarge,
 				},
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(res).NotTo(BeNil())
+
+		DeferCleanup(machineClient.DeleteMachine, &iri.DeleteMachineRequest{
+			MachineId: res.Machine.Metadata.Id,
+		})
 
 		By("List machines")
 		resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
