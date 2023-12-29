@@ -75,9 +75,9 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	pluginOpts, err := networkinterfaceplugin.DefaultPluginTypeRegistry.PluginTypeOptsByName("apinet")
-	Expect(err).NotTo(HaveOccurred())
-	pluginOpts.AddFlags(fs)
+	apinetPlugin := networkinterfaceplugin.NewDefaultOptions()
+	apinetPlugin.PluginName = "apinet"
+	apinetPlugin.AddFlags(fs)
 	err = fs.Set("apinet-node-name", "test-node")
 	Expect(err).NotTo(HaveOccurred())
 
@@ -86,19 +86,18 @@ var _ = BeforeSuite(func() {
 		Address:                     fmt.Sprintf("%s/test.sock", os.Getenv("PWD")),
 		BaseURL:                     baseURL,
 		PathSupportedMachineClasses: machineClassesFile.Name(),
-		RootDir:                     fmt.Sprintf("%s.libvirt-provider", userHomeDir),
+		RootDir:                     fmt.Sprintf("%s/libvirt-provider", userHomeDir),
 		StreamingAddress:            streamingAddress,
 		Libvirt: app.LibvirtOptions{
 			Socket: "/var/run/libvirt/libvirt-sock",
 			URI:    "qemu:///system",
 			// PreferredDomainTypes:  []string{"kvm", "qemu"},
 			// PreferredMachineTypes: []string{"pc-i440fx-2.9", "pc-i440fx-2.8"},
-			// Qcow2Type: "qcow2",
+			Qcow2Type: "exec",
 		},
-		NicPlugin: networkinterfaceplugin.NewDefaultOptions(),
+		NicPlugin: apinetPlugin,
 		// TODO: add other required fields
 	}
-	opts.NicPlugin.PluginName = networkinterfaceplugin.DefaultPluginTypeRegistry.DefaultPluginName()
 
 	srvCtx, cancel := context.WithCancel(context.Background())
 	DeferCleanup(cancel)
