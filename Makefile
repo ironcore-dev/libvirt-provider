@@ -106,11 +106,11 @@ clean-docs: ## Remove all local mkdocs Docker images (cleanup).
 
 .PHONY: build
 build: generate fmt add-license lint ## Build the binary
-	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o bin/virtlet ./main.go
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o bin/virtlet ./provider/cmd/main.go
 
 .PHONY: run
 run-base: generate fmt lint ## Run the binary
-	go run ./main.go
+	go run ./provider/cmd/main.go
 
 .PHONY: docker-build
 docker-build: test ## Build docker image with partitionlet.
