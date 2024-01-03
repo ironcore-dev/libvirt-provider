@@ -81,8 +81,7 @@ var _ = BeforeSuite(func() {
 	apinetPlugin := networkinterfaceplugin.NewDefaultOptions()
 	apinetPlugin.PluginName = "apinet"
 	apinetPlugin.AddFlags(fs)
-	err = fs.Set("apinet-node-name", "test-node")
-	Expect(err).NotTo(HaveOccurred())
+	Expect(fs.Set("apinet-node-name", "test-node")).NotTo(HaveOccurred())
 
 	opts := app.Options{
 		//TODO: set these using env variables if needed

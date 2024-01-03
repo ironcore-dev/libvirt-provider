@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Create Machine", func() {
+var _ = Describe("CreateMachine", func() {
 
 	It("should create a machine", func(ctx SpecContext) {
 		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")

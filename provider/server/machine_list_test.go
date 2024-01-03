@@ -11,7 +11,6 @@ import (
 )
 
 var _ = Describe("ListMachine", func() {
-
 	It("should correctly list machines", func(ctx SpecContext) {
 		By("creating a machine")
 		res, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
