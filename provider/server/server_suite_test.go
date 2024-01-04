@@ -35,8 +35,8 @@ const (
 	eventuallyTimeout    = 30 * time.Second
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
-	baseURL              = "http://localhost:8080"
 	machineClassx3xlarge = "x3-xlarge"
+	baseURL              = "http://localhost:8080"
 	streamingAddress     = "127.0.0.1:20251"
 )
 
@@ -74,21 +74,20 @@ var _ = BeforeSuite(func() {
 
 	By("starting the app")
 
-	userHomeDir, err := os.UserHomeDir()
-	Expect(err).NotTo(HaveOccurred())
-
 	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
 	apinetPlugin := networkinterfaceplugin.NewDefaultOptions()
 	apinetPlugin.PluginName = "apinet"
 	apinetPlugin.AddFlags(fs)
-	Expect(fs.Set("apinet-node-name", "test-node")).NotTo(HaveOccurred())
+	Expect(fs.Set("apinet-node-name", "test-node")).To(Succeed())
+
+	tempDir := GinkgoT().TempDir()
+	Expect(os.Chmod(tempDir, 0777)).Should(Succeed())
 
 	opts := app.Options{
-		//TODO: set these using env variables if needed
 		Address:                     fmt.Sprintf("%s/test.sock", os.Getenv("PWD")),
 		BaseURL:                     baseURL,
 		PathSupportedMachineClasses: machineClassesFile.Name(),
-		RootDir:                     fmt.Sprintf("%s/libvirt-provider", userHomeDir),
+		RootDir:                     fmt.Sprintf("%s/libvirt-provider", tempDir),
 		StreamingAddress:            streamingAddress,
 		Libvirt: app.LibvirtOptions{
 			Socket:                "/var/run/libvirt/libvirt-sock",
@@ -98,7 +97,6 @@ var _ = BeforeSuite(func() {
 			Qcow2Type:             "exec",
 		},
 		NicPlugin: apinetPlugin,
-		// TODO: add other required fields
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
@@ -109,35 +107,33 @@ var _ = BeforeSuite(func() {
 		Expect(app.Run(srvCtx, opts)).To(Succeed())
 	}()
 
-	Eventually(func() (bool, error) {
+	Eventually(func() error {
 		return isSocketAvailable(opts.Address)
-	}, "30s", "500ms").Should(BeTrue(), "The UNIX socket file should be available")
+	}).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
 
 	address, err := machine.GetAddressWithTimeout(3*time.Second, fmt.Sprintf("unix://%s", opts.Address))
 	Expect(err).NotTo(HaveOccurred())
 
 	gconn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(gconn.Close)
 
 	machineClient = iriv1alpha1.NewMachineRuntimeClient(gconn)
-	DeferCleanup(gconn.Close)
 
 	c := dialers.NewLocal()
 	libvirtConn = libvirt.NewWithDialer(c)
-	err = libvirtConn.Connect()
-	Expect(err).NotTo(HaveOccurred())
+	Expect(libvirtConn.Connect()).To(Succeed())
 	Expect(libvirtConn.IsConnected(), BeTrue())
-
 	DeferCleanup(libvirtConn.ConnectClose)
 })
 
-func isSocketAvailable(socketPath string) (bool, error) {
+func isSocketAvailable(socketPath string) error {
 	fileInfo, err := os.Stat(socketPath)
 	if err != nil {
-		return false, err
+		return err
 	}
 	if fileInfo.Mode()&os.ModeSocket != 0 {
-		return true, nil
+		return nil
 	}
-	return false, nil
+	return fmt.Errorf("socket %s is not available", socketPath)
 }

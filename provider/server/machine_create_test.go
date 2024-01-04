@@ -15,8 +15,9 @@ import (
 var _ = Describe("CreateMachine", func() {
 
 	It("should create a machine", func(ctx SpecContext) {
-		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
 		By("creating a machine")
+		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
+		imageURL := "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
@@ -27,7 +28,7 @@ var _ = Describe("CreateMachine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1",
+						Image: imageURL,
 					},
 					Class:        machineClassx3xlarge,
 					IgnitionData: ignitionData,
@@ -43,7 +44,7 @@ var _ = Describe("CreateMachine", func() {
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
 			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image", Not(BeNil())),
+			HaveField("Machine.Spec.Image.Image", Equal(imageURL)),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
 			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
 			HaveField("Machine.Spec.Volumes", BeNil()),
@@ -55,8 +56,13 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
 
-		DeferCleanup(machineClient.DeleteMachine, &iri.DeleteMachineRequest{
-			MachineId: createResp.Machine.Metadata.Id,
+		DeferCleanup(func(ctx SpecContext) {
+			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(func() bool {
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
 		})
 
 		By("ensuring domain and domain XML is created for machine")
