@@ -114,7 +114,7 @@ run-base: generate fmt lint ## Run the binary
 	go run $(LIBVIRTPROVIDERMAINPATH)/main.go
 
 .PHONY: docker-build
-docker-build: test ## Build docker image with partitionlet.
+docker-build: test ## Build docker image with partitionlet
 	docker build $(DOCKER_BUILDARGS) -t ${IMG} $(GITHUB_PAT_MOUNT) .
 
 .PHONY: docker-push
