@@ -431,8 +431,6 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	domainSettings.Type = "kvm"
-
 	domainDesc := &libvirtxml.Domain{
 		Name:       machine.GetID(),
 		UUID:       machine.GetID(),
