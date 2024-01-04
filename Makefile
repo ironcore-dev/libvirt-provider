@@ -128,7 +128,7 @@ deploy: kustomize ## Deploy libvirt-provider into the K8s cluster specified in ~
 	kubectl apply -k config/default
 
 .PHONY: undeploy
-undeploy: #kustomize ## Undeploy libvirt-provider from the K8s cluster specified in ~/.kube/config.
+undeploy: ## Undeploy libvirt-provider from the K8s cluster specified in ~/.kube/config.
 	kubectl delete -k config/default
 
 ##@ Tools
@@ -154,7 +154,7 @@ ADDLICENSE_VERSION ?= v1.1.1
 
 .PHONY: kustomize
 kustomize: $(LOCALBIN) ## Download kustomize locally if necessary.
-    $(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize,$(KUSTOMIZE_VERSION))
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
 controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary.
