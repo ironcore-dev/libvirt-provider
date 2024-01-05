@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 
 	"github.com/go-logr/logr"
+	"github.com/go-logr/zapr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
 	"github.com/ironcore-dev/ironcore/broker/common"
@@ -36,6 +37,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/qcow2"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
+	originzap "go.uber.org/zap"
 
 	providerhttp "github.com/ironcore-dev/libvirt-provider/provider/http"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
@@ -125,22 +127,27 @@ func (o *Options) MarkFlagsRequired(cmd *cobra.Command) {
 	_ = cmd.MarkFlagRequired("supported-machine-classes")
 }
 
-func Command() *cobra.Command {
+// Command creates cobra command
+// It return pointer to pointer for zap logger because flags and logger are initialized in Execute function
+func Command() (*cobra.Command, **originzap.Logger) {
 	var (
-		zapOpts = zap.Options{Development: true}
+		zapOpts = zap.Options{Development: false}
 		opts    Options
 	)
 
+	var logger *originzap.Logger
 	cmd := &cobra.Command{
 		Use: "libvirt-provider",
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
-			logger := zap.New(zap.UseFlagOptions(&zapOpts))
-			ctrl.SetLogger(logger)
+			logger = zap.NewRaw(zap.UseFlagOptions(&zapOpts))
+			ctrl.SetLogger(zapr.NewLogger(logger))
 			cmd.SetContext(ctrl.LoggerInto(cmd.Context(), ctrl.Log))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return Run(cmd.Context(), opts)
 		},
+		SilenceErrors: true,
+		SilenceUsage:  true,
 	}
 
 	goFlags := goflag.NewFlagSet("", 0)
@@ -150,7 +157,7 @@ func Command() *cobra.Command {
 	opts.AddFlags(cmd.Flags())
 	opts.MarkFlagsRequired(cmd)
 
-	return cmd
+	return cmd, &logger
 }
 
 func Run(ctx context.Context, opts Options) error {
