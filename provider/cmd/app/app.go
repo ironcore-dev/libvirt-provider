@@ -6,7 +6,6 @@ package app
 import (
 	"context"
 	"errors"
-	"flag"
 	goflag "flag"
 	"fmt"
 	"net"
@@ -14,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
@@ -79,6 +79,8 @@ type Options struct {
 
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
+
+	VMGracefulShutdownTimeout time.Duration
 }
 
 type LibvirtOptions struct {
@@ -104,7 +106,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
 		"constructed from the streaming-address")
 
-	flag.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
+	fs.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
 
 	// LibvirtOptions
 	fs.StringVar(&o.Libvirt.Socket, "libvirt-socket", o.Libvirt.Socket, "Path to the libvirt socket to use.")
@@ -116,6 +118,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.Libvirt.PreferredMachineTypes, "preferred-machine-types", []string{"pc-q35"}, "Ordered list of preferred machine types to use.")
 
 	fs.StringVar(&o.Libvirt.Qcow2Type, "qcow2-type", qcow2.Default(), fmt.Sprintf("qcow2 implementation to use. Available: %v", qcow2.Available()))
+
+	fs.DurationVar(&o.VMGracefulShutdownTimeout, "vm-graceful-shutdown-timeout", 5*time.Minute, "Sets graceful time period for shutdown of VM. If the machine isn't shutdown in time, vm will be deleted with force process.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -283,12 +287,13 @@ func Run(ctx context.Context, opts Options) error {
 		machineStore,
 		machineEvents,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities:      caps,
-			ImageCache:             imgCache,
-			Raw:                    rawInst,
-			Host:                   providerHost,
-			VolumePluginManager:    volumePlugins,
-			NetworkInterfacePlugin: nicPlugin,
+			GuestCapabilities:         caps,
+			ImageCache:                imgCache,
+			Raw:                       rawInst,
+			Host:                      providerHost,
+			VolumePluginManager:       volumePlugins,
+			NetworkInterfacePlugin:    nicPlugin,
+			VMGracefulShutdownTimeout: opts.VMGracefulShutdownTimeout,
 		},
 	)
 	if err != nil {

@@ -4,6 +4,7 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"encoding/xml"
@@ -12,6 +13,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
@@ -24,7 +26,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/os/osutils"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
-	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost" // TODO: Change to a better naming for all imports, libvirthost?
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
@@ -40,6 +42,7 @@ const (
 	rootFSAlias                     = "ua-rootfs"
 	libvirtDomainXMLIgnitionKeyName = "opt/com.coreos/config"
 	networkInterfaceAliasPrefix     = "ua-networkinterface-"
+	defaultRetryReconcileTime       = 15 * time.Second
 )
 
 var (
@@ -54,16 +57,19 @@ var (
 		//libvirt.DomainShutoff:     api.MachineStateShutdown,
 		libvirt.DomainPmsuspended: api.MachineStatePending,
 	}
+
+	errNeedToRequeue = errors.New("need to requeue")
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities      guest.Capabilities
-	TCMallocLibPath        string
-	ImageCache             providerimage.Cache
-	Raw                    raw.Raw
-	Host                   providerhost.Host
-	VolumePluginManager    *providervolume.PluginManager
-	NetworkInterfacePlugin providernetworkinterface.Plugin
+	GuestCapabilities         guest.Capabilities
+	TCMallocLibPath           string
+	ImageCache                providerimage.Cache
+	Raw                       raw.Raw
+	Host                      providerhost.Host
+	VolumePluginManager       *providervolume.PluginManager
+	NetworkInterfacePlugin    providernetworkinterface.Plugin
+	VMGracefulShutdownTimeout time.Duration
 }
 
 func NewMachineReconciler(
@@ -86,18 +92,19 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:                    log,
-		queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:                libvirt,
-		machines:               machines,
-		machineEvents:          machineEvents,
-		guestCapabilities:      opts.GuestCapabilities,
-		tcMallocLibPath:        opts.TCMallocLibPath,
-		host:                   opts.Host,
-		imageCache:             opts.ImageCache,
-		raw:                    opts.Raw,
-		volumePluginManager:    opts.VolumePluginManager,
-		networkInterfacePlugin: opts.NetworkInterfacePlugin,
+		log:                       log,
+		queue:                     workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		libvirt:                   libvirt,
+		machines:                  machines,
+		machineEvents:             machineEvents,
+		guestCapabilities:         opts.GuestCapabilities,
+		tcMallocLibPath:           opts.TCMallocLibPath,
+		host:                      opts.Host,
+		imageCache:                opts.ImageCache,
+		raw:                       opts.Raw,
+		volumePluginManager:       opts.VolumePluginManager,
+		networkInterfacePlugin:    opts.NetworkInterfacePlugin,
+		vmGracefulShutdownTimeout: opts.VMGracefulShutdownTimeout,
 	}, nil
 }
 
@@ -117,6 +124,8 @@ type MachineReconciler struct {
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
+
+	vmGracefulShutdownTimeout time.Duration
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -211,7 +220,6 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 		if err := r.deleteMachine(ctx, log, machine); err != nil {
 			return fmt.Errorf("failed to delete machine: %w", err)
 		}
-		log.V(1).Info("Successfully deleted machine")
 		return nil
 	}
 
@@ -290,6 +298,116 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 
 	log.V(1).Info("Finalizer present, doing cleanup")
 
+	domain, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID))
+	if err != nil {
+
+		if libvirt.IsNotFound(err) {
+			err = r.cleanupAdditionalResources(ctx, log, machine)
+			if err != nil {
+				r.queue.AddAfter(machine.ID, defaultRetryReconcileTime)
+				return err
+			}
+			log.V(1).Info("Cleaned up all dependencies, removing finalizer")
+			machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
+			if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
+				return fmt.Errorf("failed to update machine metadata: %w", err)
+			}
+			log.V(1).Info("Successfully removed finalizer")
+			log.V(1).Info("Successfully deleted machine")
+			return nil
+		}
+		return fmt.Errorf("cannot get machine domain: %w", err)
+	}
+
+	err = r.shutdownDomain(log, domain, machine.ID)
+	if err != nil {
+		if errors.Is(err, errNeedToRequeue) {
+			log.V(1).Info("Requeue: shutdown graceful period")
+			err = nil
+		}
+		r.queue.AddAfter(machine.ID, defaultRetryReconcileTime)
+		return err
+	}
+
+	// issue: this can be affect performance, read function comments
+	err = r.destroyDomain(log, domain)
+	if err != nil {
+		err = fmt.Errorf("destruction of Machine domain failed: %w", err)
+	}
+
+	r.queue.AddAfter(machine.ID, defaultRetryReconcileTime)
+	return err
+}
+
+func (r *MachineReconciler) shutdownDomain(log logr.Logger, domain libvirt.Domain, machineUID string) error {
+	domainXML, err := r.getDomainDesc(machineUID)
+	if err != nil {
+		return fmt.Errorf("error getting machine description: %w", err)
+	}
+
+	providerMeta := &providermeta.LibvirtProviderMetadata{}
+	err = xml.Unmarshal([]byte(domainXML.Metadata.XML), providerMeta)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling libvirt-provider metadata: %w", err)
+	}
+
+	if providerMeta.ShutdownTimestamp.IsZero() {
+		log.V(1).Info("Shutdown machine")
+		// If the shutdown command fails persistently, it could lead to repeated re-queueing without resolution as domain metadata is not patched.
+
+		err = r.libvirt.DomainShutdownFlags(domain, libvirt.DomainShutdownAcpiPowerBtn)
+		if err != nil {
+			return fmt.Errorf("domain shutdown failed: %w", err)
+		}
+
+		providerMeta.ShutdownTimestamp = time.Now()
+		err := r.updateDomainMetadata(log, domain, providerMeta)
+		if err != nil {
+			return fmt.Errorf("update of domain metadata failed: %w", err)
+		}
+
+		return errNeedToRequeue
+	}
+
+	if providerMeta.ShutdownTimestamp.Add(r.vmGracefulShutdownTimeout).After(time.Now()) {
+		return errNeedToRequeue
+	}
+
+	return nil
+}
+
+// destroyDomain will do graceful destroy of domain
+func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain) error {
+	log.V(1).Info("Destroying domain")
+	// DomainDestroyFlags is blocking, so it can create performance issue in future
+	// During test with 26 emptyDisks function call spent max 1s.
+	// Performance issue will be in edge cases, if machine is correctly booted and it ignored shutdown command.
+	err := r.libvirt.DomainDestroyFlags(domain, libvirt.DomainDestroyGraceful)
+	if err != nil && !libvirt.IsNotFound(err) {
+		return err
+	}
+
+	log.V(1).Info("Successfully destroyed domain")
+	return nil
+}
+
+func (r *MachineReconciler) updateDomainMetadata(log logr.Logger, domain libvirt.Domain, metadata *providermeta.LibvirtProviderMetadata) error {
+	log.V(1).Info("Updating domain metadata")
+	// Only 3 fields have flexible size.
+	// Range is between 245 - 291 bytes
+	// To prevent buffer reallocation, extra bytes are included in the initial size.
+	const xmlLength = 350
+	buf := bytes.NewBuffer(make([]byte, 0, xmlLength))
+	enc := xml.NewEncoder(buf)
+	err := metadata.MarshalXMLWithoutNamespace(enc)
+	if err != nil {
+		return err
+	}
+
+	return r.libvirt.DomainSetMetadata(domain, int32(libvirt.DomainMetadataElement), libvirt.OptString{buf.String()}, libvirt.OptString{"libvirtprovider"}, libvirt.OptString{"https://github.com/ironcore-dev/libvirt-provider"}, libvirt.DomainAffectCurrent)
+}
+
+func (r *MachineReconciler) cleanupAdditionalResources(ctx context.Context, log logr.Logger, machine *api.Machine) error {
 	log.V(1).Info("Removing volumes")
 	if err := r.deleteVolumes(ctx, log, machine); err != nil {
 		return fmt.Errorf("error removing machine disks: %w", err)
@@ -302,53 +420,11 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 	}
 	log.V(1).Info("Successfully removed network interfaces")
 
-	log.V(1).Info("Deleting domain")
-	if err := r.deleteDomain(log, machine); err != nil {
-		return err
-	}
-	log.V(1).Info("Successfully deleted domain")
-
 	log.V(1).Info("Removing machine directory")
 	if err := os.RemoveAll(r.host.MachineDir(machine.ID)); err != nil {
 		return fmt.Errorf("error removing machine directory: %w", err)
 	}
 	log.V(1).Info("Successfully removed machine directory")
-
-	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
-	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
-		return fmt.Errorf("failed to update machine metadata: %w", err)
-	}
-	log.V(2).Info("Removed Finalizers")
-
-	return nil
-}
-
-func (r *MachineReconciler) deleteDomain(log logr.Logger, machine *api.Machine) error {
-	domain := libvirt.Domain{
-		UUID: libvirtutils.UUIDStringToBytes(machine.ID),
-	}
-
-	log.V(1).Info("Destroying domain if exists")
-	if err := r.libvirt.DomainDestroy(domain); err != nil {
-		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
-			return fmt.Errorf("error destroying domain: %w", err)
-		}
-
-		log.V(1).Info("Domain is already gone")
-		return nil
-	}
-	log.V(1).Info("Successfully destroyed domain")
-
-	log.V(1).Info("Undefining domain if exists")
-	if err := r.libvirt.DomainUndefine(domain); err != nil {
-		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
-			return fmt.Errorf("error undefining domain: %w", err)
-		}
-
-		log.V(1).Info("Domain is already gone")
-		return nil
-	}
-	log.V(1).Info("Successfully undefined domain")
 	return nil
 }
 
