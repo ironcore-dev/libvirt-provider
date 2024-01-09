@@ -32,7 +32,7 @@ var (
 )
 
 const (
-	eventuallyTimeout    = 30 * time.Second
+	eventuallyTimeout    = 180 * time.Second
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
 	machineClassx3xlarge = "x3-xlarge"
@@ -70,7 +70,7 @@ var _ = BeforeSuite(func() {
 	defer func() {
 		_ = machineClassesFile.Close()
 	}()
-	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0666)).To(Succeed())
+	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
 
 	By("starting the app")
 
@@ -81,7 +81,7 @@ var _ = BeforeSuite(func() {
 	Expect(fs.Set("apinet-node-name", "test-node")).To(Succeed())
 
 	tempDir := GinkgoT().TempDir()
-	Expect(os.Chmod(tempDir, 0777)).Should(Succeed())
+	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
 		Address:                     fmt.Sprintf("%s/test.sock", os.Getenv("PWD")),

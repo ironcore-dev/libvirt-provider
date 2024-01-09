@@ -32,6 +32,7 @@ jobs:
           sudo apt-get install -y qemu-kvm libvirt-daemon-system
           sudo systemctl enable --now libvirtd
           sudo usermod -aG kvm,libvirt $USER
+          sudo usermod -aG $(id -gn $USER) libvirt-qemu
           sudo setfacl -m user:$USER:rw /var/run/libvirt/libvirt-sock
           sudo update-ca-certificates
           sudo rm -rf /var/lib/apt/lists

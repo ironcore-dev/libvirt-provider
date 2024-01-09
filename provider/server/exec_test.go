@@ -56,12 +56,12 @@ var _ = Describe("Exec", func() {
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("issuing exec for the test machine")
-		resExec, err := machineClient.Exec(ctx, &iri.ExecRequest{MachineId: createResp.Machine.Metadata.Id})
+		execResp, err := machineClient.Exec(ctx, &iri.ExecRequest{MachineId: createResp.Machine.Metadata.Id})
 		Expect(err).NotTo(HaveOccurred())
 
 		By("inspecting the result")
-		parsedResUrl, err := url.ParseRequestURI(resExec.Url)
-		Expect(err).NotTo(HaveOccurred(), "url is invalid: %q", resExec.Url)
+		parsedResUrl, err := url.ParseRequestURI(execResp.Url)
+		Expect(err).NotTo(HaveOccurred(), "url is invalid: %q", execResp.Url)
 		parsedBaseURL, err := url.ParseRequestURI(baseURL)
 		Expect(err).NotTo(HaveOccurred(), "baseUrl is invalid: %q", baseURL)
 

@@ -177,7 +177,7 @@ $(ADDLICENSE): $(LOCALBIN)
 
 .PHONY: integration-tests
 integration-tests:
-	go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="integration" ./...
+	go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="integration" -coverprofile cover.out ./...
 
 
 # go-install-tool will 'go install' any $1 package.
