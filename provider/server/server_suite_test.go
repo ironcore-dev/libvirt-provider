@@ -27,6 +27,8 @@ const (
 	eventuallyTimeout    = 3 * time.Second
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
+	baseURL              = "http://localhost:8080"
+	machineClassx3xlarge = "x3-xlarge"
 )
 
 func TestServer(t *testing.T) {
@@ -55,7 +57,7 @@ var _ = BeforeSuite(func() {
 	machineClasses, err := mcr.NewMachineClassRegistry([]iri.MachineClass{
 		{
 			//TODO
-			Name: "x3-xlarge",
+			Name: machineClassx3xlarge,
 			Capabilities: &iri.MachineClassCapabilities{
 				CpuMillis:   4000,
 				MemoryBytes: 8589934592,
@@ -65,6 +67,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	srv, err = server.New(server.Options{
+		BaseURL:        baseURL,
 		MachineStore:   machineStore,
 		MachineClasses: machineClasses,
 	})
