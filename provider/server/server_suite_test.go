@@ -32,7 +32,7 @@ var (
 )
 
 const (
-	eventuallyTimeout    = 180 * time.Second
+	eventuallyTimeout    = 30 * time.Second
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
 	machineClassx3xlarge = "x3-xlarge"
@@ -84,7 +84,7 @@ var _ = BeforeSuite(func() {
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
-		Address:                     fmt.Sprintf("%s/test.sock", os.Getenv("PWD")),
+		Address:                     fmt.Sprintf("%s/test.sock", tempDir),
 		BaseURL:                     baseURL,
 		PathSupportedMachineClasses: machineClassesFile.Name(),
 		RootDir:                     fmt.Sprintf("%s/libvirt-provider", tempDir),
