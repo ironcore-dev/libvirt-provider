@@ -12,6 +12,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"time"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
@@ -29,6 +30,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
 	"libvirt.org/go/libvirtxml"
@@ -57,13 +59,21 @@ var (
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities      guest.Capabilities
-	TCMallocLibPath        string
-	ImageCache             providerimage.Cache
-	Raw                    raw.Raw
-	Host                   providerhost.Host
-	VolumePluginManager    *providervolume.PluginManager
-	NetworkInterfacePlugin providernetworkinterface.Plugin
+	GuestCapabilities        guest.Capabilities
+	TCMallocLibPath          string
+	ImageCache               providerimage.Cache
+	Raw                      raw.Raw
+	Host                     providerhost.Host
+	VolumePluginManager      *providervolume.PluginManager
+	NetworkInterfacePlugin   providernetworkinterface.Plugin
+	VolumeEvents             event.Source[*api.Machine]
+	ResyncDurationVolumeSize time.Duration
+}
+
+func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
+	if o.ResyncDurationVolumeSize == 0 {
+		o.ResyncDurationVolumeSize = time.Minute
+	}
 }
 
 func NewMachineReconciler(
@@ -73,6 +83,8 @@ func NewMachineReconciler(
 	machineEvents event.Source[*api.Machine],
 	opts MachineReconcilerOptions,
 ) (*MachineReconciler, error) {
+	setMachineReconcilerOptionsDefaults(&opts)
+
 	if libvirt == nil {
 		return nil, fmt.Errorf("must specify libvirt client")
 	}
@@ -86,18 +98,19 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:                    log,
-		queue:                  workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:                libvirt,
-		machines:               machines,
-		machineEvents:          machineEvents,
-		guestCapabilities:      opts.GuestCapabilities,
-		tcMallocLibPath:        opts.TCMallocLibPath,
-		host:                   opts.Host,
-		imageCache:             opts.ImageCache,
-		raw:                    opts.Raw,
-		volumePluginManager:    opts.VolumePluginManager,
-		networkInterfacePlugin: opts.NetworkInterfacePlugin,
+		log:                      log,
+		queue:                    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		libvirt:                  libvirt,
+		machines:                 machines,
+		machineEvents:            machineEvents,
+		guestCapabilities:        opts.GuestCapabilities,
+		tcMallocLibPath:          opts.TCMallocLibPath,
+		host:                     opts.Host,
+		imageCache:               opts.ImageCache,
+		raw:                      opts.Raw,
+		volumePluginManager:      opts.VolumePluginManager,
+		networkInterfacePlugin:   opts.NetworkInterfacePlugin,
+		resyncDurationVolumeSize: opts.ResyncDurationVolumeSize,
 	}, nil
 }
 
@@ -117,6 +130,8 @@ type MachineReconciler struct {
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
+
+	resyncDurationVolumeSize time.Duration
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -154,12 +169,53 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 		}
 	}()
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+
+		wait.UntilWithContext(ctx, func(ctx context.Context) {
+			machines, err := r.machines.List(ctx)
+			if err != nil {
+				log.Error(err, "failed to list machines")
+				return
+			}
+
+			for _, machine := range machines {
+				var shouldEnqueue bool
+
+				for _, volume := range machine.Spec.Volumes {
+					plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
+					if err != nil {
+						log.Error(err, "failed to get volume plugin", "machineID", machine, "volume", volume.Name)
+						continue
+					}
+
+					volumeSize, err := plugin.GetSize(ctx, volume)
+					if err != nil {
+						log.Error(err, "failed to get volume size", "machineID", machine, "volume", volume.Name)
+						continue
+					}
+
+					if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
+						log.V(1).Info("Enqueue machine: Volume Size changed", "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+						shouldEnqueue = true
+						break
+					}
+				}
+
+				if shouldEnqueue {
+					r.queue.Add(machine.ID)
+				}
+			}
+		}, r.resyncDurationVolumeSize)
+	}()
+
 	go func() {
 		<-ctx.Done()
 		r.queue.ShutDown()
 	}()
 
-	var wg sync.WaitGroup
 	for i := 0; i < workerSize; i++ {
 		wg.Add(1)
 		go func() {

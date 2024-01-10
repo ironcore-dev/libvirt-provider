@@ -22,6 +22,7 @@ import (
 	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
 	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/utils/ptr"
 	utilstrings "k8s.io/utils/strings"
 	"libvirt.org/go/libvirtxml"
 )
@@ -94,6 +95,22 @@ func (r *MachineReconciler) machineVolumeMounter(machine *api.Machine) VolumeMou
 	}
 }
 
+func getVolumeStatus(machine *api.Machine, volumeID string) *api.VolumeStatus {
+	for _, volumeStatus := range machine.Status.VolumeStatus {
+		if volumeID == volumeStatus.Handle {
+			return &volumeStatus
+		}
+	}
+	return nil
+}
+
+func getLastVolumeSize(machine *api.Machine, volumeID string) *int64 {
+	if status := getVolumeStatus(machine, volumeID); status != nil && status.Size != 0 {
+		return ptr.To(status.Size)
+	}
+	return nil
+}
+
 func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Logger, machine *api.Machine, attacher VolumeAttacher) ([]api.VolumeStatus, error) {
 	mounter := r.machineVolumeMounter(machine)
 	specVolumes := r.listDesiredVolumes(machine)
@@ -130,17 +147,23 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 	var volumeStates []api.VolumeStatus
 	for _, volume := range specVolumes {
 		log.V(1).Info("Reconciling volume", "VolumeName", volume.Name)
-		volumeID, err := r.applyVolume(ctx, log, volume, mounter, attacher)
+		volumeID, volumeSize, err := r.applyVolume(ctx, log, volume, mounter, attacher)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error reconciling: %w", volume.Name, err))
-		} else {
-			log.V(1).Info("Successfully reconciled volume", "VolumeName", volume.Name, "VolumeID", volumeID)
-			volumeStates = append(volumeStates, api.VolumeStatus{
-				Name:   volume.Name,
-				Handle: volumeID,
-				State:  api.VolumeStateAttached,
-			})
+			continue
 		}
+
+		if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != nil && volumeSize != ptr.Deref(lastVolumeSize, 0) {
+			log.V(1).Info("Resizing volume", "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+		}
+
+		log.V(1).Info("Successfully reconciled volume", "VolumeName", volume.Name, "VolumeID", volumeID)
+		volumeStates = append(volumeStates, api.VolumeStatus{
+			Name:   volume.Name,
+			Handle: volumeID,
+			State:  api.VolumeStateAttached,
+			Size:   volumeSize,
+		})
 	}
 
 	if len(errs) > 0 {
@@ -617,7 +640,7 @@ func (r *MachineReconciler) applyVolume(
 	desiredVolume *api.VolumeSpec,
 	mountedVolumes VolumeMounter,
 	attacher VolumeAttacher,
-) (string, error) {
+) (string, int64, error) {
 	log.V(1).Info("Getting volume spec")
 
 	log.V(1).Info("Applying volume")
@@ -629,7 +652,7 @@ func (r *MachineReconciler) applyVolume(
 		return nil
 	})
 	if err != nil {
-		return "", fmt.Errorf("error applying volume mount: %w", err)
+		return "", 0, fmt.Errorf("error applying volume mount: %w", err)
 	}
 
 	log.V(1).Info("Ensuring volume is attached")
@@ -638,9 +661,9 @@ func (r *MachineReconciler) applyVolume(
 		Device: desiredVolume.Device,
 		Spec:   *providerVolume,
 	}); err != nil && !errors.Is(err, ErrAttachedVolumeAlreadyExists) {
-		return "", fmt.Errorf("error ensuring volume is attached: %w", err)
+		return "", 0, fmt.Errorf("error ensuring volume is attached: %w", err)
 	}
-	return volumeID, nil
+	return volumeID, providerVolume.Size, nil
 }
 
 func (r *MachineReconciler) listDesiredVolumes(machine *api.Machine) map[string]*api.VolumeSpec {
