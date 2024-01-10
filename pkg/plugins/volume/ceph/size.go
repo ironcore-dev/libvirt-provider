@@ -13,6 +13,7 @@ import (
 
 	"github.com/ceph/go-ceph/rados"
 	"github.com/ceph/go-ceph/rbd"
+	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 )
 
@@ -63,6 +64,8 @@ func connectToRados(ctx context.Context, monitors, user, keyfile string) (*rados
 }
 
 func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, error) {
+	log := logr.FromContextOrDiscard(ctx)
+
 	if spec.Connection != nil {
 		return 0, errors.New("connection data is not set")
 	}
@@ -88,7 +91,9 @@ func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, erro
 		return 0, fmt.Errorf("failed to create temp key file: %w", err)
 	}
 	defer func() {
-		_ = cleanup()
+		if err := cleanup(); err != nil {
+			log.Error(err, "failed to cleanup key file")
+		}
 	}()
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)

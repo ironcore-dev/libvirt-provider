@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
@@ -74,6 +75,7 @@ type Options struct {
 	RootDir string
 
 	PathSupportedMachineClasses string
+	ResyncDurationVolumeSize    time.Duration
 
 	ApinetKubeconfig string
 
@@ -97,6 +99,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.RootDir, "libvirt-provider-dir", filepath.Join(homeDir, ".libvirt-provider"), "Path to the directory libvirt-provider manages its content at.")
 
 	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
+	fs.DurationVar(&o.ResyncDurationVolumeSize, "volume-size-resync-duration", o.ResyncDurationVolumeSize, "Interval to determine volume size changes.")
 
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
@@ -283,12 +286,13 @@ func Run(ctx context.Context, opts Options) error {
 		machineStore,
 		machineEvents,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities:      caps,
-			ImageCache:             imgCache,
-			Raw:                    rawInst,
-			Host:                   providerHost,
-			VolumePluginManager:    volumePlugins,
-			NetworkInterfacePlugin: nicPlugin,
+			GuestCapabilities:        caps,
+			ImageCache:               imgCache,
+			Raw:                      rawInst,
+			Host:                     providerHost,
+			VolumePluginManager:      volumePlugins,
+			NetworkInterfacePlugin:   nicPlugin,
+			ResyncDurationVolumeSize: opts.ResyncDurationVolumeSize,
 		},
 	)
 	if err != nil {

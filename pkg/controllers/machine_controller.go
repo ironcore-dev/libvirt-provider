@@ -172,12 +172,13 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
+		sizeLogger := r.log.WithName("size")
 		defer wg.Done()
 
-		wait.UntilWithContext(ctx, func(ctx context.Context) {
-			machines, err := r.machines.List(ctx)
+		wait.UntilWithContext(ctx, func(innerCtx context.Context) {
+			machines, err := r.machines.List(innerCtx)
 			if err != nil {
-				log.Error(err, "failed to list machines")
+				sizeLogger.Error(err, "failed to list machines")
 				return
 			}
 
@@ -187,25 +188,25 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 				for _, volume := range machine.Spec.Volumes {
 					plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
 					if err != nil {
-						log.Error(err, "failed to get volume plugin", "machineID", machine, "volume", volume.Name)
+						sizeLogger.Error(err, "failed to get volume plugin", "machineID", machine, "volume", volume.Name)
 						continue
 					}
 
-					volumeSize, err := plugin.GetSize(ctx, volume)
+					volumeSize, err := plugin.GetSize(innerCtx, volume)
 					if err != nil {
-						log.Error(err, "failed to get volume size", "machineID", machine, "volume", volume.Name)
+						sizeLogger.Error(err, "failed to get volume size", "machineID", machine, "volume", volume.Name)
 						continue
 					}
 
 					if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-						log.V(1).Info("Enqueue machine: Volume Size changed", "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+						sizeLogger.V(1).Info("Enqueue machine: Volume Size changed", "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 						shouldEnqueue = true
 						break
 					}
 				}
 
 				if shouldEnqueue {
-					r.queue.Add(machine.ID)
+					r.queue.AddRateLimited(machine.ID)
 				}
 			}
 		}, r.resyncDurationVolumeSize)
@@ -576,15 +577,15 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	if err := r.setDomainResources(ctx, log, machine, domainDesc); err != nil {
+	if err := r.setDomainResources(machine, domainDesc); err != nil {
 		return nil, nil, nil, err
 	}
 
-	if err := r.setDomainPCIControllers(machine, domainDesc); err != nil {
+	if err := r.setDomainPCIControllers(domainDesc); err != nil {
 		return nil, nil, nil, err
 	}
 
-	if err := r.setTCMallocPath(machine, domainDesc); err != nil {
+	if err := r.setTCMallocPath(domainDesc); err != nil {
 		return nil, nil, nil, err
 	}
 
@@ -595,7 +596,7 @@ func (r *MachineReconciler) domainFor(
 	}
 
 	if ignitionSpec := machine.Spec.Ignition; ignitionSpec != nil {
-		if err := r.setDomainIgnition(ctx, machine, domainDesc); err != nil {
+		if err := r.setDomainIgnition(machine, domainDesc); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -646,7 +647,7 @@ func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Mach
 	return nil
 }
 
-func (r *MachineReconciler) setDomainResources(ctx context.Context, log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {
+func (r *MachineReconciler) setDomainResources(machine *api.Machine, domain *libvirtxml.Domain) error {
 	// TODO: check if there is better or check possible while conversion to uint
 	domain.Memory = &libvirtxml.DomainMemory{
 		Value: uint(machine.Spec.MemoryBytes),
@@ -662,7 +663,7 @@ func (r *MachineReconciler) setDomainResources(ctx context.Context, log logr.Log
 
 // TODO: Investigate hotplugging the pcie-root-port controllers with disks.
 // Ref: https://libvirt.org/pci-hotplug.html#x86_64-q35
-func (r *MachineReconciler) setDomainPCIControllers(machine *api.Machine, domain *libvirtxml.Domain) error {
+func (r *MachineReconciler) setDomainPCIControllers(domain *libvirtxml.Domain) error {
 	domain.Devices.Controllers = append(domain.Devices.Controllers, libvirtxml.DomainController{
 		Type:  "pci",
 		Model: "pcie-root",
@@ -678,7 +679,7 @@ func (r *MachineReconciler) setDomainPCIControllers(machine *api.Machine, domain
 }
 
 // setTCMallocPath enables support for the tcmalloc for the VMs.
-func (r *MachineReconciler) setTCMallocPath(machine *api.Machine, domain *libvirtxml.Domain) error {
+func (r *MachineReconciler) setTCMallocPath(domain *libvirtxml.Domain) error {
 	if r.tcMallocLibPath == "" {
 		return nil
 	}
@@ -748,7 +749,7 @@ func (r *MachineReconciler) setDomainImage(
 	return nil
 }
 
-func (r *MachineReconciler) setDomainIgnition(ctx context.Context, machine *api.Machine, domain *libvirtxml.Domain) error {
+func (r *MachineReconciler) setDomainIgnition(machine *api.Machine, domain *libvirtxml.Domain) error {
 	if machine.Spec.Ignition == nil {
 		return fmt.Errorf("no IgnitionData found in the Machine %s", machine.GetID())
 	}
