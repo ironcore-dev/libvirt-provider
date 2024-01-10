@@ -66,11 +66,11 @@ generate: controller-gen ## Generate code containing DeepCopy, DeepCopyInto, and
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: add-license
-add-license: add-license ## Add license headers to all go files.
+add-license: addlicense ## Add license headers to all go files.
 	find . -name '*.go' -exec $(ADDLICENSE) -f hack/license-header.txt {} +
 
 .PHONY: check-license
-check-license: add-license ## Check that every file has a license header present.
+check-license: addlicense ## Check that every file has a license header present.
 	find . -name '*.go' -exec $(ADDLICENSE) -check -c 'IronCore authors' {} +
 
 .PHONY: fmt
@@ -82,15 +82,12 @@ lint: golangci-lint ## Run golangci-lint against code.
 	GOOS=$(TARGET_OS) CGO=1 $(GOLANGCI_LINT) run ./...
 
 .PHONY: check
-check: manifests generate add-license lint test # Generate manifests, code, lint, add licenses, test
+check: manifests generate fmt addlicense lint test ## Generate manifests, code, lint, add licenses, test
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 .PHONY: test
 test: manifests generate fmt envtest check-license ## Run tests. Some test depend on Linux OS
 	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
-
-.PHONY: check
-check: generate fmt add-license lint test ## Lint and run tests.
 
 ##@ Documentation
 
@@ -143,7 +140,7 @@ KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_GEN_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
 GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
-ADDLICENSE ?= $(LOCALBIN)/add-license-$(ADDLICENSE_VERSION)
+ADDLICENSE ?= $(LOCALBIN)/addlicense-$(ADDLICENSE_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.3.0
@@ -172,8 +169,8 @@ golangci-lint: $(LOCALBIN) ## Run golangci-lint on the code.
 clean-tools: ## Clean any artifacts that can be regenerated.
 	rm -rf $(LOCALBIN)
 
-.PHONY: add-license
-add-license: $(LOCALBIN) ## Add license headers to all go files.
+.PHONY: addlicense
+addlicense: $(LOCALBIN) ## Add license headers to all go files.
 	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
