@@ -154,7 +154,7 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 		}
 
 		if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != nil && volumeSize != ptr.Deref(lastVolumeSize, 0) {
-			log.V(1).Info("Resizing volume", "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+			log.V(1).Info("Resizing volume", "VolumeName", volume.Name, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 		}
 
 		log.V(1).Info("Successfully reconciled volume", "VolumeName", volume.Name, "VolumeID", volumeID)

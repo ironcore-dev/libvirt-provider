@@ -87,14 +87,14 @@ func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, erro
 	poolName, imageName := parts[0], parts[1]
 
 	keyFile, cleanup, err := createKeyFile(imageName, userKey)
-	if err != nil {
-		return 0, fmt.Errorf("failed to create temp key file: %w", err)
-	}
 	defer func() {
 		if err := cleanup(); err != nil {
 			log.Error(err, "failed to cleanup key file")
 		}
 	}()
+	if err != nil {
+		return 0, fmt.Errorf("failed to create temp key file: %w", err)
+	}
 
 	timeoutCtx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()

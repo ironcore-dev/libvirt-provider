@@ -199,7 +199,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 					}
 
 					if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-						sizeLogger.V(1).Info("Enqueue machine: Volume Size changed", "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+						sizeLogger.V(1).Info("Enqueue machine: Volume Size changed", "volume", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 						shouldEnqueue = true
 						break
 					}
