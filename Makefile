@@ -162,7 +162,7 @@ envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,${ENVTEST_VERSION})
 
 .PHONY: golangci-lint
-golangci-lint: $(LOCALBIN) ## Run golangci-lint on the code.
+golangci-lint: $(LOCALBIN) ## Download golangci-lint locally if necessary.
 	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
 
 .PHONY: clean-tools
@@ -170,7 +170,7 @@ clean-tools: ## Clean any artifacts that can be regenerated.
 	rm -rf $(LOCALBIN)
 
 .PHONY: addlicense
-addlicense: $(LOCALBIN) ## Add license headers to all go files.
+addlicense: $(LOCALBIN) ## Download addlicense locally if necessary.
 	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
 
 # go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
@@ -183,7 +183,7 @@ set -e; \
 version=@$(3) ;\
 url=$(2) ;\
 if echo $$version | grep 'v[2-9][0-9]*' -q; then \
-        echo $$url | grep '/v[2-9][0-9]*/' -q || version="/$$(printf $$version | grep -o 'v[2-9][0-9]*')$$version" ;\
+		echo $$url | grep '/v[2-9][0-9]*/' -q || version="/$$(printf $$version | grep -o 'v[2-9][0-9]*')$$version" ;\
 fi ;\
 echo "Downloading $${url}$${version}" ;\
 GOBIN=$(GOBIN) go install $${url}$${version} ;\
