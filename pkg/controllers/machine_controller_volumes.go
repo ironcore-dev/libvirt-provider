@@ -47,7 +47,7 @@ func (r *MachineReconciler) deleteVolumes(ctx context.Context, log logr.Logger, 
 	}
 
 	if err := attacher.ForEachVolume(func(volume *AttachVolume) bool {
-		log.V(1).Info("Detaching volume", "VolumeName", volume.Name)
+		log.V(1).Info("Detaching volume", "volumeName", volume.Name)
 		if err := attacher.DetachVolume(volume.Name); err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error detaching volume: %w", volume.Name, err))
 		}
@@ -60,7 +60,7 @@ func (r *MachineReconciler) deleteVolumes(ctx context.Context, log logr.Logger, 
 	}
 
 	if err := mounter.ForEachVolume(func(volume *MountVolume) bool {
-		log.V(1).Info("Unmounting volume", "VolumeName", volume.ComputeVolumeName)
+		log.V(1).Info("Unmounting volume", "volumeName", volume.ComputeVolumeName)
 		if err := mounter.DeleteVolume(ctx, volume.ComputeVolumeName); err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error deleting volume: %w", volume.ComputeVolumeName, err))
 		}
@@ -136,17 +136,17 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 			continue
 		}
 
-		log.V(1).Info("Deleting non-required volume", "VolumeName", volumeName)
+		log.V(1).Info("Deleting non-required volume", "volumeName", volumeName)
 		if err := r.deleteVolume(ctx, log, mounter, attacher, volumeName); err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error detaching: %w", volumeName, err))
 		} else {
-			log.V(1).Info("Successfully detached volume", "VolumeName", volumeName)
+			log.V(1).Info("Successfully detached volume", "volumeName", volumeName)
 		}
 	}
 
 	var volumeStates []api.VolumeStatus
 	for _, volume := range specVolumes {
-		log.V(1).Info("Reconciling volume", "VolumeName", volume.Name)
+		log.V(1).Info("Reconciling volume", "volumeName", volume.Name)
 		volumeID, volumeSize, err := r.applyVolume(ctx, log, volume, mounter, attacher)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error reconciling: %w", volume.Name, err))
@@ -154,10 +154,10 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 		}
 
 		if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != nil && volumeSize != ptr.Deref(lastVolumeSize, 0) {
-			log.V(1).Info("Resizing volume", "VolumeName", volume.Name, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+			log.V(1).Info("Resizing volume", "volumeName", volume.Name, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 		}
 
-		log.V(1).Info("Successfully reconciled volume", "VolumeName", volume.Name, "VolumeID", volumeID)
+		log.V(1).Info("Successfully reconciled volume", "volumeName", volume.Name, "volumeID", volumeID)
 		volumeStates = append(volumeStates, api.VolumeStatus{
 			Name:   volume.Name,
 			Handle: volumeID,

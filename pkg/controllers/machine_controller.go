@@ -208,18 +208,18 @@ func (r *MachineReconciler) processVolumeSizeChanges(parent context.Context, log
 			for _, volume := range machine.Spec.Volumes {
 				plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
 				if err != nil {
-					log.Error(err, "failed to get volume plugin", "machineID", machine, "volume", volume.Name)
+					log.Error(err, "failed to get volume plugin", "machineID", machine, "volumeName", volume.Name)
 					continue
 				}
 
 				volumeSize, err := plugin.GetSize(ctx, volume)
 				if err != nil {
-					log.Error(err, "failed to get volume size", "machineID", machine, "volume", volume.Name)
+					log.Error(err, "failed to get volume size", "machineID", machine, "volumeName", volume.Name)
 					continue
 				}
 
 				if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-					log.V(1).Info("Enqueue machine: Volume Size changed", "volume", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+					log.V(1).Info("Enqueue machine: Volume Size changed", "volumeName", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 					shouldEnqueue = true
 					break
 				}
