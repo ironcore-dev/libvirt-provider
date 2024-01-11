@@ -67,12 +67,12 @@ type MachineReconcilerOptions struct {
 	VolumePluginManager      *providervolume.PluginManager
 	NetworkInterfacePlugin   providernetworkinterface.Plugin
 	VolumeEvents             event.Source[*api.Machine]
-	ResyncDurationVolumeSize time.Duration
+	ResyncIntervalVolumeSize time.Duration
 }
 
 func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
-	if o.ResyncDurationVolumeSize == 0 {
-		o.ResyncDurationVolumeSize = time.Minute
+	if o.ResyncIntervalVolumeSize == 0 {
+		o.ResyncIntervalVolumeSize = time.Minute
 	}
 }
 
@@ -110,7 +110,7 @@ func NewMachineReconciler(
 		raw:                      opts.Raw,
 		volumePluginManager:      opts.VolumePluginManager,
 		networkInterfacePlugin:   opts.NetworkInterfacePlugin,
-		resyncDurationVolumeSize: opts.ResyncDurationVolumeSize,
+		resyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
 	}, nil
 }
 
@@ -131,7 +131,7 @@ type MachineReconciler struct {
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
 
-	resyncDurationVolumeSize time.Duration
+	resyncIntervalVolumeSize time.Duration
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -172,44 +172,8 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
-		sizeLogger := r.log.WithName("size")
 		defer wg.Done()
-
-		wait.UntilWithContext(ctx, func(innerCtx context.Context) {
-			machines, err := r.machines.List(innerCtx)
-			if err != nil {
-				sizeLogger.Error(err, "failed to list machines")
-				return
-			}
-
-			for _, machine := range machines {
-				var shouldEnqueue bool
-
-				for _, volume := range machine.Spec.Volumes {
-					plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
-					if err != nil {
-						sizeLogger.Error(err, "failed to get volume plugin", "machineID", machine, "volume", volume.Name)
-						continue
-					}
-
-					volumeSize, err := plugin.GetSize(innerCtx, volume)
-					if err != nil {
-						sizeLogger.Error(err, "failed to get volume size", "machineID", machine, "volume", volume.Name)
-						continue
-					}
-
-					if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-						sizeLogger.V(1).Info("Enqueue machine: Volume Size changed", "volume", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
-						shouldEnqueue = true
-						break
-					}
-				}
-
-				if shouldEnqueue {
-					r.queue.AddRateLimited(machine.ID)
-				}
-			}
-		}, r.resyncDurationVolumeSize)
+		r.processVolumeSizeChanges(ctx, r.log.WithName("volume-size"))
 	}()
 
 	go func() {
@@ -228,6 +192,44 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 	wg.Wait()
 	return nil
+}
+
+func (r *MachineReconciler) processVolumeSizeChanges(parent context.Context, log logr.Logger) {
+	wait.UntilWithContext(parent, func(ctx context.Context) {
+		machines, err := r.machines.List(ctx)
+		if err != nil {
+			log.Error(err, "failed to list machines")
+			return
+		}
+
+		for _, machine := range machines {
+			var shouldEnqueue bool
+
+			for _, volume := range machine.Spec.Volumes {
+				plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
+				if err != nil {
+					log.Error(err, "failed to get volume plugin", "machineID", machine, "volume", volume.Name)
+					continue
+				}
+
+				volumeSize, err := plugin.GetSize(ctx, volume)
+				if err != nil {
+					log.Error(err, "failed to get volume size", "machineID", machine, "volume", volume.Name)
+					continue
+				}
+
+				if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
+					log.V(1).Info("Enqueue machine: Volume Size changed", "volume", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+					shouldEnqueue = true
+					break
+				}
+			}
+
+			if shouldEnqueue {
+				r.queue.AddRateLimited(machine.ID)
+			}
+		}
+	}, r.resyncIntervalVolumeSize)
 }
 
 func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Logger) bool {
