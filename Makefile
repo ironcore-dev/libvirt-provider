@@ -86,7 +86,11 @@ check: manifests generate add-license lint test
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 .PHONY: test
 test: manifests generate fmt envtest check-license ## Run tests. Some test depend on Linux OS
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go test ./... -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) -p path)" go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="!integration" -coverprofile cover.out ./...
+
+.PHONY: integration-tests
+integration-tests: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
+	go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="integration" -coverprofile cover.out ./...
 
 .PHONY: check
 check: generate fmt add-license lint test ## Lint and run tests.
@@ -174,7 +178,6 @@ $(GOLANGCI_LINT): $(LOCALBIN)
 addlicense: $(ADDLICENSE) ## Download addlicense locally if necessary.
 $(ADDLICENSE): $(LOCALBIN)
 	test -s $(LOCALBIN)/addlicense || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@$(ADDLICENSE_VERSION)
-
 
 # go-install-tool will 'go install' any $1 package.
 # it will add v. prefix into url, if url isn't contain version
