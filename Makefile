@@ -82,7 +82,7 @@ lint: golangci-lint ## Run golangci-lint against code.
 	GOOS=$(TARGET_OS) CGO=1 $(GOLANGCI_LINT) run ./...
 
 .PHONY: check
-check: manifests generate fmt addlicense lint test ## Generate manifests, code, lint, add licenses, test
+check: manifests generate fmt check-license lint test ## Generate manifests, code, lint, check licenses, test
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 .PHONY: test
