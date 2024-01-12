@@ -763,7 +763,7 @@ func (a *libvirtVolumeAttacher) providerVolumeToLibvirt(computeVolumeName string
 			}
 		}
 
-		if encryption := vol.CephDisk.Encryption; encryption != nil || encryption.EncryptionKey != "" {
+		if encryption := vol.CephDisk.Encryption; encryption != nil && encryption.EncryptionKey != "" {
 			diskEncryption = &libvirtxml.DomainDiskEncryption{
 				Format: "luks2",
 				Engine: "librbd",
