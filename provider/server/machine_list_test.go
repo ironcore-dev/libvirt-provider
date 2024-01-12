@@ -4,8 +4,6 @@
 package server_test
 
 import (
-	"net/url"
-
 	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
@@ -14,14 +12,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Exec", func() {
-
-	It("should return an exec-url with a token", func(ctx SpecContext) {
-		By("creating the test machine")
+var _ = Describe("ListMachine", func() {
+	It("should correctly list machines", func(ctx SpecContext) {
+		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{},
+				Metadata: &irimeta.ObjectMetadata{
+					Labels: map[string]string{
+						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
+					},
+				},
 				Spec: &iri.MachineSpec{
+					Power: iri.Power_POWER_ON,
 					Class: machineClassx3xlarge,
 				},
 			},
@@ -55,18 +57,13 @@ var _ = Describe("Exec", func() {
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
-		By("issuing exec for the test machine")
-		execResp, err := machineClient.Exec(ctx, &iri.ExecRequest{MachineId: createResp.Machine.Metadata.Id})
+		By("List machines")
+		resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			Filter: &iri.MachineFilter{
+				Id: createResp.Machine.Metadata.Id,
+			},
+		})
 		Expect(err).NotTo(HaveOccurred())
-
-		By("inspecting the result")
-		parsedResUrl, err := url.ParseRequestURI(execResp.Url)
-		Expect(err).NotTo(HaveOccurred(), "url is invalid: %q", execResp.Url)
-		parsedBaseURL, err := url.ParseRequestURI(baseURL)
-		Expect(err).NotTo(HaveOccurred(), "baseUrl is invalid: %q", baseURL)
-
-		Expect(parsedResUrl.Host).To(Equal(parsedBaseURL.Host))
-		Expect(parsedResUrl.Scheme).To(Equal(parsedBaseURL.Scheme))
-		Expect(parsedResUrl.Path).To(MatchRegexp(`/exec/[^/?&]{8}`))
+		Expect(resp).NotTo(BeNil())
 	})
 })
