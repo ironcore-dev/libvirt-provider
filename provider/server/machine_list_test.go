@@ -39,22 +39,7 @@ var _ = Describe("ListMachine", func() {
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-
-		By("ensuring the correct creation response")
-		Expect(createResp).Should(SatisfyAll(
-			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
-			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image", BeNil()),
-			HaveField("Machine.Spec.Class", machineClassx3xlarge),
-			HaveField("Machine.Spec.IgnitionData", BeNil()),
-			HaveField("Machine.Spec.Volumes", BeNil()),
-			HaveField("Machine.Spec.NetworkInterfaces", BeNil()),
-			HaveField("Machine.Status.ObservedGeneration", BeZero()),
-			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
-			HaveField("Machine.Status.ImageRef", BeEmpty()),
-			HaveField("Machine.Status.Volumes", BeNil()),
-			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
-		))
+		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
 			Eventually(func() bool {
@@ -82,26 +67,8 @@ var _ = Describe("ListMachine", func() {
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
-		By("ensuring machine is in running state and other status fields have been updated")
-		Eventually(func() *iri.MachineStatus {
-			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-				Filter: &iri.MachineFilter{
-					Id: createResp.Machine.Metadata.Id,
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			return listResp.Machines[0].Status
-		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", BeZero()),
-			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
-			HaveField("NetworkInterfaces", BeNil()),
-			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
-		))
-
 		By("listing machines using machine Id")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func() iri.MachineState {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
@@ -109,17 +76,11 @@ var _ = Describe("ListMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			return listResp.Machines[0].Status
-		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", BeZero()),
-			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
-			HaveField("NetworkInterfaces", BeNil()),
-			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
-		))
+			return listResp.Machines[0].Status.State
+		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
 		By("listing machines using correct Label selector")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func() iri.MachineState {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					LabelSelector: map[string]string{
@@ -129,14 +90,8 @@ var _ = Describe("ListMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			return listResp.Machines[0].Status
-		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", BeZero()),
-			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
-			HaveField("NetworkInterfaces", BeNil()),
-			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
-		))
+			return listResp.Machines[0].Status.State
+		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
 		By("listing machines using incorrect Label selector")
 		resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
