@@ -99,8 +99,13 @@ spec:
               name: var-run
         - command:
             - /libvirt-provider
+          env:
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
           image: libvirt-provider:latest
-          name: libvirt-provider
+          name: provider
           securityContext:
             privileged: true
           livenessProbe:
