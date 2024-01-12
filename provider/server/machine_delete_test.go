@@ -12,8 +12,9 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("ListMachine", func() {
-	It("should list machines", func(ctx SpecContext) {
+var _ = Describe("DeleteMachine", func() {
+
+	It("should delete machines", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -56,15 +57,6 @@ var _ = Describe("ListMachine", func() {
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
 
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
-		})
-
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
 		Eventually(func() error {
@@ -84,14 +76,14 @@ var _ = Describe("ListMachine", func() {
 
 		By("ensuring machine is in running state and other status fields have been updated")
 		Eventually(func() *iri.MachineStatus {
-			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			return listResp.Machines[0].Status
+			Expect(resp.Machines).NotTo(BeEmpty())
+			return resp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
@@ -100,54 +92,28 @@ var _ = Describe("ListMachine", func() {
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
 		))
 
-		By("listing machines using machine Id")
-		Eventually(func() *iri.MachineStatus {
-			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-				Filter: &iri.MachineFilter{
-					Id: createResp.Machine.Metadata.Id,
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			return listResp.Machines[0].Status
-		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", BeZero()),
-			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
-			HaveField("NetworkInterfaces", BeNil()),
-			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
-		))
-
-		By("listing machines using correct Label selector")
-		Eventually(func() *iri.MachineStatus {
-			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-				Filter: &iri.MachineFilter{
-					LabelSelector: map[string]string{
-						"foo": "bar",
-					},
-				},
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			return listResp.Machines[0].Status
-		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", BeZero()),
-			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
-			HaveField("NetworkInterfaces", BeNil()),
-			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
-		))
-
-		By("listing machines using incorrect Label selector")
-		resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-			Filter: &iri.MachineFilter{
-				LabelSelector: map[string]string{
-					"foo": "wrong",
-				},
-			},
+		By("deleting the machine")
+		_, err = machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{
+			MachineId: createResp.Machine.Metadata.Id,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(resp).NotTo(BeNil())
-		Expect(resp.Machines).To(BeEmpty())
+
+		By("ensuring machine is deleted")
+		Eventually(func() {
+			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Machines).To(BeEmpty())
+		})
+		By("ensuring domain and domain XML is deleted for machine")
+		Eventually(func() bool {
+			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+			return libvirt.IsNotFound(err)
+		}).Should(BeTrue())
+		domainXMLData, err = libvirtConn.DomainGetXMLDesc(domain, 0)
+		Expect(domainXMLData).To(BeEmpty())
 	})
 })

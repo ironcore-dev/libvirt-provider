@@ -84,7 +84,7 @@ var _ = Describe("CreateMachine", func() {
 		Eventually(func() error {
 			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 			return err
-		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
+		}).Should(Succeed())
 		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainXMLData).NotTo(BeEmpty())
