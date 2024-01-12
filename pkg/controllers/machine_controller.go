@@ -173,7 +173,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.processVolumeSizeChanges(ctx, r.log.WithName("volume-size"))
+		r.startCheckAndEnqueueVolumeResize(ctx, r.log.WithName("volume-size"))
 	}()
 
 	go func() {
@@ -194,8 +194,8 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *MachineReconciler) processVolumeSizeChanges(parent context.Context, log logr.Logger) {
-	wait.UntilWithContext(parent, func(ctx context.Context) {
+func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context, log logr.Logger) {
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		machines, err := r.machines.List(ctx)
 		if err != nil {
 			log.Error(err, "failed to list machines")
