@@ -16,6 +16,7 @@ import (
 	"github.com/ironcore-dev/ironcore/broker/common/request"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
@@ -30,6 +31,8 @@ type Server struct {
 	idGen idgen.IDGen
 
 	machineStore store.Store[*api.Machine]
+
+	networkInterfacePlugin providernetworkinterface.Plugin
 
 	volumePlugins  *volume.PluginManager
 	machineClasses MachineClassRegistry
@@ -52,7 +55,8 @@ type Options struct {
 
 	MachineClasses MachineClassRegistry
 
-	VolumePlugins *volume.PluginManager
+	VolumePlugins  *volume.PluginManager
+	NetworkPlugins providernetworkinterface.Plugin
 }
 
 func setOptionsDefaults(o *Options) {
@@ -70,14 +74,15 @@ func New(opts Options) (*Server, error) {
 	}
 
 	return &Server{
-		baseURL:          baseURL,
-		idGen:            opts.IDGen,
-		libvirt:          opts.Libvirt,
-		virshExecutable:  opts.VirshExecutable,
-		machineStore:     opts.MachineStore,
-		volumePlugins:    opts.VolumePlugins,
-		machineClasses:   opts.MachineClasses,
-		execRequestCache: request.NewCache[*iri.ExecRequest](),
+		baseURL:                baseURL,
+		idGen:                  opts.IDGen,
+		libvirt:                opts.Libvirt,
+		virshExecutable:        opts.VirshExecutable,
+		machineStore:           opts.MachineStore,
+		volumePlugins:          opts.VolumePlugins,
+		networkInterfacePlugin: opts.NetworkPlugins,
+		machineClasses:         opts.MachineClasses,
+		execRequestCache:       request.NewCache[*iri.ExecRequest](),
 	}, nil
 }
 

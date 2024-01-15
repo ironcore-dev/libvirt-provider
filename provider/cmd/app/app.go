@@ -312,6 +312,7 @@ func Run(ctx context.Context, opts Options) error {
 		MachineStore:    machineStore,
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
+		NetworkPlugins:  nicPlugin,
 		VirshExecutable: virshExecutable,
 	})
 	if err != nil {

@@ -55,33 +55,144 @@ func (s *Server) getIRIMachineSpec(machine *api.Machine) (*iri.MachineSpec, erro
 	}
 
 	spec := &iri.MachineSpec{
-		Power:        power,
-		Image:        imageSpec,
-		Class:        class,
-		IgnitionData: machine.Spec.Ignition,
-		//ToDo
-		Volumes:           nil,
-		NetworkInterfaces: nil,
+		Power:             power,
+		Image:             imageSpec,
+		Class:             class,
+		IgnitionData:      machine.Spec.Ignition,
+		Volumes:           s.getIRIVolumeSpec(machine),
+		NetworkInterfaces: s.getIRINICSpec(machine),
 	}
 
 	return spec, nil
 }
 
+func (s *Server) getIRIVolumeSpec(machine *api.Machine) []*iri.Volume {
+	var volumes []*iri.Volume
+	for _, volume := range machine.Spec.Volumes {
+		var emptyDisk *iri.EmptyDisk
+		if volume.EmptyDisk != nil {
+			emptyDisk = &iri.EmptyDisk{
+				SizeBytes: volume.EmptyDisk.Size,
+			}
+		}
+
+		var connection *iri.VolumeConnection
+		if volumeConnection := volume.Connection; volumeConnection != nil {
+			connection = &iri.VolumeConnection{
+				Driver:         volumeConnection.Driver,
+				Handle:         volumeConnection.Handle,
+				Attributes:     volumeConnection.Attributes,
+				SecretData:     volumeConnection.SecretData,
+				EncryptionData: volumeConnection.EncryptionData,
+			}
+		}
+
+		volumes = append(volumes, &iri.Volume{
+			Name:       volume.Name,
+			Device:     volume.Device,
+			EmptyDisk:  emptyDisk,
+			Connection: connection,
+		})
+	}
+
+	return volumes
+}
+
+func (s *Server) getIRINICSpec(machine *api.Machine) []*iri.NetworkInterface {
+	var nics []*iri.NetworkInterface
+	for _, nic := range machine.Spec.NetworkInterfaces {
+		nics = append(nics, &iri.NetworkInterface{
+			Name:       nic.Name,
+			NetworkId:  nic.NetworkId,
+			Ips:        nic.Ips,
+			Attributes: nic.Attributes,
+		})
+	}
+
+	return nics
+}
+
+func (s *Server) getIRIVolumeStatus(machine *api.Machine) ([]*iri.VolumeStatus, error) {
+	var volumes []*iri.VolumeStatus
+	for _, volume := range machine.Status.VolumeStatus {
+		state, err := s.getIRIVolumeState(volume.State)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get volume state: %w", err)
+		}
+
+		volumes = append(volumes, &iri.VolumeStatus{
+			Name:   volume.Name,
+			Handle: volume.Handle,
+			State:  state,
+		})
+	}
+
+	return volumes, nil
+}
+
+func (s *Server) getIRINICStatus(machine *api.Machine) ([]*iri.NetworkInterfaceStatus, error) {
+	var nics []*iri.NetworkInterfaceStatus
+	for _, nic := range machine.Status.NetworkInterfaceStatus {
+		state, err := s.getIRINICState(nic.State)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get nic state: %w", err)
+		}
+
+		nics = append(nics, &iri.NetworkInterfaceStatus{
+			Name:   nic.Name,
+			Handle: nic.Handle,
+			State:  state,
+		})
+	}
+
+	return nics, nil
+}
+
 func (s *Server) getIRIMachineStatus(machine *api.Machine) (*iri.MachineStatus, error) {
 	state, err := s.getIRIState(machine.Status.State)
 	if err != nil {
-		return nil, fmt.Errorf("failed to machine state: %w", err)
+		return nil, fmt.Errorf("failed to get machine state: %w", err)
+	}
+
+	volumes, err := s.getIRIVolumeStatus(machine)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get volume status: %w", err)
+	}
+
+	nics, err := s.getIRINICStatus(machine)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get network interface status: %w", err)
 	}
 
 	return &iri.MachineStatus{
 		ObservedGeneration: machine.Generation,
 		State:              state,
 		ImageRef:           machine.Status.ImageRef,
-		//Todo
-		Volumes: nil,
-		//Todo
-		NetworkInterfaces: nil,
+		Volumes:            volumes,
+		NetworkInterfaces:  nics,
 	}, nil
+}
+
+func (s *Server) getIRINICState(state api.NetworkInterfaceState) (iri.NetworkInterfaceState, error) {
+	switch state {
+	case api.NetworkInterfaceStateAttached:
+		return iri.NetworkInterfaceState_NETWORK_INTERFACE_ATTACHED, nil
+	case api.NetworkInterfaceStatePending:
+		return iri.NetworkInterfaceState_NETWORK_INTERFACE_PENDING, nil
+	default:
+		return 0, fmt.Errorf("unknown network interface state '%q'", state)
+	}
+}
+
+func (s *Server) getIRIVolumeState(state api.VolumeState) (iri.VolumeState, error) {
+	switch state {
+	case api.VolumeStateAttached:
+		return iri.VolumeState_VOLUME_ATTACHED, nil
+	case api.VolumeStatePending:
+		return iri.VolumeState_VOLUME_PENDING, nil
+	default:
+		return 0, fmt.Errorf("unknown volume state '%q'", state)
+	}
 }
 
 func (s *Server) getIRIState(state api.MachineState) (iri.MachineState, error) {
@@ -156,4 +267,17 @@ func (s *Server) getVolumeFromIRIVolume(iriVolume *iri.Volume) (*api.VolumeSpec,
 	}
 
 	return volumeSpec, nil
+}
+
+func (s *Server) getNICFromIRINIC(iriNIC *iri.NetworkInterface) (*api.NetworkInterfaceSpec, error) {
+	if iriNIC == nil {
+		return nil, fmt.Errorf("networkInterface is nil")
+	}
+
+	return &api.NetworkInterfaceSpec{
+		Name:       iriNIC.Name,
+		NetworkId:  iriNIC.NetworkId,
+		Ips:        iriNIC.Ips,
+		Attributes: iriNIC.Attributes,
+	}, nil
 }
