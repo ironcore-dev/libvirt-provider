@@ -27,8 +27,9 @@ import (
 )
 
 var (
-	machineClient iriv1alpha1.MachineRuntimeClient
-	libvirtConn   *libvirt.Libvirt
+	machineClient      iriv1alpha1.MachineRuntimeClient
+	libvirtConn        *libvirt.Libvirt
+	machineClassesFile *os.File
 )
 
 const (
@@ -36,6 +37,7 @@ const (
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
 	machineClassx3xlarge = "x3-xlarge"
+	machineClassx2medium = "x2-medium"
 	baseURL              = "http://localhost:8080"
 	streamingAddress     = "127.0.0.1:20251"
 )
@@ -61,16 +63,21 @@ var _ = BeforeSuite(func() {
 				MemoryBytes: 8589934592,
 			},
 		},
+		{
+			Name: machineClassx2medium,
+			Capabilities: &iriv1alpha1.MachineClassCapabilities{
+				CpuMillis:   2000,
+				MemoryBytes: 2147483648,
+			},
+		},
 	}
 	machineClassData, err := json.Marshal(machineClasses)
 	Expect(err).NotTo(HaveOccurred())
 
-	machineClassesFile, err := os.CreateTemp(GinkgoT().TempDir(), "machineclasses")
+	machineClassesFile, err = os.CreateTemp(GinkgoT().TempDir(), "machineclasses")
 	Expect(err).NotTo(HaveOccurred())
-	defer func() {
-		_ = machineClassesFile.Close()
-	}()
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
+	DeferCleanup(machineClassesFile.Close)
 
 	By("starting the app")
 
