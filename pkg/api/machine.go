@@ -57,6 +57,7 @@ type VolumeStatus struct {
 	Name   string      `json:"name,omitempty"`
 	Handle string      `json:"handle,omitempty"`
 	State  VolumeState `json:"state,omitempty"`
+	Size   int64       `json:"size,omitempty"`
 }
 
 type EmptyDiskSpec struct {

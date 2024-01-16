@@ -74,13 +74,13 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 		return nil, fmt.Errorf("failed to generate WWN/handle for the disk: %w", err)
 	}
 
+	var size int64 = 500 * 1024 * 1024 // 500Mi by default
 	diskFilename := p.diskFilename(spec.Name, machine.ID)
 	if _, err := os.Stat(diskFilename); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("error stat-ing disk: %w", err)
 		}
 
-		var size int64 = 500 * 1024 * 1024 // 500Mi by default
 		if sizeLimit := spec.EmptyDisk.Size; sizeLimit != 0 {
 			size = sizeLimit
 		}
@@ -92,11 +92,16 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 			return nil, fmt.Errorf("error changing disk file mode: %w", err)
 		}
 	}
-	return &volume.Volume{RawFile: diskFilename, Handle: handle}, nil
+	return &volume.Volume{RawFile: diskFilename, Handle: handle, Size: size}, nil
 }
 
 func (p *plugin) Delete(ctx context.Context, computeVolumeName string, machineID string) error {
 	return os.RemoveAll(p.host.MachineVolumeDir(machineID, utilstrings.EscapeQualifiedName(pluginName), computeVolumeName))
+}
+
+func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, error) {
+	// Currently Ironcore does not support resize of EmptyDisk
+	return spec.EmptyDisk.Size, nil
 }
 
 // randomHex generates random hexadecimal digits of the length n*2.

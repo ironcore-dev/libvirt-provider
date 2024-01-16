@@ -128,7 +128,7 @@ func readVolumeAttributes(attrs map[string]string) (monitors []volume.CephMonito
 func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (*volume.Volume, error) {
 	volumeData, err := p.getVolumeData(spec)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get volume data: %w", err)
 	}
 
 	var cephEncryption *volume.CephEncryption
@@ -136,6 +136,11 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 		cephEncryption = &volume.CephEncryption{
 			EncryptionKey: ptr.Deref(volumeData.encryptionKey, ""),
 		}
+	}
+
+	volumeSize, err := p.GetSize(ctx, spec)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get volume size: %w", err)
 	}
 
 	return &volume.Volume{
@@ -151,6 +156,7 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 			Encryption: cephEncryption,
 		},
 		Handle: volumeData.handle,
+		Size:   volumeSize,
 	}, nil
 }
 
