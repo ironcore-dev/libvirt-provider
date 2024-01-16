@@ -56,6 +56,8 @@ var (
 		//libvirt.DomainShutoff:     api.MachineStateShutdown,
 		libvirt.DomainPmsuspended: api.MachineStatePending,
 	}
+
+	errNeedToRequeue = errors.New("need to requeue")
 )
 
 type MachineReconcilerOptions struct {
@@ -256,7 +258,9 @@ func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Lo
 	ctx = logr.NewContext(ctx, log)
 
 	if err := r.reconcileMachine(ctx, id); err != nil {
-		log.Error(err, "failed to reconcile machine")
+		if err != errNeedToRequeue {
+			log.Error(err, "failed to reconcile machine")
+		}
 		r.queue.AddRateLimited(item)
 		return true
 	}
@@ -307,6 +311,9 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	}
 	log.V(1).Info("Reconciled domain")
 
+	if state == api.MachineStatePending && nicStates == nil && volumeStates == nil {
+		return errNeedToRequeue
+	}
 	machine.Status.VolumeStatus = volumeStates
 	machine.Status.NetworkInterfaceStatus = nicStates
 	machine.Status.State = state
