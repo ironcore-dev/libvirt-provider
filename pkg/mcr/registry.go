@@ -76,15 +76,15 @@ func GetQuantity(class *iri.MachineClass, host *Host) int64 {
 	return int64(math.Min(float64(cpuRatio), float64(memoryRatio)))
 }
 
-func GetResources(ctx context.Context) (*Host, error) {
+func GetResources(ctx context.Context, enableHugepages bool) (*Host, error) {
 	hostMem, err := mem.VirtualMemoryWithContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get host memory: %w", err)
+		return nil, fmt.Errorf("failed to get host memory information: %w", err)
 	}
 
 	hostCPU, err := cpu.InfoWithContext(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get host memory: %w", err)
+		return nil, fmt.Errorf("failed to get host cpu information: %w", err)
 	}
 
 	var hostCPUSum int64
@@ -92,10 +92,17 @@ func GetResources(ctx context.Context) (*Host, error) {
 		hostCPUSum += int64(v.Cores)
 	}
 
-	return &Host{
+	host := &Host{
 		Cpu: resource.NewScaledQuantity(hostCPUSum, resource.Kilo),
-		Mem: resource.NewQuantity(int64(hostMem.Total), resource.BinarySI),
-	}, nil
+	}
+
+	if enableHugepages {
+		host.Mem = resource.NewQuantity(int64(hostMem.HugePagesTotal*hostMem.HugePageSize), resource.BinarySI)
+	} else {
+		host.Mem = resource.NewQuantity(int64(hostMem.Total), resource.BinarySI)
+	}
+
+	return host, nil
 }
 
 type Host struct {

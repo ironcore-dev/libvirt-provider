@@ -68,6 +68,7 @@ type MachineReconcilerOptions struct {
 	NetworkInterfacePlugin   providernetworkinterface.Plugin
 	VolumeEvents             event.Source[*api.Machine]
 	ResyncIntervalVolumeSize time.Duration
+	EnableHugepages          bool
 }
 
 func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
@@ -111,6 +112,7 @@ func NewMachineReconciler(
 		volumePluginManager:      opts.VolumePluginManager,
 		networkInterfacePlugin:   opts.NetworkInterfacePlugin,
 		resyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
+		enableHugepages:          opts.EnableHugepages,
 	}, nil
 }
 
@@ -124,6 +126,7 @@ type MachineReconciler struct {
 	host              providerhost.Host
 	imageCache        providerimage.Cache
 	raw               raw.Raw
+	enableHugepages   bool
 
 	volumePluginManager    *providervolume.PluginManager
 	networkInterfacePlugin providernetworkinterface.Plugin
@@ -656,10 +659,17 @@ func (r *MachineReconciler) setDomainResources(machine *api.Machine, domain *lib
 		Unit:  "Byte",
 	}
 
+	if r.enableHugepages {
+		domain.MemoryBacking = &libvirtxml.DomainMemoryBacking{
+			MemoryHugePages: &libvirtxml.DomainMemoryHugepages{},
+		}
+	}
+
 	cpu := uint(machine.Spec.CpuMillis / 1000)
 	domain.VCPU = &libvirtxml.DomainVCPU{
 		Value: cpu,
 	}
+
 	return nil
 }
 
