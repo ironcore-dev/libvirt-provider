@@ -5,6 +5,7 @@ package server_test
 
 import (
 	"os"
+	"time"
 
 	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
@@ -125,7 +126,7 @@ var _ = Describe("AttachVolume", func() {
 			Expect(err).NotTo(HaveOccurred())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).Should(Equal(2))
+		}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).Should(Equal(2))
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
 

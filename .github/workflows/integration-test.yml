@@ -64,6 +64,7 @@ jobs:
           sudo microceph.ceph status
           sudo rbd create --size 5000 --pool devpool test-img
           sudo rm -f /snap/bin/rbd
+          sudo chmod 644 /etc/ceph/ceph.client.admin.keyring
       
       - name: Set Environment Variables
         run: |
