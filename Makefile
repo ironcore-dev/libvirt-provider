@@ -1,4 +1,3 @@
-
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 
@@ -11,6 +10,9 @@ MKDOCS_IMG=onmetal/libvirt-provider-docs
 # Code depend on OS
 TARGET_OS ?= linux
 TARGET_ARCH ?= amd64
+
+LIBVIRTPROVIDERBIN=$(LOCALBIN)/libvirt-provider
+LIBVIRTPROVIDERMAINPATH=$(shell pwd)/provider/cmd
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -71,7 +73,6 @@ add-license: addlicense ## Add license headers to all go files.
 check-license: addlicense ## Check that every file has a license header present.
 	find . -name '*.go' -exec $(ADDLICENSE) -check -c 'IronCore authors' {} +
 
-
 .PHONY: fmt
 fmt: ## Run go fmt against code.
 	go fmt ./...
@@ -81,7 +82,7 @@ lint: golangci-lint ## Run golangci-lint against code.
 	GOOS=$(TARGET_OS) CGO=1 $(GOLANGCI_LINT) run ./...
 
 .PHONY: check
-check: manifests generate add-license lint test
+check: manifests generate fmt check-license lint test ## Generate manifests, code, lint, check licenses, test
 
 ENVTEST_ASSETS_DIR=$(shell pwd)/testbin
 .PHONY: test
@@ -92,9 +93,6 @@ test: manifests generate fmt envtest check-license ## Run tests. Some test depen
 integration-tests: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
 	go run github.com/onsi/ginkgo/v2/ginkgo --label-filter="integration" -coverprofile cover.out ./...
 
-.PHONY: check
-check: generate fmt add-license lint test ## Lint and run tests.
-
 ##@ Documentation
 
 .PHONY: start-docs
@@ -104,20 +102,20 @@ start-docs: ## Start the local mkdocs based development environment.
 
 .PHONY: clean-docs
 clean-docs: ## Remove all local mkdocs Docker images (cleanup).
-	docker container prune --force --filter "label=project=virtlet_documentation"
+	docker container prune --force --filter "label=project=libvirt-provider_documentation"
 
 ##@ Build
 
 .PHONY: build
 build: generate fmt add-license lint ## Build the binary
-	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o bin/virtlet ./main.go
+	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) go build -o LIBVIRTPROVIDERBIN $(LIBVIRTPROVIDERMAINPATH)/main.go
 
 .PHONY: run
-run-base: generate fmt lint ## Run the binary
-	go run ./main.go
+run: generate fmt lint ## Run the binary
+	go run $(LIBVIRTPROVIDERMAINPATH)/main.go
 
 .PHONY: docker-build
-docker-build: test ## Build docker image with partitionlet.
+docker-build: test ## Build docker image with partitionlet
 	docker build $(DOCKER_BUILDARGS) -t ${IMG} $(GITHUB_PAT_MOUNT) .
 
 .PHONY: docker-push
@@ -125,10 +123,14 @@ docker-push: ## Push docker image with the manager.
 	docker push ${IMG}
 
 ##@ Deployment
+.PHONY: deploy
+deploy: kustomize ## Deploy libvirt-provider into the K8s cluster specified in ~/.kube/config.
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	kubectl apply -k config/default
 
-ifndef ignore-not-found
-  ignore-not-found = false
-endif
+.PHONY: undeploy
+undeploy: ## Undeploy libvirt-provider from the K8s cluster specified in ~/.kube/config.
+	kubectl delete -k config/default
 
 ##@ Tools
 
@@ -141,52 +143,51 @@ $(LOCALBIN):
 KUSTOMIZE ?= $(LOCALBIN)/kustomize-$(KUSTOMIZE_VERSION)
 CONTROLLER_GEN ?= $(LOCALBIN)/controller-gen-$(CONTROLLER_GEN_VERSION)
 ENVTEST ?= $(LOCALBIN)/setup-envtest-$(ENVTEST_VERSION)
-GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint
-ADDLICENSE ?= $(LOCALBIN)/addlicense
+GOLANGCI_LINT ?= $(LOCALBIN)/golangci-lint-$(GOLANGCI_LINT_VERSION)
+ADDLICENSE ?= $(LOCALBIN)/addlicense-$(ADDLICENSE_VERSION)
 
 ## Tool Versions
-KUSTOMIZE_VERSION ?= v3.8.7
-CONTROLLER_GEN_VERSION ?= v0.9.0
+KUSTOMIZE_VERSION ?= v5.3.0
+CONTROLLER_GEN_VERSION ?= v0.13.0
 ENVTEST_VERSION ?= release-0.15
 GOLANGCI_LINT_VERSION ?= v1.55.2
 ADDLICENSE_VERSION ?= v1.1.1
 
-KUSTOMIZE_INSTALL_SCRIPT ?= "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh"
 .PHONY: kustomize
 kustomize: $(LOCALBIN) ## Download kustomize locally if necessary.
-	test -s $(KUSTOMIZE) || \
-	(curl -s $(KUSTOMIZE_INSTALL_SCRIPT) | bash -s -- $(subst v,,$(KUSTOMIZE_VERSION)) $(LOCALBIN) && \
-	mv $(LOCALBIN)/kustomize $(KUSTOMIZE) )
+	$(call go-install-tool,$(KUSTOMIZE),sigs.k8s.io/kustomize/kustomize,$(KUSTOMIZE_VERSION))
 
 .PHONY: controller-gen
-controller-gen: $(CONTROLLER_GEN) ## Download controller-gen locally if necessary.
-$(CONTROLLER_GEN): $(LOCALBIN)
-	test -s $(CONTROLLER_GEN) || true
+controller-gen: $(LOCALBIN) ## Download controller-gen locally if necessary.
 	$(call go-install-tool,$(CONTROLLER_GEN),sigs.k8s.io/controller-tools/cmd/controller-gen,${CONTROLLER_GEN_VERSION})
 
 .PHONY: envtest
 envtest: $(LOCALBIN) ## Download envtest-setup locally if necessary.
-	test -s $(ENVTEST) || true
 	$(call go-install-tool,$(ENVTEST),sigs.k8s.io/controller-runtime/tools/setup-envtest,${ENVTEST_VERSION})
 
 .PHONY: golangci-lint
-golangci-lint: $(GOLANGCI_LINT) ## Download golangci-lint locally if necessary.
-$(GOLANGCI_LINT): $(LOCALBIN)
-	test -s $(LOCALBIN)/golangci-lint || GOBIN=$(LOCALBIN) go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
+golangci-lint: $(LOCALBIN) ## Download golangci-lint locally if necessary.
+	$(call go-install-tool,$(GOLANGCI_LINT),github.com/golangci/golangci-lint/cmd/golangci-lint,${GOLANGCI_LINT_VERSION})
+
+.PHONY: clean-tools
+clean-tools: ## Clean any artifacts that can be regenerated.
+	rm -rf $(LOCALBIN)
 
 .PHONY: addlicense
-addlicense: $(ADDLICENSE) ## Download addlicense locally if necessary.
-$(ADDLICENSE): $(LOCALBIN)
-	test -s $(LOCALBIN)/addlicense || GOBIN=$(LOCALBIN) go install github.com/google/addlicense@$(ADDLICENSE_VERSION)
+addlicense: $(LOCALBIN) ## Download addlicense locally if necessary.
+	$(call go-install-tool,$(ADDLICENSE),github.com/google/addlicense,${ADDLICENSE_VERSION})
 
-# go-install-tool will 'go install' any $1 package.
-# it will add v. prefix into url, if url isn't contain version
+# go-install-tool will 'go install' any package with custom target and name of binary, if it doesn't exist
+# $1 - target path with name of binary (ideally with version)
+# $2 - package url which can be installed
+# $3 - specific version of package
 define go-install-tool
 @[ -f $(1) ] || { \
+set -e; \
 version=@$(3) ;\
 url=$(2) ;\
 if echo $$version | grep 'v[2-9][0-9]*' -q; then \
-        echo $$url | grep '/v[2-9][0-9]*/' -q || version="/$$(printf $$version | grep -o 'v[2-9][0-9]*')$$version" ;\
+		echo $$url | grep '/v[2-9][0-9]*/' -q || version="/$$(printf $$version | grep -o 'v[2-9][0-9]*')$$version" ;\
 fi ;\
 echo "Downloading $${url}$${version}" ;\
 GOBIN=$(GOBIN) go install $${url}$${version} ;\
