@@ -10,9 +10,10 @@ type Metadata struct {
 	Annotations map[string]string `json:"annotations"`
 	Labels      map[string]string `json:"labels"`
 
-	CreatedAt  time.Time  `json:"createdAt"`
-	DeletedAt  *time.Time `json:"deletedAt,omitempty"`
-	Generation int64      `json:"generation"`
+	CreatedAt       time.Time  `json:"createdAt"`
+	DeletedAt       *time.Time `json:"deletedAt,omitempty"`
+	FirstShutdownAt time.Time  `json:"firstShutdownAt"`
+	Generation      int64      `json:"generation"`
 
 	Finalizers []string `json:"finalizers,omitempty"`
 }

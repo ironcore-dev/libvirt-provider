@@ -84,7 +84,8 @@ type Options struct {
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
 
-	VMGracefulShutdownTimeout time.Duration
+	VMGracefulShutdownTimeout      time.Duration
+	ResyncIntervalGarbageCollector time.Duration
 }
 
 type LibvirtOptions struct {
@@ -127,7 +128,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.Libvirt.Qcow2Type, "qcow2-type", qcow2.Default(), fmt.Sprintf("qcow2 implementation to use. Available: %v", qcow2.Available()))
 
-	fs.DurationVar(&o.VMGracefulShutdownTimeout, "vm-graceful-shutdown-timeout", 5*time.Minute, "Sets graceful time period for shutdown of VM. If the machine isn't shutdown in time, vm will be deleted with force process.")
+	fs.DurationVar(&o.VMGracefulShutdownTimeout, "vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly terminated.")
+	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Duration for garbage collector resynchronization.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -302,16 +304,17 @@ func Run(ctx context.Context, opts Options) error {
 		machineStore,
 		machineEvents,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities:          caps,
-			ImageCache:                 imgCache,
-			Raw:                        rawInst,
-			Host:                       providerHost,
-			VolumePluginManager:        volumePlugins,
-			NetworkInterfacePlugin:     nicPlugin,
-			ResyncIntervalVolumeSize:   opts.ResyncIntervalVolumeSize,
-			ResyncIntervalMachineState: opts.ResyncIntervalMachineState,
-			EnableHugepages:            opts.EnableHugepages,
-			VMGracefulShutdownTimeout:  opts.VMGracefulShutdownTimeout,
+			GuestCapabilities:              caps,
+			ImageCache:                     imgCache,
+			Raw:                            rawInst,
+			Host:                           providerHost,
+			VolumePluginManager:            volumePlugins,
+			NetworkInterfacePlugin:         nicPlugin,
+			ResyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
+			ResyncIntervalMachineState:     opts.ResyncIntervalMachineState,
+			ResyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
+			EnableHugepages:                opts.EnableHugepages,
+			VMGracefulShutdownTimeout:      opts.VMGracefulShutdownTimeout,
 		},
 	)
 	if err != nil {
