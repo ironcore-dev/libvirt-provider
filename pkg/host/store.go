@@ -163,11 +163,6 @@ func (s *Store[E]) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to set object metadata: %w", err)
 	}
 
-	s.enqueue(store.WatchEvent[E]{
-		Type:   store.WatchEventTypeDeleted,
-		Object: obj,
-	})
-
 	return nil
 }
 
