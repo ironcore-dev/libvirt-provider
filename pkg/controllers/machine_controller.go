@@ -219,7 +219,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 				}
 
 				if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-					log.V(1).Info("Enqueue machine: Volume Size changed", "volumeName", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 					shouldEnqueue = true
 					break
 				}

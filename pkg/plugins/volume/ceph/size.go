@@ -80,9 +80,14 @@ func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, erro
 		return 0, fmt.Errorf("no monitors at %s", volumeAttributesMonitorsKey)
 	}
 
-	parts := strings.SplitN(spec.Connection.Handle, "/", 2)
+	imageHandle, ok := spec.Connection.Attributes[volumeAttributeImageKey]
+	if !ok {
+		return 0, fmt.Errorf("no image at %s", volumeAttributeImageKey)
+	}
+
+	parts := strings.SplitN(imageHandle, "/", 2)
 	if len(parts) != 2 {
-		return 0, fmt.Errorf("handle is not well formated: expected 'pool/image' format but got %s", spec.Connection.Handle)
+		return 0, fmt.Errorf("image handle is not well formated: expected 'pool/image' format but got %s", imageHandle)
 	}
 	poolName, imageName := parts[0], parts[1]
 

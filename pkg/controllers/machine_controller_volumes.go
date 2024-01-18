@@ -97,7 +97,7 @@ func (r *MachineReconciler) machineVolumeMounter(machine *api.Machine) VolumeMou
 
 func getVolumeStatus(machine *api.Machine, volumeID string) *api.VolumeStatus {
 	for _, volumeStatus := range machine.Status.VolumeStatus {
-		if volumeID == volumeStatus.Handle {
+		if volumeID == volumeStatus.Name {
 			return &volumeStatus
 		}
 	}
@@ -155,6 +155,7 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 
 		if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != nil && volumeSize != ptr.Deref(lastVolumeSize, 0) {
 			log.V(1).Info("Resizing volume", "volumeName", volume.Name, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+			//TODO: do actual resize
 		}
 
 		log.V(1).Info("Successfully reconciled volume", "volumeName", volume.Name, "volumeID", volumeID)
