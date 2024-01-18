@@ -22,6 +22,8 @@ import (
 const (
 	pluginName = "libvirt-provider.ironcore.dev/empty-disk"
 
+	defaultSize = 500 * 1024 * 1024 // 500Mi by default
+
 	perm     = 0777
 	filePerm = 0666
 )
@@ -74,15 +76,15 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 		return nil, fmt.Errorf("failed to generate WWN/handle for the disk: %w", err)
 	}
 
-	var size int64 = 500 * 1024 * 1024 // 500Mi by default
+	size := spec.EmptyDisk.Size
+	if size == 0 {
+		size = defaultSize
+	}
+
 	diskFilename := p.diskFilename(spec.Name, machine.ID)
 	if _, err := os.Stat(diskFilename); err != nil {
 		if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("error stat-ing disk: %w", err)
-		}
-
-		if sizeLimit := spec.EmptyDisk.Size; sizeLimit != 0 {
-			size = sizeLimit
 		}
 
 		if err := p.raw.Create(diskFilename, raw.WithSize(size)); err != nil {
