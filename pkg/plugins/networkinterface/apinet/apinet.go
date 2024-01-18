@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -16,7 +17,7 @@ import (
 
 	"github.com/google/uuid"
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
-	"github.com/ironcore-dev/ironcore-net/apimachinery/api/net"
+	apinet "github.com/ironcore-dev/ironcore-net/apimachinery/api/net"
 	"github.com/ironcore-dev/ironcore-net/apinetlet/provider"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
@@ -59,10 +60,10 @@ func (p *Plugin) Init(host providerhost.Host) error {
 	return nil
 }
 
-func onmetalIPsToAPInetIPs(ips []string) []net.IP {
-	res := make([]net.IP, len(ips))
+func ironcoreIPsToAPInetIPs(ips []string) []apinet.IP {
+	res := make([]apinet.IP, len(ips))
 	for i, ip := range ips {
-		res[i] = net.MustParseIP(ip)
+		res[i] = apinet.MustParseIP(ip)
 	}
 	return res
 }
@@ -137,7 +138,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 			NodeRef: corev1.LocalObjectReference{
 				Name: p.nodeName,
 			},
-			IPs: onmetalIPsToAPInetIPs(spec.Ips),
+			IPs: ironcoreIPsToAPInetIPs(spec.Ips),
 		},
 	}
 
@@ -185,6 +186,11 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	}
 
 	log.V(1).Info("Host device is ready", "HostDevice", hostDev)
+	nicIPs := make([]net.IP, len(apinetNic.Spec.IPs))
+	for _, apinetNicIP := range apinetNic.Spec.IPs {
+		// TODO: do proper IP type conversion here
+		nicIPs = append(nicIPs, net.ParseIP(apinetNicIP.String()))
+	}
 	return &providernetworkinterface.NetworkInterface{
 		Handle: provider.GetNetworkInterfaceID(
 			apinetNic.Namespace,
@@ -193,6 +199,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 			apinetNic.UID,
 		),
 		HostDevice: hostDev,
+		IPs:        nicIPs,
 	}, nil
 }
 

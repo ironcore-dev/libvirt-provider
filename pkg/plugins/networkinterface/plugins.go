@@ -6,6 +6,7 @@ package networkinterface
 import (
 	"context"
 	"fmt"
+	"net"
 
 	computev1alpha1 "github.com/ironcore-dev/ironcore/api/compute/v1alpha1"
 	networkingv1alpha1 "github.com/ironcore-dev/ironcore/api/networking/v1alpha1"
@@ -100,6 +101,7 @@ type NetworkInterface struct {
 	HostDevice      *HostDevice
 	Isolated        *Isolated
 	ProviderNetwork *ProviderNetwork
+	IPs             []net.IP
 }
 
 type Isolated struct{}

@@ -3,6 +3,8 @@
 
 package api
 
+import "net"
+
 type Machine struct {
 	Metadata `json:"metadata,omitempty"`
 
@@ -87,9 +89,10 @@ type NetworkInterfaceSpec struct {
 }
 
 type NetworkInterfaceStatus struct {
-	Name   string                ` json:"name"`
-	Handle string                ` json:"handle"`
+	Name   string                `json:"name"`
+	Handle string                `json:"handle"`
 	State  NetworkInterfaceState `json:"state"`
+	IPs    []net.IP              `json:"ips"`
 }
 
 type NetworkInterfaceState string
