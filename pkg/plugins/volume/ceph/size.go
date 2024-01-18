@@ -66,7 +66,7 @@ func connectToRados(ctx context.Context, monitors, user, keyfile string) (*rados
 func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, error) {
 	log := logr.FromContextOrDiscard(ctx)
 
-	if spec.Connection != nil {
+	if spec.Connection == nil {
 		return 0, errors.New("connection data is not set")
 	}
 
