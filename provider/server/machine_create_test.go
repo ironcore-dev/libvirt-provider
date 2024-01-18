@@ -14,8 +14,12 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("CreateMachine", func() {
+const (
+	osImage       = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
+	emptyDiskSize = 1024 * 1024 * 1024
+)
 
+var _ = Describe("CreateMachine", func() {
 	It("should create a machine without boot image", func(ctx SpecContext) {
 		By("creating a machine without boot image")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
@@ -33,7 +37,7 @@ var _ = Describe("CreateMachine", func() {
 						{
 							Name: "disk-1",
 							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: 5368709120,
+								SizeBytes: emptyDiskSize,
 							},
 							Device: "oda",
 						},
@@ -51,7 +55,13 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Spec.Image", BeNil()),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
 			HaveField("Machine.Spec.IgnitionData", BeNil()),
-			HaveField("Machine.Spec.Volumes", BeNil()),
+			HaveField("Machine.Spec.Volumes", ContainElement(&iri.Volume{
+				Name: "disk-1",
+				EmptyDisk: &iri.EmptyDisk{
+					SizeBytes: emptyDiskSize,
+				},
+				Device: "oda",
+			})),
 			HaveField("Machine.Spec.NetworkInterfaces", BeNil()),
 			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
@@ -61,9 +71,9 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
+			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).ShouldNot(HaveOccurred())
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -99,14 +109,17 @@ var _ = Describe("CreateMachine", func() {
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
+			HaveField("Volumes", ContainElement(&iri.VolumeStatus{
+				Name:   "disk-1",
+				Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+				State:  iri.VolumeState_VOLUME_ATTACHED,
+			})),
 			HaveField("NetworkInterfaces", BeNil()),
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
 		))
 	})
 
 	ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
-	imageURL := "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
 	It("should create a machine with boot image and single empty disk", func(ctx SpecContext) {
 		By("creating a machine with boot image and single empty disk")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
@@ -119,7 +132,7 @@ var _ = Describe("CreateMachine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: imageURL,
+						Image: osImage,
 					},
 					Class:        machineClassx3xlarge,
 					IgnitionData: ignitionData,
@@ -128,7 +141,7 @@ var _ = Describe("CreateMachine", func() {
 						{
 							Name: "disk-1",
 							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: 5368709120,
+								SizeBytes: emptyDiskSize,
 							},
 							Device: "oda",
 						},
@@ -143,10 +156,16 @@ var _ = Describe("CreateMachine", func() {
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
 			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image.Image", Equal(imageURL)),
+			HaveField("Machine.Spec.Image.Image", Equal(osImage)),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
 			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
-			HaveField("Machine.Spec.Volumes", BeNil()),
+			HaveField("Machine.Spec.Volumes", ContainElement(&iri.Volume{
+				Name:   "disk-1",
+				Device: "oda",
+				EmptyDisk: &iri.EmptyDisk{
+					SizeBytes: emptyDiskSize,
+				},
+			})),
 			HaveField("Machine.Spec.NetworkInterfaces", BeNil()),
 			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
@@ -194,7 +213,11 @@ var _ = Describe("CreateMachine", func() {
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
+			HaveField("Volumes", ContainElement(&iri.VolumeStatus{
+				Name:   "disk-1",
+				Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+				State:  iri.VolumeState_VOLUME_ATTACHED,
+			})),
 			HaveField("NetworkInterfaces", BeNil()),
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
 		))
@@ -212,7 +235,7 @@ var _ = Describe("CreateMachine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: imageURL,
+						Image: osImage,
 					},
 					Class:        machineClassx3xlarge,
 					IgnitionData: ignitionData,
@@ -221,14 +244,14 @@ var _ = Describe("CreateMachine", func() {
 						{
 							Name: "disk-1",
 							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: 5368709120,
+								SizeBytes: emptyDiskSize,
 							},
 							Device: "oda",
 						},
 						{
 							Name: "disk-2",
 							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: 5368709120,
+								SizeBytes: emptyDiskSize,
 							},
 							Device: "odb",
 						},
@@ -243,10 +266,24 @@ var _ = Describe("CreateMachine", func() {
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
 			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image.Image", Equal(imageURL)),
+			HaveField("Machine.Spec.Image.Image", Equal(osImage)),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
 			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
-			HaveField("Machine.Spec.Volumes", BeNil()),
+			HaveField("Machine.Spec.Volumes", ContainElements(
+				&iri.Volume{
+					Name:   "disk-1",
+					Device: "oda",
+					EmptyDisk: &iri.EmptyDisk{
+						SizeBytes: emptyDiskSize,
+					},
+				},
+				&iri.Volume{
+					Name:   "disk-2",
+					Device: "odb",
+					EmptyDisk: &iri.EmptyDisk{
+						SizeBytes: emptyDiskSize,
+					},
+				})),
 			HaveField("Machine.Spec.NetworkInterfaces", BeNil()),
 			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
@@ -294,7 +331,17 @@ var _ = Describe("CreateMachine", func() {
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
-			HaveField("Volumes", BeNil()),
+			HaveField("Volumes", ContainElements(
+				&iri.VolumeStatus{
+					Name:   "disk-1",
+					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				},
+				&iri.VolumeStatus{
+					Name:   "disk-2",
+					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-2",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				})),
 			HaveField("NetworkInterfaces", BeNil()),
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
 		))
