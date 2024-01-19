@@ -186,7 +186,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	}
 
 	log.V(1).Info("Host device is ready", "HostDevice", hostDev)
-	nicIPs := make([]net.IP, len(apinetNic.Spec.IPs))
+	nicIPs := make([]net.IP, 0, len(apinetNic.Spec.IPs))
 	for _, apinetNicIP := range apinetNic.Spec.IPs {
 		// TODO: do proper IP type conversion here
 		nicIPs = append(nicIPs, net.ParseIP(apinetNicIP.String()))

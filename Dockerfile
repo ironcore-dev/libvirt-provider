@@ -29,6 +29,10 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
     CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w" -a -o libvirt-provider ./provider/cmd/main.go
 
+# Install irictl-machine
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    --mount=type=cache,target=/go/pkg \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go install github.com/ironcore-dev/ironcore/irictl-machine/cmd/irictl-machine@main
 
 # Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
 FROM gcr.io/distroless/base-debian11 as distroless-base
@@ -87,6 +91,7 @@ COPY --from=builder /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/libceph-common.so.
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 
 COPY --from=builder /workspace/libvirt-provider /libvirt-provider
+COPY --from=builder /go/bin/irictl-machine /irictl-machine
 
 USER 65532:65532
 
