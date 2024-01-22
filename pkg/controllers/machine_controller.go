@@ -71,7 +71,7 @@ type MachineReconcilerOptions struct {
 	ResyncIntervalMachineState     time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 	EnableHugepages                bool
-	VMGracefulShutdownTimeout      time.Duration
+	GCVMGracefulShutdownTimeout    time.Duration
 }
 
 func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
@@ -118,7 +118,7 @@ func NewMachineReconciler(
 		resyncIntervalMachineState:     opts.ResyncIntervalMachineState,
 		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 		enableHugepages:                opts.EnableHugepages,
-		vmGracefulShutdownTimeout:      opts.VMGracefulShutdownTimeout,
+		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
 	}, nil
 }
 
@@ -143,7 +143,7 @@ type MachineReconciler struct {
 	resyncIntervalVolumeSize   time.Duration
 	resyncIntervalMachineState time.Duration
 
-	vmGracefulShutdownTimeout      time.Duration
+	gcVMGracefulShutdownTimeout    time.Duration
 	resyncIntervalGarbageCollector time.Duration
 }
 
@@ -314,7 +314,7 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.
 			logger := log.WithValues("machineId", machine.ID)
 			var destroid bool
 
-			if !machine.FirstShutdownAt.IsZero() && time.Now().After(machine.FirstShutdownAt.Add(r.vmGracefulShutdownTimeout)) {
+			if !machine.FirstShutdownAt.IsZero() && time.Now().After(machine.FirstShutdownAt.Add(r.gcVMGracefulShutdownTimeout)) {
 				destroid, err = r.destroyMachine(ctx, logger, machine)
 			} else {
 				err = r.processShutdown(ctx, logger, machine)

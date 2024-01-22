@@ -84,7 +84,7 @@ type Options struct {
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
 
-	VMGracefulShutdownTimeout      time.Duration
+	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 }
 
@@ -128,8 +128,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.Libvirt.Qcow2Type, "qcow2-type", qcow2.Default(), fmt.Sprintf("qcow2 implementation to use. Available: %v", qcow2.Available()))
 
-	fs.DurationVar(&o.VMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
-	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Duration for garbage collector resynchronization.")
+	fs.DurationVar(&o.GCVMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
+	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -314,7 +314,7 @@ func Run(ctx context.Context, opts Options) error {
 			ResyncIntervalMachineState:     opts.ResyncIntervalMachineState,
 			ResyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 			EnableHugepages:                opts.EnableHugepages,
-			VMGracefulShutdownTimeout:      opts.VMGracefulShutdownTimeout,
+			GCVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
 		},
 	)
 	if err != nil {
