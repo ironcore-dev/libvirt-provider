@@ -167,12 +167,12 @@ func Run(ctx context.Context, opts Options) error {
 	// Setup Libvirt Client
 	libvirt, err := libvirtutils.GetLibvirt(opts.Libvirt.Socket, opts.Libvirt.Address, opts.Libvirt.URI)
 	if err != nil {
-		setupLog.Error(err, "error getting libvirt")
+		setupLog.Error(err, "failed to initialize libvirt")
 		return err
 	}
 	defer func() {
 		if err := libvirt.ConnectClose(); err != nil {
-			setupLog.Error(err, "Error closing libvirt connection")
+			setupLog.Error(err, "failed to close libvirt connection")
 		}
 	}()
 
@@ -190,44 +190,44 @@ func Run(ctx context.Context, opts Options) error {
 	if opts.ApinetKubeconfig != "" {
 		apinetCfg, err := clientcmd.BuildConfigFromFlags("", opts.ApinetKubeconfig)
 		if err != nil {
-			setupLog.Error(err, "Failed to build config from apinet-kubeconfig")
+			setupLog.Error(err, "failed to create config from apinet-kubeconfig")
 			return err
 		}
 
 		apinetClient, err = client.New(apinetCfg, client.Options{Scheme: scheme})
 		if err != nil {
-			setupLog.Error(err, "Error creating api-net client:")
+			setupLog.Error(err, "failed to initialize api-net client")
 			return err
 		}
 	}
 
 	providerHost, err := providerhost.NewLibvirtAt(apinetClient, opts.RootDir, libvirt)
 	if err != nil {
-		setupLog.Error(err, "error creating provider host")
+		setupLog.Error(err, "failed to initialize provider host")
 		return err
 	}
 
 	reg, err := remote.DockerRegistry(nil)
 	if err != nil {
-		setupLog.Error(err, "error creating registry")
+		setupLog.Error(err, "failed to initialize registry")
 		return err
 	}
 
 	imgCache, err := providerimage.NewLocalCache(log, reg, providerHost.OCIStore())
 	if err != nil {
-		setupLog.Error(err, "error setting up image manager")
+		setupLog.Error(err, "failed to initialize image manager")
 		return err
 	}
 
 	qcow2Inst, err := qcow2.Instance(opts.Libvirt.Qcow2Type)
 	if err != nil {
-		setupLog.Error(err, "error creating qcow2 instance")
+		setupLog.Error(err, "failed to initialize qcow2 instance")
 		return err
 	}
 
 	rawInst, err := raw.Instance(raw.Default())
 	if err != nil {
-		setupLog.Error(err, "error creating raw instance")
+		setupLog.Error(err, "failed to initialize raw instance")
 		return err
 	}
 
@@ -237,7 +237,7 @@ func Run(ctx context.Context, opts Options) error {
 		PreferredMachineTypes: opts.Libvirt.PreferredMachineTypes,
 	})
 	if err != nil {
-		setupLog.Error(err, "error detecting guest capabilities")
+		setupLog.Error(err, "failed to detect guest capabilities")
 		return err
 	}
 
@@ -246,12 +246,13 @@ func Run(ctx context.Context, opts Options) error {
 		ceph.NewPlugin(),
 		emptydisk.NewPlugin(qcow2Inst, rawInst),
 	}); err != nil {
-		return fmt.Errorf("failed to initialize volume plugin manager: %w", err)
+		setupLog.Error(err, "failed to initialize volume plugin manager")
+		return err
 	}
 
 	nicPlugin, nicPluginCleanup, err := opts.NicPlugin.NetworkInterfacePlugin()
 	if err != nil {
-		setupLog.Error(err, "Error creating network plugin")
+		setupLog.Error(err, "failed to initialize network plugin")
 		return err
 	}
 	if nicPluginCleanup != nil {
@@ -261,7 +262,7 @@ func Run(ctx context.Context, opts Options) error {
 	setupLog.Info("Initializing network interface plugin")
 
 	if err := nicPlugin.Init(providerHost); err != nil {
-		setupLog.Error(err, "Error initializing network plugin")
+		setupLog.Error(err, "failed to initialize network plugin")
 		return err
 	}
 
@@ -272,7 +273,8 @@ func Run(ctx context.Context, opts Options) error {
 		Dir:            providerHost.MachineStoreDir(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to initialize machine store: %w", err)
+		setupLog.Error(err, "failed to initialize machine store")
+		return err
 	}
 
 	machineEvents, err := event.NewListWatchSource[*api.Machine](
@@ -281,7 +283,8 @@ func Run(ctx context.Context, opts Options) error {
 		event.ListWatchSourceOptions{},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to initialize machine events: %w", err)
+		setupLog.Error(err, "failed to initialize machine events")
+		return err
 	}
 
 	machineReconciler, err := controllers.NewMachineReconciler(
@@ -300,18 +303,21 @@ func Run(ctx context.Context, opts Options) error {
 		},
 	)
 	if err != nil {
-		return fmt.Errorf("failed to initialize machine controller: %w", err)
+		setupLog.Error(err, "failed to initialize machine controller")
+		return err
 	}
 
 	setupLog.V(1).Info("Loading machine classes", "Path", opts.PathSupportedMachineClasses)
 	classes, err := mcr.LoadMachineClassesFile(opts.PathSupportedMachineClasses)
 	if err != nil {
-		return fmt.Errorf("failed to load machine classes: %w", err)
+		setupLog.Error(err, "failed to load machine classes")
+		return err
 	}
 
 	machineClasses, err := mcr.NewMachineClassRegistry(classes)
 	if err != nil {
-		return fmt.Errorf("failed to initialize machine class registry: %w", err)
+		setupLog.Error(err, "failed to initialize machine class registry")
+		return err
 	}
 
 	srv, err := server.New(server.Options{
@@ -324,14 +330,15 @@ func Run(ctx context.Context, opts Options) error {
 		VirshExecutable: virshExecutable,
 	})
 	if err != nil {
-		return fmt.Errorf("error creating server: %w", err)
+		setupLog.Error(err, "failed to initialize server")
+		return err
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		setupLog.Info("Starting image cache")
 		if err := imgCache.Start(ctx); err != nil {
-			log.Error(err, "failed to start image cache")
+			setupLog.Error(err, "failed to start image cache")
 			return err
 		}
 		return nil
@@ -340,7 +347,7 @@ func Run(ctx context.Context, opts Options) error {
 	g.Go(func() error {
 		setupLog.Info("Starting machine reconciler")
 		if err := machineReconciler.Start(ctx); err != nil {
-			log.Error(err, "failed to start machine reconciler")
+			setupLog.Error(err, "failed to start machine reconciler")
 			return err
 		}
 		return nil
@@ -349,7 +356,7 @@ func Run(ctx context.Context, opts Options) error {
 	g.Go(func() error {
 		setupLog.Info("Starting machine events")
 		if err := machineEvents.Start(ctx); err != nil {
-			log.Error(err, "failed to start machine events")
+			setupLog.Error(err, "failed to start machine events")
 			return err
 		}
 		return nil
@@ -357,12 +364,20 @@ func Run(ctx context.Context, opts Options) error {
 
 	g.Go(func() error {
 		setupLog.Info("Starting grpc server")
-		return runGRPCServer(ctx, setupLog, log, srv, opts)
+		if err := runGRPCServer(ctx, setupLog, log, srv, opts); err != nil {
+			setupLog.Error(err, "failed to start grpc server")
+			return err
+		}
+		return nil
 	})
 
 	g.Go(func() error {
 		setupLog.Info("Starting streaming server")
-		return runStreamingServer(ctx, setupLog, log, srv, opts)
+		if err := runStreamingServer(ctx, setupLog, log, srv, opts); err != nil {
+			setupLog.Error(err, "failed to start streaming server")
+			return err
+		}
+		return nil
 	})
 
 	return g.Wait()
@@ -376,7 +391,7 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 
 	grpcSrv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			commongrpc.InjectLogger(log),
+			commongrpc.InjectLogger(log.WithName("grpc-server")),
 			commongrpc.LogRequest,
 		),
 	)
@@ -403,7 +418,7 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 
 func runStreamingServer(ctx context.Context, setupLog, log logr.Logger, srv *server.Server, opts Options) error {
 	httpHandler := providerhttp.NewHandler(srv, providerhttp.HandlerOptions{
-		Log: log.WithName("server"),
+		Log: log.WithName("streaming-server"),
 	})
 
 	httpSrv := &http.Server{
@@ -418,7 +433,7 @@ func runStreamingServer(ctx context.Context, setupLog, log logr.Logger, srv *ser
 		setupLog.Info("Shut down streaming server")
 	}()
 
-	log.V(1).Info("Starting streaming server", "Address", opts.StreamingAddress)
+	setupLog.V(1).Info("Starting streaming server", "Address", opts.StreamingAddress)
 	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("error listening / serving streaming server: %w", err)
 	}
