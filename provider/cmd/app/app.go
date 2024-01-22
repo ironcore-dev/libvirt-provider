@@ -142,6 +142,10 @@ func Command() *cobra.Command {
 			cmd.SetContext(ctrl.LoggerInto(cmd.Context(), ctrl.Log))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			//flag parsing is done therefore we can silence the usage message
+			cmd.SilenceUsage = true
+			//error logging is done in the main
+			cmd.SilenceErrors = true
 			return Run(cmd.Context(), opts)
 		},
 	}
@@ -242,7 +246,7 @@ func Run(ctx context.Context, opts Options) error {
 		ceph.NewPlugin(),
 		emptydisk.NewPlugin(qcow2Inst, rawInst),
 	}); err != nil {
-		return fmt.Errorf("failed to initialize machine class registry: %w", err)
+		return fmt.Errorf("failed to initialize volume plugin manager: %w", err)
 	}
 
 	nicPlugin, nicPluginCleanup, err := opts.NicPlugin.NetworkInterfacePlugin()
@@ -302,7 +306,7 @@ func Run(ctx context.Context, opts Options) error {
 	setupLog.V(1).Info("Loading machine classes", "Path", opts.PathSupportedMachineClasses)
 	classes, err := mcr.LoadMachineClassesFile(opts.PathSupportedMachineClasses)
 	if err != nil {
-		return fmt.Errorf("failed to initialize machine class registry: %w", err)
+		return fmt.Errorf("failed to load machine classes: %w", err)
 	}
 
 	machineClasses, err := mcr.NewMachineClassRegistry(classes)
