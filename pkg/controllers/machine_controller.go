@@ -42,7 +42,6 @@ const (
 	rootFSAlias                     = "ua-rootfs"
 	libvirtDomainXMLIgnitionKeyName = "opt/com.coreos/config"
 	networkInterfaceAliasPrefix     = "ua-networkinterface-"
-	defaultRetryReconcileTime       = 15 * time.Second
 )
 
 var (
@@ -316,7 +315,7 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.
 			var destroid bool
 
 			if !machine.FirstShutdownAt.IsZero() && time.Now().After(machine.FirstShutdownAt.Add(r.vmGracefulShutdownTimeout)) {
-				destroid, err = r.destroyAndCleanupMachine(ctx, logger, machine)
+				destroid, err = r.destroyMachine(ctx, logger, machine)
 			} else {
 				err = r.processShutdown(ctx, logger, machine)
 			}
@@ -336,19 +335,17 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.
 	}, r.resyncIntervalGarbageCollector)
 }
 
-func (r *MachineReconciler) destroyAndCleanupMachine(ctx context.Context, log logr.Logger, machine *api.Machine) (bool, error) {
-	log.V(1).Info("Starting deletion")
-
+func (r *MachineReconciler) destroyMachine(ctx context.Context, log logr.Logger, machine *api.Machine) (bool, error) {
 	err := r.destroyDomain(log, machine)
 	if err != nil {
-		return false, fmt.Errorf("failed to destory machine domain: %w", err)
+		return false, fmt.Errorf("failed to destroy machine domain: %w", err)
 	}
 	return true, nil
 
 }
 
 func (r *MachineReconciler) processShutdown(ctx context.Context, log logr.Logger, machine *api.Machine) error {
-	log.V(1).Info("Shutting Down Machine")
+	log.V(1).Info("Shutting down Machine")
 
 	if machine.FirstShutdownAt.IsZero() {
 		machine.FirstShutdownAt = time.Now()
@@ -370,6 +367,8 @@ func (r *MachineReconciler) processShutdown(ctx context.Context, log logr.Logger
 }
 
 func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine) error {
+	log.V(1).Info("Starting domain destroy")
+
 	domain := libvirt.Domain{
 		UUID: libvirtutils.UUIDStringToBytes(machine.ID),
 	}
@@ -383,30 +382,30 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine)
 }
 
 func (r *MachineReconciler) cleanupAdditionalResources(ctx context.Context, log logr.Logger, machine *api.Machine) error {
+	log.V(1).Info("Starting additional resources cleanup")
+
 	if err := r.deleteVolumes(ctx, log, machine); err != nil {
 		return fmt.Errorf("failed to remove machine disks: %w", err)
 	}
-
 	log.V(1).Info("Removed machine disks")
 
 	if err := r.deleteNetworkInterfaces(ctx, log, machine); err != nil {
 		return fmt.Errorf("failed to remove machine network interfaces: %w", err)
 	}
-
 	log.V(1).Info("Removed network interfaces")
 
 	if err := os.RemoveAll(r.host.MachineDir(machine.ID)); err != nil {
 		return fmt.Errorf("failed to remove machine directory: %w", err)
 	}
-
 	log.V(1).Info("Removed machine directory")
 
 	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
 		return fmt.Errorf("failed to update machine metadata: %w", err)
 	}
-
 	log.V(1).Info("Removed Finalizers")
+
+	log.V(1).Info("Removed additional resources")
 	log.V(1).Info("Deletion completed")
 	return nil
 }
