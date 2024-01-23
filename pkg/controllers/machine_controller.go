@@ -270,7 +270,7 @@ func (r *MachineReconciler) startCheckAndEnqueueMachineStatus(ctx context.Contex
 
 			state, err := r.getMachineState(id)
 			if err != nil {
-				log.Error(err, "failed to get machine state", "machine:", id)
+				log.Error(err, "failed to get machine state", "machineID", id)
 				continue
 			}
 
