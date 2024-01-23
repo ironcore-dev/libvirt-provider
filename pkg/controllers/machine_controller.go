@@ -56,8 +56,6 @@ var (
 		//libvirt.DomainShutoff:     api.MachineStateShutdown,
 		libvirt.DomainPmsuspended: api.MachineStatePending,
 	}
-
-	errNeedToRequeue = errors.New("need to requeue")
 )
 
 type MachineReconcilerOptions struct {
@@ -71,6 +69,7 @@ type MachineReconcilerOptions struct {
 	VolumeEvents             event.Source[*api.Machine]
 	ResyncIntervalVolumeSize time.Duration
 	EnableHugepages          bool
+	MachineStateSyncInterval time.Duration
 }
 
 func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
@@ -115,6 +114,7 @@ func NewMachineReconciler(
 		networkInterfacePlugin:   opts.NetworkInterfacePlugin,
 		resyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
 		enableHugepages:          opts.EnableHugepages,
+		machineStateSyncInterval: opts.MachineStateSyncInterval,
 	}, nil
 }
 
@@ -137,6 +137,8 @@ type MachineReconciler struct {
 	machineEvents event.Source[*api.Machine]
 
 	resyncIntervalVolumeSize time.Duration
+
+	machineStateSyncInterval time.Duration
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -179,6 +181,12 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		r.startCheckAndEnqueueVolumeResize(ctx, r.log.WithName("volume-size"))
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.startCheckAndEnqueueMachineStatus(ctx, r.log.WithName("machine-status-sync"))
 	}()
 
 	go func() {
@@ -246,6 +254,33 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 	}, r.resyncIntervalVolumeSize)
 }
 
+func (r *MachineReconciler) startCheckAndEnqueueMachineStatus(ctx context.Context, log logr.Logger) {
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		machines, err := r.machines.List(ctx)
+		if err != nil {
+			log.Error(err, "failed to list machines")
+			return
+		}
+
+		for _, machine := range machines {
+			if machine.DeletedAt != nil || !slices.Contains(machine.Finalizers, MachineFinalizer) {
+				continue
+			}
+			id := machine.ID
+
+			state, err := r.getMachineState(id)
+			if err != nil {
+				log.Error(err, "failed to get machine state", "machine:", id)
+				continue
+			}
+
+			if state != machine.Status.State {
+				r.queue.AddRateLimited(id)
+			}
+		}
+	}, r.machineStateSyncInterval)
+}
+
 func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Logger) bool {
 	item, shutdown := r.queue.Get()
 	if shutdown {
@@ -258,9 +293,7 @@ func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Lo
 	ctx = logr.NewContext(ctx, log)
 
 	if err := r.reconcileMachine(ctx, id); err != nil {
-		if err != errNeedToRequeue {
-			log.Error(err, "failed to reconcile machine")
-		}
+		log.Error(err, "failed to reconcile machine")
 		r.queue.AddRateLimited(item)
 		return true
 	}
@@ -311,9 +344,6 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	}
 	log.V(1).Info("Reconciled domain")
 
-	if state == api.MachineStatePending && nicStates == nil && volumeStates == nil {
-		return errNeedToRequeue
-	}
 	machine.Status.VolumeStatus = volumeStates
 	machine.Status.NetworkInterfaceStatus = nicStates
 	machine.Status.State = state

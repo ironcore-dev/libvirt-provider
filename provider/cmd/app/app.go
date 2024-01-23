@@ -6,7 +6,6 @@ package app
 import (
 	"context"
 	"errors"
-	"flag"
 	goflag "flag"
 	"fmt"
 	"net"
@@ -83,6 +82,8 @@ type Options struct {
 
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
+
+	MachineStateSyncInterval time.Duration
 }
 
 type LibvirtOptions struct {
@@ -109,7 +110,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
 		"constructed from the streaming-address")
 
-	flag.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
+	fs.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
 
@@ -123,6 +124,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.Libvirt.PreferredMachineTypes, "preferred-machine-types", []string{"pc-q35"}, "Ordered list of preferred machine types to use.")
 
 	fs.StringVar(&o.Libvirt.Qcow2Type, "qcow2-type", qcow2.Default(), fmt.Sprintf("qcow2 implementation to use. Available: %v", qcow2.Available()))
+
+	fs.DurationVar(&o.MachineStateSyncInterval, "machine-state-sync-interval", 1*time.Minute, "Synchronization interval for aligning local machine state with corresponding libvirt machine state.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -305,6 +308,7 @@ func Run(ctx context.Context, opts Options) error {
 			NetworkInterfacePlugin:   nicPlugin,
 			ResyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
 			EnableHugepages:          opts.EnableHugepages,
+			MachineStateSyncInterval: opts.MachineStateSyncInterval,
 		},
 	)
 	if err != nil {
