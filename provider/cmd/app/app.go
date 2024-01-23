@@ -391,7 +391,7 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 
 	grpcSrv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			commongrpc.InjectLogger(log.WithName("grpc-server")),
+			commongrpc.InjectLogger(log.WithName("iri-server")),
 			commongrpc.LogRequest,
 		),
 	)

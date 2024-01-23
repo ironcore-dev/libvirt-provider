@@ -15,7 +15,7 @@ func main() {
 	log := ctrl.Log.WithName("main")
 
 	if err := app.Command().ExecuteContext(ctx); err != nil {
-		log.V(1).Error(err, "Error running libvirt provider")
+		log.V(1).Error(err, "error running libvirt provider")
 		os.Exit(1)
 	}
 }
