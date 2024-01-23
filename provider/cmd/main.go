@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/ironcore-dev/libvirt-provider/provider/cmd/app"
@@ -13,9 +12,10 @@ import (
 
 func main() {
 	ctx := ctrl.SetupSignalHandler()
+	log := ctrl.Log.WithName("main")
 
 	if err := app.Command().ExecuteContext(ctx); err != nil {
-		fmt.Println(err.Error())
+		log.V(1).Error(err, "error running libvirt provider")
 		os.Exit(1)
 	}
 }
