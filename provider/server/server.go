@@ -40,6 +40,8 @@ type Server struct {
 	execRequestCache request.Cache[*iri.ExecRequest]
 	libvirt          *libvirt.Libvirt
 	virshExecutable  string
+
+	enableHugepages bool
 }
 
 type Options struct {
@@ -55,8 +57,9 @@ type Options struct {
 
 	MachineClasses MachineClassRegistry
 
-	VolumePlugins  *volume.PluginManager
-	NetworkPlugins providernetworkinterface.Plugin
+	VolumePlugins   *volume.PluginManager
+	NetworkPlugins  providernetworkinterface.Plugin
+	EnableHugepages bool
 }
 
 func setOptionsDefaults(o *Options) {
@@ -82,6 +85,7 @@ func New(opts Options) (*Server, error) {
 		volumePlugins:          opts.VolumePlugins,
 		networkInterfacePlugin: opts.NetworkPlugins,
 		machineClasses:         opts.MachineClasses,
+		enableHugepages:        opts.EnableHugepages,
 		execRequestCache:       request.NewCache[*iri.ExecRequest](),
 	}, nil
 }

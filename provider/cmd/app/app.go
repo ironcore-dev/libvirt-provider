@@ -79,6 +79,8 @@ type Options struct {
 
 	ApinetKubeconfig string
 
+	EnableHugepages bool
+
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
 }
@@ -108,6 +110,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 		"constructed from the streaming-address")
 
 	flag.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
+
+	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
 
 	// LibvirtOptions
 	fs.StringVar(&o.Libvirt.Socket, "libvirt-socket", o.Libvirt.Socket, "Path to the libvirt socket to use.")
@@ -293,6 +297,7 @@ func Run(ctx context.Context, opts Options) error {
 			VolumePluginManager:      volumePlugins,
 			NetworkInterfacePlugin:   nicPlugin,
 			ResyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
+			EnableHugepages:          opts.EnableHugepages,
 		},
 	)
 	if err != nil {
@@ -318,6 +323,7 @@ func Run(ctx context.Context, opts Options) error {
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
 		VirshExecutable: virshExecutable,
+		EnableHugepages: opts.EnableHugepages,
 	})
 	if err != nil {
 		return fmt.Errorf("error creating server: %w", err)
