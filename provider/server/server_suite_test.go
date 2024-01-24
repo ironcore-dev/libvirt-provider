@@ -15,6 +15,8 @@ import (
 	"github.com/digitalocean/go-libvirt/socket/dialers"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
+	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
+	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface/isolated"
 	"github.com/ironcore-dev/libvirt-provider/provider/cmd/app"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
@@ -25,6 +27,18 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
+
+type isolatedOptions struct{}
+
+func (o *isolatedOptions) AddFlags(fs *pflag.FlagSet) {}
+
+func (o *isolatedOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
+	return isolated.NewPlugin(), nil, nil
+}
+
+func (o *isolatedOptions) PluginName() string {
+	return "isolated"
+}
 
 var (
 	machineClient      iriv1alpha1.MachineRuntimeClient
@@ -78,14 +92,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
 	DeferCleanup(machineClassesFile.Close)
+	DeferCleanup(func() error {
+		return os.Remove(machineClassesFile.Name())
+	})
 
-	By("starting the app")
-
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	apinetPlugin := networkinterfaceplugin.NewDefaultOptions()
-	apinetPlugin.PluginName = "apinet"
-	apinetPlugin.AddFlags(fs)
-	Expect(fs.Set("apinet-node-name", "test-node")).To(Succeed())
+	registry := networkinterfaceplugin.NewTypeOptionsRegistry()
+	Expect(registry.Register(&isolatedOptions{}, 1)).To(Succeed())
+	pluginOpts := networkinterfaceplugin.NewOptions(registry)
+	pluginOpts.PluginName = "isolated"
 
 	tempDir := GinkgoT().TempDir()
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
@@ -103,7 +117,7 @@ var _ = BeforeSuite(func() {
 			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx-2.9", "pc-i440fx-2.8"},
 			Qcow2Type:             "exec",
 		},
-		NicPlugin: apinetPlugin,
+		NicPlugin: pluginOpts,
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
