@@ -98,14 +98,14 @@ var _ = Describe("CreateMachine", func() {
 
 		By("ensuring machine is in running state and other status fields have been updated")
 		Eventually(func() *iri.MachineStatus {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Status
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
@@ -202,14 +202,14 @@ var _ = Describe("CreateMachine", func() {
 
 		By("ensuring machine is in running state and other status fields have been updated")
 		Eventually(func() *iri.MachineStatus {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Status
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
@@ -320,14 +320,14 @@ var _ = Describe("CreateMachine", func() {
 
 		By("ensuring machine is in running state and other status fields have been updated")
 		Eventually(func() *iri.MachineStatus {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Status
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),

@@ -12,8 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Update Machine annotations", func() {
-
+var _ = Describe("UpdateMachineAnnotations", func() {
 	It("should update machine annotations", func(ctx SpecContext) {
 		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
 		By("creating a machine")
@@ -64,7 +63,6 @@ var _ = Describe("Update Machine annotations", func() {
 
 		By("updating machine annotations")
 		_, err = machineClient.UpdateMachineAnnotations(ctx, &iri.UpdateMachineAnnotationsRequest{
-
 			MachineId: createResp.Machine.Metadata.Id,
 			Annotations: map[string]string{
 				"machinepoolletv1alpha1.MachineUIDLabel": "fooUpdatedAnnotation",
@@ -74,14 +72,14 @@ var _ = Describe("Update Machine annotations", func() {
 
 		By("ensuring correct annotations")
 		Eventually(func() *irimeta.ObjectMetadata {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Metadata
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			return listResp.Machines[0].Metadata
 		}).Should(SatisfyAll(
 			HaveField("Annotations", Equal(map[string]string{
 				"machinepoolletv1alpha1.MachineUIDLabel": "fooUpdatedAnnotation",

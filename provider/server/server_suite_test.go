@@ -15,35 +15,15 @@ import (
 	"github.com/digitalocean/go-libvirt/socket/dialers"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
-	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
-	"github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface/isolated"
 	"github.com/ironcore-dev/libvirt-provider/provider/cmd/app"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
 
 	. "github.com/onsi/gomega"
-	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-type isolatedOptions struct{}
-
-func (o *isolatedOptions) AddFlags(fs *pflag.FlagSet) {}
-
-func (o *isolatedOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
-	return isolated.NewPlugin(), nil, nil
-}
-
-func (o *isolatedOptions) PluginName() string {
-	return "isolated"
-}
-
-var (
-	machineClient      iriv1alpha1.MachineRuntimeClient
-	libvirtConn        *libvirt.Libvirt
-	machineClassesFile *os.File
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -54,6 +34,12 @@ const (
 	machineClassx2medium = "x2-medium"
 	baseURL              = "http://localhost:8080"
 	streamingAddress     = "127.0.0.1:20251"
+)
+
+var (
+	machineClient      iriv1alpha1.MachineRuntimeClient
+	libvirtConn        *libvirt.Libvirt
+	machineClassesFile *os.File
 )
 
 func TestServer(t *testing.T) {
@@ -67,7 +53,9 @@ func TestServer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(GinkgoLogr)
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	By("starting the app")
 
 	machineClasses := []iriv1alpha1.MachineClass{
 		{
@@ -87,7 +75,6 @@ var _ = BeforeSuite(func() {
 	}
 	machineClassData, err := json.Marshal(machineClasses)
 	Expect(err).NotTo(HaveOccurred())
-
 	machineClassesFile, err = os.CreateTemp(GinkgoT().TempDir(), "machineclasses")
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
@@ -96,9 +83,7 @@ var _ = BeforeSuite(func() {
 		return os.Remove(machineClassesFile.Name())
 	})
 
-	registry := networkinterfaceplugin.NewTypeOptionsRegistry()
-	Expect(registry.Register(&isolatedOptions{}, 1)).To(Succeed())
-	pluginOpts := networkinterfaceplugin.NewOptions(registry)
+	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
 
 	tempDir := GinkgoT().TempDir()
@@ -114,7 +99,7 @@ var _ = BeforeSuite(func() {
 			Socket:                "/var/run/libvirt/libvirt-sock",
 			URI:                   "qemu:///system",
 			PreferredDomainTypes:  []string{"kvm", "qemu"},
-			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx-2.9", "pc-i440fx-2.8"},
+			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx"},
 			Qcow2Type:             "exec",
 		},
 		NicPlugin: pluginOpts,

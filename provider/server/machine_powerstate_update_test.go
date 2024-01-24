@@ -12,8 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Update Machine Power State", func() {
-
+var _ = Describe("UpdateMachinePower", func() {
 	It("should update machine power state", func(ctx SpecContext) {
 		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
 		By("creating a machine")
@@ -54,14 +53,14 @@ var _ = Describe("Update Machine Power State", func() {
 
 		By("ensuring the correct power state")
 		Eventually(func() *iri.MachineSpec {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Spec
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			return listResp.Machines[0].Spec
 		}).Should(SatisfyAll(
 			HaveField("Power", Equal(iri.Power_POWER_OFF)),
 		))

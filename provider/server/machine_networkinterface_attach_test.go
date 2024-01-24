@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("AttachNetworkInterface", func() {
-	It("should attach network interface to machines", func(ctx SpecContext) {
+	It("should attach a network interface to the machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -65,7 +65,7 @@ var _ = Describe("AttachNetworkInterface", func() {
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
-		By("attaching network interface to a machine")
+		By("attaching network interface to the machine")
 		attachNetworkResp, err := machineClient.AttachNetworkInterface(ctx, &iri.AttachNetworkInterfaceRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			NetworkInterface: &iri.NetworkInterface{
@@ -75,7 +75,7 @@ var _ = Describe("AttachNetworkInterface", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(attachNetworkResp).NotTo(BeNil())
 
-		By("ensuring network interface attached to a machine domain")
+		By("ensuring network interface attached to the machine domain")
 		var interfaces []libvirtxml.DomainInterface
 		Eventually(func() int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
@@ -85,19 +85,19 @@ var _ = Describe("AttachNetworkInterface", func() {
 			Expect(err).NotTo(HaveOccurred())
 			interfaces = domainXML.Devices.Interfaces
 			return len(interfaces)
-		}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Equal(1))
+		}).Should(Equal(1))
 		Expect(interfaces[0].Alias.Name).To(HaveSuffix("nic-1"))
 
-		By("ensuring attached NIC has been updated in machine status field")
+		By("ensuring attached network interface has been updated in the machine status")
 		Eventually(func() *iri.MachineStatus {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Status
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("NetworkInterfaces", ContainElements(
 				&iri.NetworkInterfaceStatus{

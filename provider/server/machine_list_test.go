@@ -94,7 +94,7 @@ var _ = Describe("ListMachine", func() {
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
 		By("listing machines using incorrect Label selector")
-		resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+		listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 			Filter: &iri.MachineFilter{
 				LabelSelector: map[string]string{
 					"foo": "wrong",
@@ -102,7 +102,7 @@ var _ = Describe("ListMachine", func() {
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(resp).NotTo(BeNil())
-		Expect(resp.Machines).To(BeEmpty())
+		Expect(listResp).NotTo(BeNil())
+		Expect(listResp.Machines).To(BeEmpty())
 	})
 })

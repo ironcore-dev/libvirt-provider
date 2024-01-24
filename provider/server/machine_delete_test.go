@@ -14,7 +14,7 @@ import (
 
 var _ = Describe("DeleteMachine", func() {
 
-	It("should delete machines", func(ctx SpecContext) {
+	It("should delete a machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -79,13 +79,13 @@ var _ = Describe("DeleteMachine", func() {
 
 		By("ensuring machine is deleted")
 		Eventually(func() {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).To(BeEmpty())
+			Expect(listResp.Machines).To(BeEmpty())
 		})
 		By("ensuring domain and domain XML is deleted for machine")
 		Eventually(func() bool {

@@ -18,7 +18,7 @@ import (
 )
 
 var _ = Describe("DetachNetworkInterface", func() {
-	It("should detach network interface from machine", func(ctx SpecContext) {
+	It("should detach a network interface from the machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -93,11 +93,11 @@ var _ = Describe("DetachNetworkInterface", func() {
 			Expect(err).NotTo(HaveOccurred())
 			interfaces = domainXML.Devices.Interfaces
 			return len(interfaces)
-		}).WithTimeout(10 * time.Second).WithPolling(1 * time.Second).Should(Equal(2))
+		}).Should(Equal(2))
 		Expect(interfaces[0].Alias.Name).To(HaveSuffix("nic-1"))
 		Expect(interfaces[1].Alias.Name).To(HaveSuffix("nic-2"))
 
-		By("detaching nic-1 network interface from machine")
+		By("detaching nic-1 network interface from the machine")
 		detachNetworkResp, err := machineClient.DetachNetworkInterface(ctx, &iri.DetachNetworkInterfaceRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			Name:      "nic-1",
@@ -105,16 +105,16 @@ var _ = Describe("DetachNetworkInterface", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(detachNetworkResp).NotTo(BeNil())
 
-		By("ensuring NICs have been updated in machine status field")
+		By("ensuring network interface has been updated in the machine status")
 		Eventually(func() *iri.MachineStatus {
-			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Status
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("NetworkInterfaces", ContainElements(
 				&iri.NetworkInterfaceStatus{
