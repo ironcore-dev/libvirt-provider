@@ -216,11 +216,12 @@ func (r *MachineReconciler) reconcileDesiredNetworkInterface(
 	}
 
 	mountedNic, ok := mountedNics[nic.Name]
-	mountedNic.networkInterface.Handle = providerNic.Handle
-	if ok && reflect.DeepEqual(mountedNic.networkInterface, providerNic) {
-		return &mountedNic, nil
-	}
 	if ok {
+		mountedNic.networkInterface.Handle = providerNic.Handle
+		if reflect.DeepEqual(mountedNic.networkInterface, providerNic) {
+			return &mountedNic, nil
+		}
+
 		if err := r.detachDomainDevice(domain, mountedNic.libvirt.device()); err != nil {
 			return nil, err
 		}
