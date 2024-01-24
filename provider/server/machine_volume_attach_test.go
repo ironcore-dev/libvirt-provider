@@ -81,8 +81,8 @@ var _ = Describe("AttachVolume", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(attachEmptyDiskResp).NotTo(BeNil())
 
-		By("ensuring machine is in running state")
-		Eventually(func() iri.MachineState {
+		By("ensuring attached empty disk have been updated in machine status field")
+		Eventually(func() *iri.MachineStatus {
 			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
@@ -90,8 +90,16 @@ var _ = Describe("AttachVolume", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Status.State
-		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
+			return resp.Machines[0].Status
+		}).Should(SatisfyAll(
+			HaveField("Volumes", ContainElements(
+				&iri.VolumeStatus{
+					Name:   "disk-1",
+					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				})),
+			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
+		))
 
 		By("attaching volume with connection details to a machine")
 		attachVolumeConnectionResp, err := machineClient.AttachVolume(ctx, &iri.AttachVolumeRequest{
@@ -130,7 +138,29 @@ var _ = Describe("AttachVolume", func() {
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
 
-		// TODO - ensuring volume spec and status is updated in iri machine to be done
-		// after convertMachineToIRIMachine() supports Volumes and NetworkInterfaces
+		By("ensuring attached volume have been updated in machine status field")
+		Eventually(func() *iri.MachineStatus {
+			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Machines).NotTo(BeEmpty())
+			return resp.Machines[0].Status
+		}).Should(SatisfyAll(
+			HaveField("Volumes", ContainElements(
+				&iri.VolumeStatus{
+					Name:   "disk-1",
+					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				},
+				&iri.VolumeStatus{
+					Name:   "volume-1",
+					Handle: "libvirt-provider.ironcore.dev/ceph/libvirt-provider.ironcore.dev/ceph^dummy",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				})),
+			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
+		))
 	})
 })

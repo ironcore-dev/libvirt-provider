@@ -22,7 +22,7 @@ var _ = Describe("Status", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("getting host resources")
-		hostResources, err := mcr.GetResources(ctx)
+		hostResources, err := mcr.GetResources(ctx, false)
 		Expect(err).NotTo(HaveOccurred())
 
 		By("validating machine class and calculated quantity in MachineClassStatus")

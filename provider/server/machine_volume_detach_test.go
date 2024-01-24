@@ -14,7 +14,7 @@ import (
 )
 
 var _ = Describe("DetachVolume", func() {
-	It("should correctly attach volume to machine", func(ctx SpecContext) {
+	It("should correctly detach volume from machine", func(ctx SpecContext) {
 		By("creating a machine with two empty disks")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -52,7 +52,8 @@ var _ = Describe("DetachVolume", func() {
 			Eventually(func() bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
 				Expect(err).ShouldNot(HaveOccurred())
-				libvirtConn.DomainDestroy(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id)})
+				err = libvirtConn.DomainDestroy(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id)})
+				Expect(err).ShouldNot(HaveOccurred())
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -75,8 +76,8 @@ var _ = Describe("DetachVolume", func() {
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
-		By("ensuring machine is in running state")
-		Eventually(func() iri.MachineState {
+		By("ensuring machine is in running state and other status fields have been updated")
+		Eventually(func() *iri.MachineStatus {
 			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
@@ -84,8 +85,21 @@ var _ = Describe("DetachVolume", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(resp.Machines).NotTo(BeEmpty())
-			return resp.Machines[0].Status.State
-		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
+			return resp.Machines[0].Status
+		}).Should(SatisfyAll(
+			HaveField("Volumes", ContainElements(
+				&iri.VolumeStatus{
+					Name:   "disk-1",
+					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				},
+				&iri.VolumeStatus{
+					Name:   "disk-2",
+					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-2",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				})),
+			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
+		))
 
 		By("ensuring both the empty disks are attached to a machine domain")
 		var disks []libvirtxml.DomainDisk
@@ -109,20 +123,24 @@ var _ = Describe("DetachVolume", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(detachResp).NotTo(BeNil())
 
-		// this has to be uncommented when issue for Disk not being unplugged from domain gets resolved
-
-		// By("ensuring disk-1 is dettached from a machine domain")
-		// Eventually(func() int {
-		// 	domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	domainXML := &libvirtxml.Domain{}
-		// 	err = domainXML.Unmarshal(domainXMLData)
-		// 	Expect(err).NotTo(HaveOccurred())
-		// 	disks = domainXML.Devices.Disks
-		// 	return len(disks)
-		// }).Should(Equal(1))
-
-		// TODO - ensuring volume spec and status is updated in iri machine to be done
-		// after convertMachineToIRIMachine() supports Volumes and NetworkInterfaces
+		By("ensuring detached volume have been updated in machine status field")
+		Eventually(func() *iri.MachineStatus {
+			resp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(resp.Machines).NotTo(BeEmpty())
+			return resp.Machines[0].Status
+		}).Should(SatisfyAll(
+			HaveField("Volumes", ContainElements(
+				&iri.VolumeStatus{
+					Name:   "disk-2",
+					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-2",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				})),
+			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
+		))
 	})
 })
