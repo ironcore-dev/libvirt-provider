@@ -269,7 +269,12 @@ func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context
 
 			state, err := r.getMachineState(id)
 			if err != nil {
-				log.Error(err, "failed to get machine state", "machineID", id)
+				if libvirt.IsNotFound(err) {
+					log.V(1).Info("Failed to retrieve domain. Requeueing", "machineID", id)
+					r.queue.AddRateLimited(id)
+				} else {
+					log.Error(err, "failed to get machine state", "machineID", id)
+				}
 				continue
 			}
 
