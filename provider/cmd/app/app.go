@@ -75,6 +75,7 @@ type Options struct {
 
 	PathSupportedMachineClasses string
 	ResyncIntervalVolumeSize    time.Duration
+	ResyncIntervalMachineState  time.Duration
 
 	ApinetKubeconfig string
 
@@ -82,8 +83,6 @@ type Options struct {
 
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
-
-	MachineStateSyncInterval time.Duration
 }
 
 type LibvirtOptions struct {
@@ -103,6 +102,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
 	fs.DurationVar(&o.ResyncIntervalVolumeSize, "volume-size-resync-duration", o.ResyncIntervalVolumeSize, "Interval to determine volume size changes.")
+	fs.DurationVar(&o.ResyncIntervalMachineState, "machine-state-resync-duration", 1*time.Minute, "Synchronization interval for aligning local machine state with corresponding libvirt machine state.")
 
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
@@ -124,8 +124,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.Libvirt.PreferredMachineTypes, "preferred-machine-types", []string{"pc-q35"}, "Ordered list of preferred machine types to use.")
 
 	fs.StringVar(&o.Libvirt.Qcow2Type, "qcow2-type", qcow2.Default(), fmt.Sprintf("qcow2 implementation to use. Available: %v", qcow2.Available()))
-
-	fs.DurationVar(&o.MachineStateSyncInterval, "machine-state-sync-interval", 1*time.Minute, "Synchronization interval for aligning local machine state with corresponding libvirt machine state.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -300,15 +298,15 @@ func Run(ctx context.Context, opts Options) error {
 		machineStore,
 		machineEvents,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities:        caps,
-			ImageCache:               imgCache,
-			Raw:                      rawInst,
-			Host:                     providerHost,
-			VolumePluginManager:      volumePlugins,
-			NetworkInterfacePlugin:   nicPlugin,
-			ResyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
-			EnableHugepages:          opts.EnableHugepages,
-			MachineStateSyncInterval: opts.MachineStateSyncInterval,
+			GuestCapabilities:          caps,
+			ImageCache:                 imgCache,
+			Raw:                        rawInst,
+			Host:                       providerHost,
+			VolumePluginManager:        volumePlugins,
+			NetworkInterfacePlugin:     nicPlugin,
+			ResyncIntervalVolumeSize:   opts.ResyncIntervalVolumeSize,
+			ResyncIntervalMachineState: opts.ResyncIntervalMachineState,
+			EnableHugepages:            opts.EnableHugepages,
 		},
 	)
 	if err != nil {

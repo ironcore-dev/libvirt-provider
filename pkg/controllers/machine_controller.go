@@ -59,17 +59,17 @@ var (
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities        guest.Capabilities
-	TCMallocLibPath          string
-	ImageCache               providerimage.Cache
-	Raw                      raw.Raw
-	Host                     providerhost.Host
-	VolumePluginManager      *providervolume.PluginManager
-	NetworkInterfacePlugin   providernetworkinterface.Plugin
-	VolumeEvents             event.Source[*api.Machine]
-	ResyncIntervalVolumeSize time.Duration
-	EnableHugepages          bool
-	MachineStateSyncInterval time.Duration
+	GuestCapabilities          guest.Capabilities
+	TCMallocLibPath            string
+	ImageCache                 providerimage.Cache
+	Raw                        raw.Raw
+	Host                       providerhost.Host
+	VolumePluginManager        *providervolume.PluginManager
+	NetworkInterfacePlugin     providernetworkinterface.Plugin
+	VolumeEvents               event.Source[*api.Machine]
+	ResyncIntervalVolumeSize   time.Duration
+	ResyncIntervalMachineState time.Duration
+	EnableHugepages            bool
 }
 
 func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
@@ -100,21 +100,21 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:                      log,
-		queue:                    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:                  libvirt,
-		machines:                 machines,
-		machineEvents:            machineEvents,
-		guestCapabilities:        opts.GuestCapabilities,
-		tcMallocLibPath:          opts.TCMallocLibPath,
-		host:                     opts.Host,
-		imageCache:               opts.ImageCache,
-		raw:                      opts.Raw,
-		volumePluginManager:      opts.VolumePluginManager,
-		networkInterfacePlugin:   opts.NetworkInterfacePlugin,
-		resyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
-		enableHugepages:          opts.EnableHugepages,
-		machineStateSyncInterval: opts.MachineStateSyncInterval,
+		log:                        log,
+		queue:                      workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		libvirt:                    libvirt,
+		machines:                   machines,
+		machineEvents:              machineEvents,
+		guestCapabilities:          opts.GuestCapabilities,
+		tcMallocLibPath:            opts.TCMallocLibPath,
+		host:                       opts.Host,
+		imageCache:                 opts.ImageCache,
+		raw:                        opts.Raw,
+		volumePluginManager:        opts.VolumePluginManager,
+		networkInterfacePlugin:     opts.NetworkInterfacePlugin,
+		resyncIntervalVolumeSize:   opts.ResyncIntervalVolumeSize,
+		resyncIntervalMachineState: opts.ResyncIntervalMachineState,
+		enableHugepages:            opts.EnableHugepages,
 	}, nil
 }
 
@@ -136,9 +136,8 @@ type MachineReconciler struct {
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
 
-	resyncIntervalVolumeSize time.Duration
-
-	machineStateSyncInterval time.Duration
+	resyncIntervalVolumeSize   time.Duration
+	resyncIntervalMachineState time.Duration
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -186,7 +185,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startCheckAndEnqueueMachineStatus(ctx, r.log.WithName("machine-status-sync"))
+		r.startCheckAndEnqueueMachineState(ctx, r.log.WithName("machine-state-sync"))
 	}()
 
 	go func() {
@@ -254,7 +253,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 	}, r.resyncIntervalVolumeSize)
 }
 
-func (r *MachineReconciler) startCheckAndEnqueueMachineStatus(ctx context.Context, log logr.Logger) {
+func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context, log logr.Logger) {
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		machines, err := r.machines.List(ctx)
 		if err != nil {
@@ -278,7 +277,7 @@ func (r *MachineReconciler) startCheckAndEnqueueMachineStatus(ctx context.Contex
 				r.queue.AddRateLimited(id)
 			}
 		}
-	}, r.machineStateSyncInterval)
+	}, r.resyncIntervalMachineState)
 }
 
 func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Logger) bool {
