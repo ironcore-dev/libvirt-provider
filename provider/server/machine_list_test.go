@@ -76,6 +76,7 @@ var _ = Describe("ListMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(len(listResp.Machines)).Should(Equal(1))
 			return listResp.Machines[0].Status.State
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
@@ -90,6 +91,7 @@ var _ = Describe("ListMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(len(listResp.Machines)).Should(Equal(1))
 			return listResp.Machines[0].Status.State
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 

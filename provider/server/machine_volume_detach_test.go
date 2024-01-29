@@ -85,6 +85,7 @@ var _ = Describe("DetachVolume", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(len(listResp.Machines)).Should(Equal(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(
@@ -132,6 +133,7 @@ var _ = Describe("DetachVolume", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(len(listResp.Machines)).Should(Equal(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(

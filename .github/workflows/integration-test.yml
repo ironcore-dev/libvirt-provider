@@ -48,8 +48,6 @@ jobs:
           
           sudo ceph osd pool create devpool 8
           
-          sleep 30
-          sudo microceph.ceph status
           # Wait until there are no more "unkowns" pgs
           for _ in $(seq 60); do
             if sudo microceph.ceph pg stat | grep -wF unknown; then

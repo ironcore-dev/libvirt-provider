@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TODO: This test will require update after merge of PR: #101
 var _ = Describe("DeleteMachine", func() {
 
 	It("should delete a machine", func(ctx SpecContext) {

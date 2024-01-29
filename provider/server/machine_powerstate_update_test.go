@@ -12,6 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
+// TODO: This test will require update after implementation of: https://github.com/ironcore-dev/libvirt-provider/issues/106
 var _ = Describe("UpdateMachinePower", func() {
 	It("should update machine power state", func(ctx SpecContext) {
 		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
@@ -60,6 +61,7 @@ var _ = Describe("UpdateMachinePower", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(len(listResp.Machines)).Should(Equal(1))
 			return listResp.Machines[0].Spec
 		}).Should(SatisfyAll(
 			HaveField("Power", Equal(iri.Power_POWER_OFF)),

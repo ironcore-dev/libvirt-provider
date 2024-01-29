@@ -79,6 +79,7 @@ var _ = Describe("UpdateMachineAnnotations", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(len(listResp.Machines)).Should(Equal(1))
 			return listResp.Machines[0].Metadata
 		}).Should(SatisfyAll(
 			HaveField("Annotations", Equal(map[string]string{

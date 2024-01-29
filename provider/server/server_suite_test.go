@@ -80,7 +80,9 @@ var _ = BeforeSuite(func() {
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
 	DeferCleanup(machineClassesFile.Close)
 	DeferCleanup(func() error {
-		return os.Remove(machineClassesFile.Name())
+		err = os.Remove(machineClassesFile.Name())
+		Expect(err).ShouldNot(HaveOccurred())
+		return err
 	})
 
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
