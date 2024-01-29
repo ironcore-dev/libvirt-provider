@@ -293,7 +293,7 @@ func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Lo
 	defer r.queue.Done(item)
 
 	id := item.(string)
-	log = log.WithValues("machineId", id)
+	log = log.WithValues("machineID", id)
 	ctx = logr.NewContext(ctx, log)
 
 	if err := r.reconcileMachine(ctx, id); err != nil {
