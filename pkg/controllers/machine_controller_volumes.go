@@ -97,7 +97,7 @@ func (r *MachineReconciler) machineVolumeMounter(machine *api.Machine) VolumeMou
 
 func getVolumeStatus(machine *api.Machine, volumeID string) *api.VolumeStatus {
 	for _, volumeStatus := range machine.Status.VolumeStatus {
-		if volumeID == volumeStatus.Name {
+		if volumeID == volumeStatus.Handle {
 			return &volumeStatus
 		}
 	}
@@ -147,15 +147,10 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 	var volumeStates []api.VolumeStatus
 	for _, volume := range specVolumes {
 		log.V(1).Info("Reconciling volume", "volumeName", volume.Name)
-		volumeID, volumeSize, err := r.applyVolume(ctx, log, volume, mounter, attacher)
+		volumeID, volumeSize, err := r.applyVolume(ctx, log, machine, volume, mounter, attacher)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error reconciling: %w", volume.Name, err))
 			continue
-		}
-
-		if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != nil && volumeSize != ptr.Deref(lastVolumeSize, 0) {
-			log.V(1).Info("Resizing volume", "volumeName", volume.Name, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
-			//TODO: do actual resize
 		}
 
 		log.V(1).Info("Successfully reconciled volume", "volumeName", volume.Name, "volumeID", volumeID)
@@ -199,6 +194,7 @@ type VolumeAttacher interface {
 	GetVolume(name string) (*AttachVolume, error)
 	AttachVolume(volume *AttachVolume) error
 	DetachVolume(name string) error
+	ResizeVolume(volume *AttachVolume) error
 }
 
 var (
@@ -209,6 +205,7 @@ var (
 type DomainExecutor interface {
 	AttachDisk(disk *libvirtxml.DomainDisk) error
 	DetachDisk(disk *libvirtxml.DomainDisk) error
+	ResizeDisk(device string, size int64) error
 
 	ApplySecret(secret *libvirtxml.Secret, data []byte) error
 	DeleteSecret(secretUUID string) error
@@ -224,7 +221,7 @@ func NewCreateDomainExecutor(lv *libvirt.Libvirt) DomainExecutor {
 
 func (e *createDomainExecutor) AttachDisk(*libvirtxml.DomainDisk) error { return nil }
 func (e *createDomainExecutor) DetachDisk(*libvirtxml.DomainDisk) error { return nil }
-
+func (e *createDomainExecutor) ResizeDisk(string, int64) error          { return nil }
 func (e *createDomainExecutor) ApplySecret(secret *libvirtxml.Secret, value []byte) error {
 	return libvirtutils.ApplySecret(e.libvirt, secret, value)
 }
@@ -277,6 +274,10 @@ func (a *domainExecutor) DeleteSecret(secretUUID string) error {
 	return a.libvirt.SecretUndefine(libvirt.Secret{
 		UUID: libvirtutils.UUIDStringToBytes(secretUUID),
 	})
+}
+
+func (a *domainExecutor) ResizeDisk(device string, size int64) error {
+	return a.libvirt.DomainBlockResize(a.domain(), computeVirtioDiskTargetDeviceName(device), uint64(size), libvirt.DomainBlockResizeBytes)
 }
 
 type libvirtVolumeAttacher struct {
@@ -466,6 +467,10 @@ func (a *libvirtVolumeAttacher) DetachVolume(name string) error {
 	return nil
 }
 
+func (a *libvirtVolumeAttacher) ResizeVolume(volume *AttachVolume) error {
+	return a.executor.ResizeDisk(volume.Device, volume.Spec.Size)
+}
+
 func (a *libvirtVolumeAttacher) GetVolume(name string) (*AttachVolume, error) {
 	idx, err := a.diskByVolumeNameIndex(name)
 	if err != nil {
@@ -638,6 +643,7 @@ func (m *volumeMounter) ApplyVolume(ctx context.Context, spec *api.VolumeSpec, o
 func (r *MachineReconciler) applyVolume(
 	ctx context.Context,
 	log logr.Logger,
+	machine *api.Machine,
 	desiredVolume *api.VolumeSpec,
 	mountedVolumes VolumeMounter,
 	attacher VolumeAttacher,
@@ -664,6 +670,19 @@ func (r *MachineReconciler) applyVolume(
 	}); err != nil && !errors.Is(err, ErrAttachedVolumeAlreadyExists) {
 		return "", 0, fmt.Errorf("error ensuring volume is attached: %w", err)
 	}
+
+	//TODO do epsilon comparison
+	if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != nil && providerVolume.Size != ptr.Deref(lastVolumeSize, 0) {
+		log.V(1).Info("Resize volume", "volumeID", volumeID, "lastSize", lastVolumeSize, "volumeSize", providerVolume.Size)
+		if err := attacher.ResizeVolume(&AttachVolume{
+			Name:   desiredVolume.Name,
+			Device: desiredVolume.Device,
+			Spec:   *providerVolume,
+		}); err != nil {
+			return "", 0, fmt.Errorf("failed to resize volume: %w", err)
+		}
+	}
+
 	return volumeID, providerVolume.Size, nil
 }
 

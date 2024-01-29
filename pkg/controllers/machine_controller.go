@@ -206,23 +206,32 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 		}
 
 		for _, machine := range machines {
-			var shouldEnqueue bool
+			if machine.DeletedAt != nil || !slices.Contains(machine.Finalizers, MachineFinalizer) {
+				continue
+			}
 
+			var shouldEnqueue bool
 			for _, volume := range machine.Spec.Volumes {
 				plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
 				if err != nil {
-					log.Error(err, "failed to get volume plugin", "machineID", machine, "volumeName", volume.Name)
+					log.Error(err, "failed to get volume plugin", "machineID", machine.ID, "volumeName", volume.Name)
+					continue
+				}
+
+				volumeID, err := plugin.GetBackingVolumeID(volume)
+				if err != nil {
+					log.Error(err, "failed to get volume id", "machineID", machine.ID, "volumeName", volume.Name)
 					continue
 				}
 
 				volumeSize, err := plugin.GetSize(ctx, volume)
 				if err != nil {
-					log.Error(err, "failed to get volume size", "machineID", machine, "volumeName", volume.Name)
+					log.Error(err, "failed to get volume size", "machineID", machine.ID, "volumeName", volume.Name, "volumeID", volumeID)
 					continue
 				}
 
-				if lastVolumeSize := getLastVolumeSize(machine, volume.Name); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
+				if lastVolumeSize := getLastVolumeSize(machine, GetUniqueVolumeName(plugin.Name(), volumeID)); volumeSize != ptr.Deref(lastVolumeSize, 0) {
+					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "volumeID", volumeID, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 					shouldEnqueue = true
 					break
 				}
