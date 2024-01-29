@@ -100,7 +100,8 @@ var _ = BeforeSuite(func() {
 			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx"},
 			Qcow2Type:             "exec",
 		},
-		NicPlugin: pluginOpts,
+		NicPlugin:                  pluginOpts,
+		ResyncIntervalMachineState: 10 * time.Second,
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
