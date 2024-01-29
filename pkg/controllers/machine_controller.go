@@ -206,8 +206,11 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 		}
 
 		for _, machine := range machines {
-			var shouldEnqueue bool
+			if machine.DeletedAt != nil || !slices.Contains(machine.Finalizers, MachineFinalizer) {
+				continue
+			}
 
+			var shouldEnqueue bool
 			for _, volume := range machine.Spec.Volumes {
 				plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
 				if err != nil {
