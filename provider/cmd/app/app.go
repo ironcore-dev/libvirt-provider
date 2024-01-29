@@ -6,7 +6,6 @@ package app
 import (
 	"context"
 	"errors"
-	"flag"
 	goflag "flag"
 	"fmt"
 	"net"
@@ -76,6 +75,7 @@ type Options struct {
 
 	PathSupportedMachineClasses string
 	ResyncIntervalVolumeSize    time.Duration
+	ResyncIntervalMachineState  time.Duration
 
 	ApinetKubeconfig string
 
@@ -102,6 +102,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
 	fs.DurationVar(&o.ResyncIntervalVolumeSize, "volume-size-resync-duration", o.ResyncIntervalVolumeSize, "Interval to determine volume size changes.")
+	fs.DurationVar(&o.ResyncIntervalMachineState, "machine-state-resync-duration", 1*time.Minute, "Synchronization interval for aligning local machine state with corresponding libvirt machine state.")
 
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
@@ -109,7 +110,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
 		"constructed from the streaming-address")
 
-	flag.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
+	fs.StringVar(&virshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
 
@@ -297,14 +298,15 @@ func Run(ctx context.Context, opts Options) error {
 		machineStore,
 		machineEvents,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities:        caps,
-			ImageCache:               imgCache,
-			Raw:                      rawInst,
-			Host:                     providerHost,
-			VolumePluginManager:      volumePlugins,
-			NetworkInterfacePlugin:   nicPlugin,
-			ResyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
-			EnableHugepages:          opts.EnableHugepages,
+			GuestCapabilities:          caps,
+			ImageCache:                 imgCache,
+			Raw:                        rawInst,
+			Host:                       providerHost,
+			VolumePluginManager:        volumePlugins,
+			NetworkInterfacePlugin:     nicPlugin,
+			ResyncIntervalVolumeSize:   opts.ResyncIntervalVolumeSize,
+			ResyncIntervalMachineState: opts.ResyncIntervalMachineState,
+			EnableHugepages:            opts.EnableHugepages,
 		},
 	)
 	if err != nil {

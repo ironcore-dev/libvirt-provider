@@ -59,16 +59,17 @@ var (
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities        guest.Capabilities
-	TCMallocLibPath          string
-	ImageCache               providerimage.Cache
-	Raw                      raw.Raw
-	Host                     providerhost.Host
-	VolumePluginManager      *providervolume.PluginManager
-	NetworkInterfacePlugin   providernetworkinterface.Plugin
-	VolumeEvents             event.Source[*api.Machine]
-	ResyncIntervalVolumeSize time.Duration
-	EnableHugepages          bool
+	GuestCapabilities          guest.Capabilities
+	TCMallocLibPath            string
+	ImageCache                 providerimage.Cache
+	Raw                        raw.Raw
+	Host                       providerhost.Host
+	VolumePluginManager        *providervolume.PluginManager
+	NetworkInterfacePlugin     providernetworkinterface.Plugin
+	VolumeEvents               event.Source[*api.Machine]
+	ResyncIntervalVolumeSize   time.Duration
+	ResyncIntervalMachineState time.Duration
+	EnableHugepages            bool
 }
 
 func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
@@ -99,20 +100,21 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:                      log,
-		queue:                    workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:                  libvirt,
-		machines:                 machines,
-		machineEvents:            machineEvents,
-		guestCapabilities:        opts.GuestCapabilities,
-		tcMallocLibPath:          opts.TCMallocLibPath,
-		host:                     opts.Host,
-		imageCache:               opts.ImageCache,
-		raw:                      opts.Raw,
-		volumePluginManager:      opts.VolumePluginManager,
-		networkInterfacePlugin:   opts.NetworkInterfacePlugin,
-		resyncIntervalVolumeSize: opts.ResyncIntervalVolumeSize,
-		enableHugepages:          opts.EnableHugepages,
+		log:                        log,
+		queue:                      workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		libvirt:                    libvirt,
+		machines:                   machines,
+		machineEvents:              machineEvents,
+		guestCapabilities:          opts.GuestCapabilities,
+		tcMallocLibPath:            opts.TCMallocLibPath,
+		host:                       opts.Host,
+		imageCache:                 opts.ImageCache,
+		raw:                        opts.Raw,
+		volumePluginManager:        opts.VolumePluginManager,
+		networkInterfacePlugin:     opts.NetworkInterfacePlugin,
+		resyncIntervalVolumeSize:   opts.ResyncIntervalVolumeSize,
+		resyncIntervalMachineState: opts.ResyncIntervalMachineState,
+		enableHugepages:            opts.EnableHugepages,
 	}, nil
 }
 
@@ -134,7 +136,8 @@ type MachineReconciler struct {
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
 
-	resyncIntervalVolumeSize time.Duration
+	resyncIntervalVolumeSize   time.Duration
+	resyncIntervalMachineState time.Duration
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -177,6 +180,12 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		r.startCheckAndEnqueueVolumeResize(ctx, r.log.WithName("volume-size"))
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.startCheckAndEnqueueMachineState(ctx, r.log.WithName("machine-state-sync"))
 	}()
 
 	go func() {
@@ -244,6 +253,38 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 	}, r.resyncIntervalVolumeSize)
 }
 
+func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context, log logr.Logger) {
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		machines, err := r.machines.List(ctx)
+		if err != nil {
+			log.Error(err, "failed to list machines")
+			return
+		}
+
+		for _, machine := range machines {
+			if machine.DeletedAt != nil || !slices.Contains(machine.Finalizers, MachineFinalizer) {
+				continue
+			}
+			id := machine.ID
+
+			state, err := r.getMachineState(id)
+			if err != nil {
+				if libvirt.IsNotFound(err) {
+					log.V(1).Info("Failed to retrieve domain. Requeueing", "machineID", id)
+					r.queue.AddRateLimited(id)
+				} else {
+					log.Error(err, "failed to get machine state", "machineID", id)
+				}
+				continue
+			}
+
+			if state != machine.Status.State {
+				r.queue.AddRateLimited(id)
+			}
+		}
+	}, r.resyncIntervalMachineState)
+}
+
 func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Logger) bool {
 	item, shutdown := r.queue.Get()
 	if shutdown {
@@ -252,7 +293,7 @@ func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Lo
 	defer r.queue.Done(item)
 
 	id := item.(string)
-	log = log.WithValues("machineId", id)
+	log = log.WithValues("machineID", id)
 	ctx = logr.NewContext(ctx, log)
 
 	if err := r.reconcileMachine(ctx, id); err != nil {
