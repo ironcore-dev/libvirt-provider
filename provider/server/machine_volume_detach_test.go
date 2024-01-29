@@ -4,6 +4,8 @@
 package server_test
 
 import (
+	"time"
+
 	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
@@ -25,6 +27,9 @@ var _ = Describe("DetachVolume", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
+					Image: &iri.ImageSpec{
+						Image: osImage,
+					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
@@ -52,8 +57,6 @@ var _ = Describe("DetachVolume", func() {
 			Eventually(func() bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
 				Expect(err).ShouldNot(HaveOccurred())
-				err = libvirtConn.DomainDestroy(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id)})
-				Expect(err).ShouldNot(HaveOccurred())
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -64,7 +67,7 @@ var _ = Describe("DetachVolume", func() {
 		Eventually(func() error {
 			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 			return err
-		}).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainXMLData).NotTo(BeEmpty())
@@ -112,9 +115,11 @@ var _ = Describe("DetachVolume", func() {
 			Expect(err).NotTo(HaveOccurred())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).Should(Equal(2))
+		}).Should(Equal(3))
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
+
+		time.Sleep(20 * time.Second)
 
 		By("detaching disk-1 from machine")
 		detachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{
@@ -123,6 +128,17 @@ var _ = Describe("DetachVolume", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(detachResp).NotTo(BeNil())
+
+		By("ensuring disk-1 is unplugged from a machine domain")
+		Eventually(func() int {
+			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
+			Expect(err).NotTo(HaveOccurred())
+			domainXML := &libvirtxml.Domain{}
+			err = domainXML.Unmarshal(domainXMLData)
+			Expect(err).NotTo(HaveOccurred())
+			disks = domainXML.Devices.Disks
+			return len(disks)
+		}).Should(Equal(2))
 
 		By("ensuring detached volume have been updated in machine status field")
 		Eventually(func() *iri.MachineStatus {

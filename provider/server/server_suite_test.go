@@ -79,11 +79,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
 	DeferCleanup(machineClassesFile.Close)
-	DeferCleanup(func() error {
-		err = os.Remove(machineClassesFile.Name())
-		Expect(err).ShouldNot(HaveOccurred())
-		return err
-	})
+	DeferCleanup(os.Remove, machineClassesFile.Name())
 
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
