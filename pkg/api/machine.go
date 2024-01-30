@@ -3,7 +3,10 @@
 
 package api
 
-import "net"
+import (
+	"net"
+	"time"
+)
 
 type Machine struct {
 	Metadata `json:"metadata,omitempty"`
@@ -23,6 +26,8 @@ type MachineSpec struct {
 
 	Volumes           []*VolumeSpec           `json:"volumes"`
 	NetworkInterfaces []*NetworkInterfaceSpec `json:"networkInterfaces"`
+
+	ShutdownAt time.Time `json:"shutdownAt,omitempty"`
 }
 
 type MachineStatus struct {

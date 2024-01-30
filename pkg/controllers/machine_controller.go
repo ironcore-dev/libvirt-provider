@@ -311,46 +311,56 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.
 				continue
 			}
 
-			logger := log.WithValues("machineId", machine.ID)
-			var destroid bool
+			logger := log.WithValues("machineID", machine.ID)
 
-			if !machine.FirstShutdownAt.IsZero() && time.Now().After(machine.FirstShutdownAt.Add(r.gcVMGracefulShutdownTimeout)) {
-				destroid, err = r.destroyMachine(ctx, logger, machine)
-			} else {
-				err = r.processShutdown(ctx, logger, machine)
-			}
-
-			if destroid || libvirt.IsNotFound(err) {
-				err = r.cleanupAdditionalResources(ctx, logger, machine)
-				if err == nil {
-					continue
-				}
-			}
-
+			err := r.processMachineDeletion(ctx, logger, machine, r.gcVMGracefulShutdownTimeout)
 			if err != nil {
-				logger.Error(err, "failed to garbage collector process")
+				logger.Error(err, "failed to garbage collect machine")
 			}
 		}
 
 	}, r.resyncIntervalGarbageCollector)
 }
 
-func (r *MachineReconciler) destroyMachine(ctx context.Context, log logr.Logger, machine *api.Machine) (bool, error) {
-	err := r.destroyDomain(log, machine)
-	if err != nil {
-		return false, fmt.Errorf("failed to destroy machine domain: %w", err)
-	}
-	return true, nil
+func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr.Logger, machine *api.Machine, timeout time.Duration) error {
+	if !machine.Spec.ShutdownAt.IsZero() && time.Now().After(machine.Spec.ShutdownAt.Add(timeout)) {
+		err := r.destroyDomain(log, machine.ID)
+		if err != nil && !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
+			return fmt.Errorf("failed to destroy machine domain: %w", err)
+		}
 
+		log.V(1).Info("Destroyed domain")
+		return r.cleanupAdditionalResources(ctx, log, machine)
+	}
+
+	err := r.shutdownMachine(ctx, log, machine)
+	if err != nil {
+		if libvirt.IsNotFound(err) {
+			return r.cleanupAdditionalResources(ctx, log, machine)
+		}
+		return fmt.Errorf("failed to shutdown machine: %w", err)
+	}
+
+	return nil
 }
 
-func (r *MachineReconciler) processShutdown(ctx context.Context, log logr.Logger, machine *api.Machine) error {
+func (r *MachineReconciler) destroyDomain(log logr.Logger, machineID string) error {
+	log.V(1).Info("Starting domain destroy")
+
+	domain := libvirt.Domain{
+		UUID: libvirtutils.UUIDStringToBytes(machineID),
+	}
+
+	return r.libvirt.DomainDestroy(domain)
+}
+
+func (r *MachineReconciler) shutdownMachine(ctx context.Context, log logr.Logger, machine *api.Machine) error {
 	log.V(1).Info("Shutting down Machine")
 
-	if machine.FirstShutdownAt.IsZero() {
-		machine.FirstShutdownAt = time.Now()
+	if machine.Spec.ShutdownAt.IsZero() {
+		machine.Spec.ShutdownAt = time.Now()
 		if _, err := r.machines.Update(ctx, machine); err != nil {
-			return fmt.Errorf("failed to set FirstShutdownAt: %w", err)
+			return fmt.Errorf("failed to set ShutdownAt: %w", err)
 		}
 	}
 
@@ -358,27 +368,7 @@ func (r *MachineReconciler) processShutdown(ctx context.Context, log logr.Logger
 		UUID: libvirtutils.UUIDStringToBytes(machine.ID),
 	}
 
-	err := r.libvirt.DomainShutdownFlags(domain, libvirt.DomainShutdownAcpiPowerBtn)
-	if err != nil {
-		return fmt.Errorf("failed to shutdown domain: %w", err)
-	}
-
-	return err
-}
-
-func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine) error {
-	log.V(1).Info("Starting domain destroy")
-
-	domain := libvirt.Domain{
-		UUID: libvirtutils.UUIDStringToBytes(machine.ID),
-	}
-
-	if err := r.libvirt.DomainDestroy(domain); err != nil && !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
-		return fmt.Errorf("failed to destroy domain: %w", err)
-	}
-
-	log.V(1).Info("Destroyed domain")
-	return nil
+	return r.libvirt.DomainShutdownFlags(domain, libvirt.DomainShutdownAcpiPowerBtn)
 }
 
 func (r *MachineReconciler) cleanupAdditionalResources(ctx context.Context, log logr.Logger, machine *api.Machine) error {
