@@ -88,7 +88,7 @@ var _ = Describe("DetachVolume", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(len(listResp.Machines)).Should(Equal(1))
+			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(
@@ -119,6 +119,7 @@ var _ = Describe("DetachVolume", func() {
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
 
+		// wait for boot image to be available before detaching volume
 		time.Sleep(20 * time.Second)
 
 		By("detaching disk-1 from machine")
@@ -149,7 +150,7 @@ var _ = Describe("DetachVolume", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(len(listResp.Machines)).Should(Equal(1))
+			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(

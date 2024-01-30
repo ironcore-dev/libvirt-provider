@@ -88,7 +88,7 @@ var _ = Describe("CreateMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(len(listResp.Machines)).Should(Equal(1))
+			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
@@ -189,7 +189,7 @@ var _ = Describe("CreateMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(len(listResp.Machines)).Should(Equal(1))
+			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
@@ -302,7 +302,7 @@ var _ = Describe("CreateMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(len(listResp.Machines)).Should(Equal(1))
+			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
@@ -429,7 +429,7 @@ var _ = Describe("CreateMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(len(listResp.Machines)).Should(Equal(1))
+			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),

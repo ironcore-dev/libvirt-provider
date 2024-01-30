@@ -61,7 +61,7 @@ var _ = Describe("UpdateMachinePower", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(len(listResp.Machines)).Should(Equal(1))
+			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Spec
 		}).Should(SatisfyAll(
 			HaveField("Power", Equal(iri.Power_POWER_OFF)),
