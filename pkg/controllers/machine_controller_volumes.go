@@ -84,6 +84,35 @@ func getLastVolumeSize(machine *api.Machine, volumeID string) *int64 {
 	return nil
 }
 
+func fillStatusWithAttachedVolumes(status map[string]*api.VolumeStatus, attacher VolumeAttacher) error {
+	return attacher.ForEachVolume(func(volume *AttachVolume) bool {
+		_, ok := status[volume.Name]
+		if !ok {
+			volumeStatus := api.VolumeStatus{
+				Name:  volume.Name,
+				State: api.VolumeStateAttached,
+				Size:  volume.Spec.Size,
+			}
+			status[volume.Name] = &volumeStatus
+		}
+		return true
+	})
+}
+
+func fillStatusWithMountedVolumes(status map[string]*api.VolumeStatus, mounter VolumeMounter) error {
+	return mounter.ForEachVolume(func(volume *MountVolume) bool {
+		_, ok := status[volume.ComputeVolumeName]
+		if !ok {
+			volumeStatus := api.VolumeStatus{
+				Name:  volume.ComputeVolumeName,
+				State: api.VolumeStatePending,
+			}
+			status[volumeStatus.Name] = &volumeStatus
+		}
+		return true
+	})
+}
+
 func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Logger, machine *api.Machine, attacher VolumeAttacher) ([]api.VolumeStatus, error) {
 	mounter := r.machineVolumeMounter(machine)
 	specVolumes := r.listDesiredVolumes(machine)
@@ -91,6 +120,17 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 	currentStatus := machine.Status.GetVolumesAsMap()
 
 	var errs []error
+
+	err := fillStatusWithAttachedVolumes(currentStatus, attacher)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("error iterating attached volumes: %w", err))
+	}
+
+	err = fillStatusWithMountedVolumes(currentStatus, mounter)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("error iterating mounted volumes: %w", err))
+	}
+
 	for volumeName, volumeStatus := range currentStatus {
 		if _, ok := specVolumes[volumeName]; ok {
 			continue
@@ -125,11 +165,9 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 		log.V(1).Info("Successfully reconciled volume", "volumeName", volume.Name, "volumeID", volumeID)
 	}
 
-	if machine.Status.State != api.MachineStatePending {
-		err := r.syncCurrentStatusWithDomain(log, machine.ID, currentStatus)
-		if err != nil {
-			errs = append(errs, fmt.Errorf("failed to synchronize status with domain: %w", err))
-		}
+	err = r.syncCurrentStatusWithDomain(log, machine.ID, currentStatus)
+	if err != nil {
+		errs = append(errs, fmt.Errorf("failed to synchronize status with domain: %w", err))
 	}
 
 	newVolumeStatus := convertVolumesMapToListAndNormalize(currentStatus)
@@ -159,6 +197,11 @@ func (r *MachineReconciler) syncCurrentStatusWithDomain(log logr.Logger, id stri
 	log.V(1).Info("Synchronize status with domain")
 	domainDesc, err := r.getDomainDesc(id)
 	if err != nil {
+		// sync isn't possible without domain
+		if libvirt.IsNotFound(err) {
+			return nil
+		}
+
 		return fmt.Errorf("error getting domain description: %w", err)
 	}
 
