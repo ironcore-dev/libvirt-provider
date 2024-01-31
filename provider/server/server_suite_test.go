@@ -40,6 +40,7 @@ var (
 	machineClient      iriv1alpha1.MachineRuntimeClient
 	libvirtConn        *libvirt.Libvirt
 	machineClassesFile *os.File
+	tempDir            string
 )
 
 func TestServer(t *testing.T) {
@@ -84,7 +85,7 @@ var _ = BeforeSuite(func() {
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
 
-	tempDir := GinkgoT().TempDir()
+	tempDir = GinkgoT().TempDir()
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{

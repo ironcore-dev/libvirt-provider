@@ -4,6 +4,9 @@
 package server_test
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
@@ -79,15 +82,16 @@ var _ = Describe("DeleteMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("ensuring machine is deleted")
-		Eventually(func() {
+		Eventually(func() int {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
 			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).To(BeEmpty())
-		})
+			return len(listResp.Machines)
+		}).Should(BeZero())
+
 		By("ensuring domain and domain XML is deleted for machine")
 		Eventually(func() bool {
 			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
@@ -95,5 +99,11 @@ var _ = Describe("DeleteMachine", func() {
 		}).Should(BeTrue())
 		domainXMLData, err = libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(domainXMLData).To(BeEmpty())
+
+		By("ensuring the respective machine's file is cleaned from machines directory")
+		Eventually(func() bool {
+			_, err = os.Stat(fmt.Sprintf("%s/libvirt-provider/machines/%s", tempDir, createResp.Machine.Metadata.Id))
+			return os.IsNotExist(err)
+		}).Should(BeTrue())
 	})
 })
