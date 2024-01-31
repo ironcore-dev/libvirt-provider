@@ -325,7 +325,7 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.
 func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr.Logger, machine *api.Machine, timeout time.Duration) error {
 	if !machine.Spec.ShutdownAt.IsZero() && time.Now().After(machine.Spec.ShutdownAt.Add(timeout)) {
 		err := r.destroyDomain(log, machine.ID)
-		if err != nil && !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
+		if err != nil && !libvirt.IsNotFound(err) {
 			return fmt.Errorf("failed to destroy machine domain: %w", err)
 		}
 
