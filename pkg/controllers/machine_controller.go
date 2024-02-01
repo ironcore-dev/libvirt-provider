@@ -349,7 +349,7 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
 		return fmt.Errorf("failed to update machine metadata: %w", err)
 	}
-	log.V(1).Info("Removed Finalizers")
+	log.V(1).Info("Removed Finalizer. Deletion completed")
 
 	return nil
 }
@@ -367,8 +367,8 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 		log.V(1).Info("Updated machine ShutdownAt", "ShutdownAt", machine.Spec.ShutdownAt)
 	}
 
-	if machine.Spec.ShutdownAt.Add(r.gcVMGracefulShutdownTimeout).Before(time.Now()) {
-		//Trigger machine shutdown until VMGracefulShutdownTimeout is over
+	if time.Now().Before(machine.Spec.ShutdownAt.Add(r.gcVMGracefulShutdownTimeout)) {
+		// Trigger machine shutdown until VMGracefulShutdownTimeout is over
 		return r.shutdownMachine(log, machine, domain)
 	}
 
@@ -376,14 +376,16 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 }
 
 func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain) error {
-	if err := r.libvirt.DomainDestroy(domain); err != nil {
+	// DomainDestroyFlags is a blocking operation, and its synchronous nature may pose potential performance issues in the future.
+	// During test involving 26 empty disks, the function call took a maximum of 1 second to complete.
+	if err := r.libvirt.DomainDestroyFlags(domain, libvirt.DomainDestroyGraceful); err != nil {
 		if libvirt.IsNotFound(err) {
 			return nil
 		}
 		return fmt.Errorf("failed to initiate forceful shutdown: %w", err)
 	}
 
-	log.V(1).Info("Triggered forceful shutdown")
+	log.V(1).Info("Destroyed domain")
 	return nil
 }
 
