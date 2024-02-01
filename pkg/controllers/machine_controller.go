@@ -360,17 +360,16 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 	}
 
 	if machine.Spec.ShutdownAt.IsZero() {
-		return r.shutdownMachine(ctx, log, machine, domain)
+		machine.Spec.ShutdownAt = time.Now()
+		if _, err := r.machines.Update(ctx, machine); err != nil {
+			return false, fmt.Errorf("failed to update ShutdownAt: %w", err)
+		}
+		log.V(1).Info("Updated machine ShutdownAt", "ShutdownAt", machine.Spec.ShutdownAt)
 	}
 
 	if machine.Spec.ShutdownAt.Add(r.gcVMGracefulShutdownTimeout).Before(time.Now()) {
-		state, _, _, _, _, err := r.libvirt.DomainGetInfo(domain)
-		if libvirt.IsNotFound(err) {
-			return false, nil
-		}
-
-		log.V(1).Info("Wait to complete shutdown", "State", state, "ShutdownAt", machine.Spec.ShutdownAt)
-		return true, nil
+		//Trigger machine shutdown until VMGracefulShutdownTimeout is over
+		return r.shutdownMachine(log, machine, domain)
 	}
 
 	return false, r.destroyDomain(log, domain)
@@ -381,26 +380,21 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain
 		if libvirt.IsNotFound(err) {
 			return nil
 		}
-		return fmt.Errorf("failed to initiate foreful shutdown: %w", err)
+		return fmt.Errorf("failed to initiate forceful shutdown: %w", err)
 	}
 
 	log.V(1).Info("Triggered forceful shutdown")
 	return nil
 }
 
-func (r *MachineReconciler) shutdownMachine(ctx context.Context, log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
-	machine.Spec.ShutdownAt = time.Now()
-	if _, err := r.machines.Update(ctx, machine); err != nil {
-		return false, fmt.Errorf("failed to update ShutdownAt: %w", err)
-	}
-
+func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
+	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
 	if err := r.libvirt.DomainShutdownFlags(domain, libvirt.DomainShutdownAcpiPowerBtn); err != nil {
 		if libvirt.IsNotFound(err) {
 			return false, nil
 		}
 		return false, fmt.Errorf("failed to initiate shutdown: %w", err)
 	}
-	log.V(1).Info("Triggered shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
 
 	return true, nil
 }
