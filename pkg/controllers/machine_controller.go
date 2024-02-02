@@ -368,7 +368,8 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 	}
 
 	if time.Now().Before(machine.Spec.ShutdownAt.Add(r.gcVMGracefulShutdownTimeout)) {
-		// Trigger machine shutdown until VMGracefulShutdownTimeout is over
+		// Due to heavy load, the AcpiPowerBtn signal might be missed by the VM.
+		// Hence, triggering the machine shutdown until VMGracefulShutdownTimeout is over to ensure its reception.
 		return r.shutdownMachine(log, machine, domain)
 	}
 
