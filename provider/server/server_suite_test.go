@@ -41,6 +41,10 @@ var (
 	libvirtConn        *libvirt.Libvirt
 	machineClassesFile *os.File
 	tempDir            string
+	cephMonitors       = os.Getenv("CEPH_MONITORS")
+	cephImage          = os.Getenv("CEPH_IMAGE")
+	cephUsername       = os.Getenv("CEPH_USERNAME")
+	cephUserkey        = os.Getenv("CEPH_USERKEY")
 )
 
 func TestServer(t *testing.T) {

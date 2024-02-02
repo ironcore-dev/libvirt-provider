@@ -4,7 +4,6 @@
 package server_test
 
 import (
-	"os"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -17,12 +16,6 @@ import (
 )
 
 var _ = Describe("AttachVolume", func() {
-	var (
-		cephMonitors = os.Getenv("CEPH_MONITORS")
-		cephImage    = os.Getenv("CEPH_IMAGE")
-		cephUsername = os.Getenv("CEPH_USERNAME")
-		cephUserkey  = os.Getenv("CEPH_USERKEY")
-	)
 	It("should correctly attach volume to machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
