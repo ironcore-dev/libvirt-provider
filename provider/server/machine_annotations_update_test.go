@@ -70,6 +70,20 @@ var _ = Describe("UpdateMachineAnnotations", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 
+		Eventually(func() bool {
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(listResp.Machines).Should(HaveLen(1))
+
+			machineStatus := listResp.Machines[0].Status
+			return machineStatus.State == iri.MachineState_MACHINE_RUNNING
+		}).Should(BeTrue())
+
 		By("ensuring correct annotations")
 		Eventually(func() *irimeta.ObjectMetadata {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
