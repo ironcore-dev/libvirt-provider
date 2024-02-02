@@ -93,17 +93,13 @@ var _ = Describe("DeleteMachine", func() {
 		}).Should(BeZero())
 
 		By("ensuring domain and domain XML is deleted for machine")
-		Eventually(func() bool {
-			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-			return libvirt.IsNotFound(err)
-		}).Should(BeTrue())
+		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+		Expect(libvirt.IsNotFound(err)).Should(BeTrue())
 		domainXMLData, err = libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(domainXMLData).To(BeEmpty())
 
 		By("ensuring the respective machine's file is cleaned from machines directory")
-		Eventually(func() bool {
-			_, err = os.Stat(fmt.Sprintf("%s/libvirt-provider/machines/%s", tempDir, createResp.Machine.Metadata.Id))
-			return os.IsNotExist(err)
-		}).Should(BeTrue())
+		_, err = os.Stat(fmt.Sprintf("%s/libvirt-provider/machines/%s", tempDir, createResp.Machine.Metadata.Id))
+		Expect(os.IsNotExist(err)).Should(BeTrue())
 	})
 })

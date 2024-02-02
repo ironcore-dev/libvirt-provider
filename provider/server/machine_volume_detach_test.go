@@ -70,9 +70,9 @@ var _ = Describe("DetachVolume", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
+			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).ShouldNot(HaveOccurred())
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -132,8 +132,7 @@ var _ = Describe("DetachVolume", func() {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 			Expect(err).NotTo(HaveOccurred())
 			domainXML := &libvirtxml.Domain{}
-			err = domainXML.Unmarshal(domainXMLData)
-			Expect(err).NotTo(HaveOccurred())
+			Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
 		}).Should(Equal(4))

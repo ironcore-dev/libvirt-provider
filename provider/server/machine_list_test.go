@@ -42,9 +42,9 @@ var _ = Describe("ListMachine", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
+			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).ShouldNot(HaveOccurred())
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -81,22 +81,20 @@ var _ = Describe("ListMachine", func() {
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
 		By("listing machines using correct Label selector")
-		Eventually(func() iri.MachineState {
-			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-				Filter: &iri.MachineFilter{
-					LabelSelector: map[string]string{
-						"foo": "bar",
-					},
+		listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+			Filter: &iri.MachineFilter{
+				LabelSelector: map[string]string{
+					"foo": "bar",
 				},
-			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
-			return listResp.Machines[0].Status.State
-		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(listResp.Machines).NotTo(BeEmpty())
+		Expect(listResp.Machines).Should(HaveLen(1))
+		Expect(listResp.Machines[0].Status.State).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
 		By("listing machines using incorrect Label selector")
-		listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+		listResp, err = machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 			Filter: &iri.MachineFilter{
 				LabelSelector: map[string]string{
 					"foo": "wrong",
