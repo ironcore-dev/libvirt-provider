@@ -44,7 +44,6 @@ func (m *MachineStatus) GetVolumesAsMap() map[string]*VolumeStatus {
 
 	result := make(map[string]*VolumeStatus, len(m.VolumeStatus))
 	for index := range m.VolumeStatus {
-		// TODO: Using name isn't good idea because we cannot create volumes with the same name
 		result[m.VolumeStatus[index].Name] = &m.VolumeStatus[index]
 	}
 

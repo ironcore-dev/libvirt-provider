@@ -467,7 +467,7 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	machine.Status.VolumeStatus = volumeStates
 	if err != nil {
 		if _, locErr := r.machines.Update(ctx, machine); locErr != nil {
-			log.Error(locErr, "failed to update image metadate")
+			log.Error(locErr, "failed to update API machine state")
 		}
 		return providerimage.IgnoreImagePulling(err)
 	}
@@ -477,7 +477,7 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	machine.Status.State = state
 
 	if _, err = r.machines.Update(ctx, machine); err != nil {
-		return fmt.Errorf("failed to update image metadate: %w", err)
+		return fmt.Errorf("failed to update API machine state: %w", err)
 	}
 
 	return nil
