@@ -173,7 +173,7 @@ func (r *MachineReconciler) reconcileVolumes(ctx context.Context, log logr.Logge
 func (r *MachineReconciler) deleteDetachedVolumes(ctx context.Context, log logr.Logger, status map[string]*api.VolumeStatus, mounter VolumeMounter) []error {
 	var errs []error
 
-	// Deleting detached volumes from previous reconcilation loop
+	// Deleting detached volumes from previous reconciliation loop
 	for volumeName, volumeStatus := range status {
 		if volumeStatus.DeletedAt == nil {
 			continue
