@@ -38,7 +38,10 @@ var _ = Describe("UpdateMachineAnnotations", func() {
 		DeferCleanup(func(ctx SpecContext) {
 			Eventually(func() bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).ShouldNot(HaveOccurred())
+				Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())

@@ -37,13 +37,48 @@ var _ = Describe("UpdateMachinePower", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
-			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
 		})
+
+		By("ensuring domain and domain XML is created for machine")
+		var domain libvirt.Domain
+		Eventually(func() error {
+			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+			return err
+		}).Should(Succeed())
+		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
+		Expect(err).NotTo(HaveOccurred())
+		Expect(domainXMLData).NotTo(BeEmpty())
+
+		By("ensuring domain for machine is in running state")
+		Eventually(func() libvirt.DomainState {
+			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
+			Expect(err).NotTo(HaveOccurred())
+			return libvirt.DomainState(domainState)
+		}).Should(Equal(libvirt.DomainRunning))
+
+		By("ensuring machine is in running state")
+		Eventually(func() bool {
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp.Machines).NotTo(BeEmpty())
+			Expect(listResp.Machines).Should(HaveLen(1))
+
+			machineStatus := listResp.Machines[0].Status
+			return machineStatus.State == iri.MachineState_MACHINE_RUNNING
+		}).Should(BeTrue())
 
 		By("updating power state of machine")
 		_, err = machineClient.UpdateMachinePower(ctx, &iri.UpdateMachinePowerRequest{

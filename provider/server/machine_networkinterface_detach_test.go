@@ -59,9 +59,11 @@ var _ = Describe("DetachNetworkInterface", func() {
 
 		DeferCleanup(func(ctx SpecContext) {
 			Eventually(func() bool {
-				// TODO: Place DeleteMachine directly inside DeferCleanup after merging of graceful shutdown
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).ShouldNot(HaveOccurred())
+				Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())

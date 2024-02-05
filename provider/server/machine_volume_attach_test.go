@@ -35,9 +35,12 @@ var _ = Describe("AttachVolume", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
-			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -127,7 +130,7 @@ var _ = Describe("AttachVolume", func() {
 			Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).WithTimeout(1 * time.Minute).WithPolling(1 * time.Second).Should(Equal(2))
+		}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(2))
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
 
