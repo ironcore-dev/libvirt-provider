@@ -533,7 +533,7 @@ func (r *MachineReconciler) updateDomain(
 		return nil, nil, fmt.Errorf("error construction volume attacher: %w", err)
 	}
 
-	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
+	volumeStates, err := r.reconcileVolumes(ctx, log, machine, attacher)
 	if err != nil {
 		return volumeStates, nil, fmt.Errorf("[volumes] %w", err)
 	}
@@ -715,7 +715,7 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
+	volumeStates, err := r.reconcileVolumes(ctx, log, machine, attacher)
 	if err != nil {
 		return nil, nil, nil, err
 	}
