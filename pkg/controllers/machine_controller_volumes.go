@@ -31,34 +31,6 @@ func (r *MachineReconciler) deleteVolumes(ctx context.Context, log logr.Logger, 
 	mounter := r.machineVolumeMounter(machine)
 	var errs []error
 
-	domainDesc, err := r.getDomainDesc(machine.ID)
-	if err != nil {
-		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
-			return fmt.Errorf("error getting domain description: %w", err)
-		}
-
-		log.V(1).Info("Domain not found")
-		return nil
-	}
-
-	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewRunningDomainExecutor(r.libvirt, machine.ID))
-	if err != nil {
-		return fmt.Errorf("error obtaining volume attacher: %w", err)
-	}
-
-	if err := attacher.ForEachVolume(func(volume *AttachVolume) bool {
-		log.V(1).Info("Detaching volume", "volumeName", volume.Name)
-		if err := attacher.DetachVolume(volume.Name); err != nil {
-			errs = append(errs, fmt.Errorf("[volume %s] error detaching volume: %w", volume.Name, err))
-		}
-		return true
-	}); err != nil && !errors.Is(err, os.ErrNotExist) {
-		if len(errs) > 0 {
-			log.Error(fmt.Errorf("%v", errs), "Error(s) detaching volumes")
-		}
-		return fmt.Errorf("error iterating attached volumes: %w", err)
-	}
-
 	if err := mounter.ForEachVolume(func(volume *MountVolume) bool {
 		log.V(1).Info("Unmounting volume", "volumeName", volume.ComputeVolumeName)
 		if err := mounter.DeleteVolume(ctx, volume.ComputeVolumeName); err != nil {

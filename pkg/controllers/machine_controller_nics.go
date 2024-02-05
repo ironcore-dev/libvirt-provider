@@ -41,7 +41,7 @@ func (r *MachineReconciler) deleteNetworkInterfaces(ctx context.Context, log log
 		}
 	}
 
-	log.V(1).Info("All volumes cleaned up, removing network interfaces directory")
+	log.V(1).Info("All network interfaces cleaned up, removing network interfaces directory")
 	if err := os.RemoveAll(r.host.MachineNetworkInterfacesDir(machine.ID)); err != nil {
 		return fmt.Errorf("error removing machine network interfaces directory: %w", err)
 	}
