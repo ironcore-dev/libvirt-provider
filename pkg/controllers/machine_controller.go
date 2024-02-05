@@ -25,7 +25,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/os/osutils"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/pkg/plugins/networkinterface"
 	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
-	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost" // TODO: Change to a better naming for all imports, libvirthost?
+	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
@@ -59,17 +59,19 @@ var (
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities          guest.Capabilities
-	TCMallocLibPath            string
-	ImageCache                 providerimage.Cache
-	Raw                        raw.Raw
-	Host                       providerhost.Host
-	VolumePluginManager        *providervolume.PluginManager
-	NetworkInterfacePlugin     providernetworkinterface.Plugin
-	VolumeEvents               event.Source[*api.Machine]
-	ResyncIntervalVolumeSize   time.Duration
-	ResyncIntervalMachineState time.Duration
-	EnableHugepages            bool
+	GuestCapabilities              guest.Capabilities
+	TCMallocLibPath                string
+	ImageCache                     providerimage.Cache
+	Raw                            raw.Raw
+	Host                           providerhost.Host
+	VolumePluginManager            *providervolume.PluginManager
+	NetworkInterfacePlugin         providernetworkinterface.Plugin
+	VolumeEvents                   event.Source[*api.Machine]
+	ResyncIntervalVolumeSize       time.Duration
+	ResyncIntervalMachineState     time.Duration
+	ResyncIntervalGarbageCollector time.Duration
+	EnableHugepages                bool
+	GCVMGracefulShutdownTimeout    time.Duration
 }
 
 func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
@@ -100,21 +102,23 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:                        log,
-		queue:                      workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:                    libvirt,
-		machines:                   machines,
-		machineEvents:              machineEvents,
-		guestCapabilities:          opts.GuestCapabilities,
-		tcMallocLibPath:            opts.TCMallocLibPath,
-		host:                       opts.Host,
-		imageCache:                 opts.ImageCache,
-		raw:                        opts.Raw,
-		volumePluginManager:        opts.VolumePluginManager,
-		networkInterfacePlugin:     opts.NetworkInterfacePlugin,
-		resyncIntervalVolumeSize:   opts.ResyncIntervalVolumeSize,
-		resyncIntervalMachineState: opts.ResyncIntervalMachineState,
-		enableHugepages:            opts.EnableHugepages,
+		log:                            log,
+		queue:                          workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		libvirt:                        libvirt,
+		machines:                       machines,
+		machineEvents:                  machineEvents,
+		guestCapabilities:              opts.GuestCapabilities,
+		tcMallocLibPath:                opts.TCMallocLibPath,
+		host:                           opts.Host,
+		imageCache:                     opts.ImageCache,
+		raw:                            opts.Raw,
+		volumePluginManager:            opts.VolumePluginManager,
+		networkInterfacePlugin:         opts.NetworkInterfacePlugin,
+		resyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
+		resyncIntervalMachineState:     opts.ResyncIntervalMachineState,
+		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
+		enableHugepages:                opts.EnableHugepages,
+		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
 	}, nil
 }
 
@@ -138,6 +142,9 @@ type MachineReconciler struct {
 
 	resyncIntervalVolumeSize   time.Duration
 	resyncIntervalMachineState time.Duration
+
+	gcVMGracefulShutdownTimeout    time.Duration
+	resyncIntervalGarbageCollector time.Duration
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -186,6 +193,12 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	go func() {
 		defer wg.Done()
 		r.startCheckAndEnqueueMachineState(ctx, r.log.WithName("machine-state-sync"))
+	}()
+
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		r.startGarbageCollector(ctx, r.log.WithName("garbage-collector"))
 	}()
 
 	go func() {
@@ -285,6 +298,110 @@ func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context
 	}, r.resyncIntervalMachineState)
 }
 
+func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.Logger) {
+	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		machines, err := r.machines.List(ctx)
+		if err != nil {
+			log.Error(err, "failed to list machines")
+			return
+		}
+
+		for _, machine := range machines {
+			if !slices.Contains(machine.Finalizers, MachineFinalizer) || machine.DeletedAt == nil {
+				continue
+			}
+
+			logger := log.WithValues("machineID", machine.ID)
+			if err := r.processMachineDeletion(ctx, logger, machine); err != nil {
+				logger.Error(err, "failed to garbage collect machine")
+			}
+		}
+
+	}, r.resyncIntervalGarbageCollector)
+}
+
+func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr.Logger, machine *api.Machine) error {
+	isDeleting, err := r.deleteMachine(ctx, log, machine)
+	switch {
+	case isDeleting:
+		return nil
+	case err != nil:
+		return fmt.Errorf("failed to delete machine: %w", err)
+	}
+	log.V(1).Info("Deleted machine")
+
+	if err := r.deleteVolumes(ctx, log, machine); err != nil {
+		return fmt.Errorf("failed to remove machine disks: %w", err)
+	}
+	log.V(1).Info("Removed machine disks")
+
+	if err := r.deleteNetworkInterfaces(ctx, log, machine); err != nil {
+		return fmt.Errorf("failed to remove machine network interfaces: %w", err)
+	}
+	log.V(1).Info("Removed network interfaces")
+
+	if err := os.RemoveAll(r.host.MachineDir(machine.ID)); err != nil {
+		return fmt.Errorf("failed to remove machine directory: %w", err)
+	}
+	log.V(1).Info("Removed machine directory")
+
+	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
+	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
+		return fmt.Errorf("failed to update machine metadata: %w", err)
+	}
+	log.V(1).Info("Removed Finalizer. Deletion completed")
+
+	return nil
+}
+
+func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, machine *api.Machine) (bool, error) {
+	domain := libvirt.Domain{
+		UUID: libvirtutils.UUIDStringToBytes(machine.ID),
+	}
+
+	if machine.Spec.ShutdownAt.IsZero() {
+		machine.Spec.ShutdownAt = time.Now()
+		if _, err := r.machines.Update(ctx, machine); err != nil {
+			return false, fmt.Errorf("failed to update ShutdownAt: %w", err)
+		}
+		log.V(1).Info("Updated machine ShutdownAt", "ShutdownAt", machine.Spec.ShutdownAt)
+	}
+
+	if time.Now().Before(machine.Spec.ShutdownAt.Add(r.gcVMGracefulShutdownTimeout)) {
+		// Due to heavy load, the AcpiPowerBtn signal might be missed by the VM.
+		// Hence, triggering the machine shutdown until VMGracefulShutdownTimeout is over to ensure its reception.
+		return r.shutdownMachine(log, machine, domain)
+	}
+
+	return false, r.destroyDomain(log, domain)
+}
+
+func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain) error {
+	// DomainDestroyFlags is a blocking operation, and its synchronous nature may pose potential performance issues in the future.
+	// During test involving 26 empty disks, the function call took a maximum of 1 second to complete.
+	if err := r.libvirt.DomainDestroyFlags(domain, libvirt.DomainDestroyGraceful); err != nil {
+		if libvirt.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to initiate forceful shutdown: %w", err)
+	}
+
+	log.V(1).Info("Destroyed domain")
+	return nil
+}
+
+func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
+	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
+	if err := r.libvirt.DomainShutdownFlags(domain, libvirt.DomainShutdownAcpiPowerBtn); err != nil {
+		if libvirt.IsNotFound(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("failed to initiate shutdown: %w", err)
+	}
+
+	return true, nil
+}
+
 func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Logger) bool {
 	item, shutdown := r.queue.Get()
 	if shutdown {
@@ -320,10 +437,6 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	}
 
 	if machine.DeletedAt != nil {
-		if err := r.deleteMachine(ctx, log, machine); err != nil {
-			return fmt.Errorf("failed to delete machine: %w", err)
-		}
-		log.V(1).Info("Successfully deleted machine")
 		return nil
 	}
 
@@ -392,76 +505,6 @@ func (r *MachineReconciler) reconcileDomain(
 	}
 
 	return state, volumeStates, nicStates, nil
-}
-
-func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, machine *api.Machine) error {
-	if !slices.Contains(machine.Finalizers, MachineFinalizer) {
-		log.V(1).Info("machine has no finalizer: done")
-		return nil
-	}
-
-	log.V(1).Info("Finalizer present, doing cleanup")
-
-	log.V(1).Info("Removing volumes")
-	if err := r.deleteVolumes(ctx, log, machine); err != nil {
-		return fmt.Errorf("error removing machine disks: %w", err)
-	}
-	log.V(1).Info("Successfully removed machine disks")
-
-	log.V(1).Info("Removing network interfaces")
-	if err := r.deleteNetworkInterfaces(ctx, log, machine); err != nil {
-		return fmt.Errorf("error removing machine network interfaces: %w", err)
-	}
-	log.V(1).Info("Successfully removed network interfaces")
-
-	log.V(1).Info("Deleting domain")
-	if err := r.deleteDomain(log, machine); err != nil {
-		return err
-	}
-	log.V(1).Info("Successfully deleted domain")
-
-	log.V(1).Info("Removing machine directory")
-	if err := os.RemoveAll(r.host.MachineDir(machine.ID)); err != nil {
-		return fmt.Errorf("error removing machine directory: %w", err)
-	}
-	log.V(1).Info("Successfully removed machine directory")
-
-	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
-	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
-		return fmt.Errorf("failed to update machine metadata: %w", err)
-	}
-	log.V(2).Info("Removed Finalizers")
-
-	return nil
-}
-
-func (r *MachineReconciler) deleteDomain(log logr.Logger, machine *api.Machine) error {
-	domain := libvirt.Domain{
-		UUID: libvirtutils.UUIDStringToBytes(machine.ID),
-	}
-
-	log.V(1).Info("Destroying domain if exists")
-	if err := r.libvirt.DomainDestroy(domain); err != nil {
-		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
-			return fmt.Errorf("error destroying domain: %w", err)
-		}
-
-		log.V(1).Info("Domain is already gone")
-		return nil
-	}
-	log.V(1).Info("Successfully destroyed domain")
-
-	log.V(1).Info("Undefining domain if exists")
-	if err := r.libvirt.DomainUndefine(domain); err != nil {
-		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
-			return fmt.Errorf("error undefining domain: %w", err)
-		}
-
-		log.V(1).Info("Domain is already gone")
-		return nil
-	}
-	log.V(1).Info("Successfully undefined domain")
-	return nil
 }
 
 func (r *MachineReconciler) updateDomain(
