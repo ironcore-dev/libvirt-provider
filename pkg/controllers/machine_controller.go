@@ -491,7 +491,7 @@ func (r *MachineReconciler) reconcileDomain(
 	log.V(1).Info("Looking up domain")
 	if _, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
 		if !libvirt.IsNotFound(err) {
-			return "", nil, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
+			return "", machine.Status.VolumeStatus, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
 		}
 
 		log.V(1).Info("Creating new domain")
