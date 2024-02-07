@@ -1,0 +1,7 @@
+apiVersion: compute.ironcore.dev/v1alpha1
+kind: MachineClass
+metadata:
+  name: extra-huge
+capabilities:
+  cpu: "2"
+  memory: "16106127361"

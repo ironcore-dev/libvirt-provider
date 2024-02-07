@@ -1,0 +1,7 @@
+apiVersion: compute.ironcore.dev/v1alpha1
+kind: MachineClass
+metadata:
+  name: x3-xlarge
+capabilities:
+  cpu: "4"
+  memory: 8Gi

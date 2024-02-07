@@ -134,8 +134,6 @@ spec:
               name: libvirt-provider
             - mountPath: /var/run/libvirt
               name: libvirt
-            - mountPath: /var/lib/libvirt-provider
-              name: libvirt-images
             - mountPath: /lib/modules
               name: lib-modules
             - mountPath: /var/run/dbus/system_bus_socket
@@ -154,9 +152,6 @@ spec:
           hostPath:
             path: /var/lib/libvirt-provider
             type: DirectoryOrCreate
-        - name: libvirt-images
-          hostPath:
-            path: /var/lib/libvirt-provider
         - name: lib-modules
           hostPath:
             path: /lib/modules

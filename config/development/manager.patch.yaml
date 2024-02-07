@@ -1,0 +1,54 @@
+kind: DaemonSet
+metadata:
+  name: controller-manager
+spec:
+  template:
+    spec:
+      containers:
+        - args:
+            - --leader-elect
+            - --machine-pool-name
+            - ironcore-dev
+            - --provider-id
+            - libvirt-provider-dev-machinepoollet
+            - --machine-runtime-endpoint
+            - unix:///var/lib/libvirt-provider/iri.sock
+          name: manager
+          volumeMounts:
+            - mountPath: /var/run
+              name: var-run
+            - mountPath: /var/lib/libvirt-provider
+              name: libvirt-provider
+        - name: provider
+          args:
+            - "--address"
+            - "/var/lib/libvirt-provider/iri.sock"
+            - "--supported-machine-classes"
+            - "/etc/libvirt-provider/machineclasses.json"
+            - "--network-interface-plugin-name"
+            - "isolated"
+            - "--libvirt-provider-dir"
+            - "/var/lib/libvirt-provider"
+          resources:
+            limits:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: var-run
+              mountPath: /var/run
+            - mountPath: /var/lib/libvirt-provider
+              name: libvirt-provider
+            - mountPath: /var/run/libvirt
+              name: libvirt
+            - mountPath: /lib/modules
+              name: lib-modules
+            - mountPath: /var/run/dbus/system_bus_socket
+              name: dbus
+            - mountPath: /usr/share/misc/pci.ids
+              name: pci-ids
+            - name: machineclasses
+              mountPath: /etc/libvirt-provider
+      volumes:
+        - name: machineclasses
+          configMap:
+            name: machineclasses
