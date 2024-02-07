@@ -143,10 +143,10 @@ var _ = Describe("DetachVolume", func() {
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
 		Expect(disks[2].Serial).To(HavePrefix("odc"))
 
-		// wait for boot image to be available before detaching volume
+		// wait to complete machine reconciliation
 		time.Sleep(20 * time.Second)
 
-		By("detaching disk-1 from machine")
+		By("detaching empty disk disk-1 from machine")
 		diskDetachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			Name:      "disk-1",
@@ -154,7 +154,7 @@ var _ = Describe("DetachVolume", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(diskDetachResp).NotTo(BeNil())
 
-		By("ensuring disk-1 is unplugged from a machine domain")
+		By("ensuring empty disk disk-1 is unplugged from a machine domain")
 		Eventually(func() int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 			Expect(err).NotTo(HaveOccurred())
@@ -165,10 +165,10 @@ var _ = Describe("DetachVolume", func() {
 			return len(disks)
 		}).Should(Equal(3))
 
-		// wait for boot image to be available before detaching volume
+		// wait to complete machine reconciliation
 		time.Sleep(20 * time.Second)
 
-		By("detaching volume-1 from machine")
+		By("detaching ceph volume  volume-1 from machine")
 		volumeDetachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			Name:      "volume-1",
@@ -176,7 +176,7 @@ var _ = Describe("DetachVolume", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(volumeDetachResp).NotTo(BeNil())
 
-		By("ensuring volume-1 is unplugged from a machine domain")
+		By("ensuring ceph volume volume-1 is unplugged from a machine domain")
 		Eventually(func() int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 			Expect(err).NotTo(HaveOccurred())
@@ -187,7 +187,7 @@ var _ = Describe("DetachVolume", func() {
 			return len(disks)
 		}).Should(Equal(2))
 
-		By("ensuring detached volumes have been updated in machine status field")
+		By("ensuring detached disk and volume have been updated in machine status field")
 		Eventually(func() *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
