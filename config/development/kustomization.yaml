@@ -1,0 +1,31 @@
+# Adds namespace to all resources.
+namespace: libvirt-provider-system
+
+namePrefix: libvirt-provider-dev-
+
+generatorOptions:
+  disableNameSuffixHash: false
+
+# Labels to add to all resources and selectors.
+#commonLabels:
+#  someName: someValue
+
+resources:
+  - ../manager
+  - ../rbac
+  - machineclass-extra-huge.yaml
+  - machineclass-t3-small.yaml
+  - machineclass-x3-xlarge.yaml
+
+configMapGenerator:
+- files:
+  - machineclasses.json
+  name: machineclasses
+
+patches:
+  - path: manager.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: DaemonSet
+      name: controller-manager
