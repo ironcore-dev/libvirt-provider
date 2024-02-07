@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -147,24 +146,8 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		return nil, fmt.Errorf("error applying apinet network interface: %w", err)
 	}
 
-	hostDev, err := getHostDevice(apinetNic)
-	if err != nil {
-		return nil, fmt.Errorf("error getting host device: %w", err)
-	}
-	if hostDev != nil {
-		log.V(1).Info("Host device is ready", "HostDevice", hostDev)
-		return &providernetworkinterface.NetworkInterface{
-			Handle: provider.GetNetworkInterfaceID(
-				apinetNic.Namespace,
-				apinetNic.Name,
-				apinetNic.Spec.NodeRef.Name,
-				apinetNic.UID,
-			),
-			HostDevice: hostDev,
-		}, nil
-	}
-
 	log.V(1).Info("Waiting for apinet network interface to become ready")
+	var hostDev *providernetworkinterface.HostDevice
 	apinetNicKey := client.ObjectKeyFromObject(apinetNic)
 	if err := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (done bool, err error) {
 		if err := p.host.APINetClient().Get(ctx, apinetNicKey, apinetNic); err != nil {
@@ -180,17 +163,12 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		return nil, fmt.Errorf("error waiting for nic to become ready: %w", err)
 	}
 
-	// Fetch the updated object to get the ID or any other updated fields
-	if err := p.host.APINetClient().Get(ctx, apinetNicKey, apinetNic); err != nil {
-		return nil, fmt.Errorf("error fetching updated apinet network interface: %w", err)
-	}
-
-	log.V(1).Info("Host device is ready", "HostDevice", hostDev)
-	nicIPs := make([]net.IP, 0, len(apinetNic.Spec.IPs))
+	nicIPs := make([]string, 0, len(apinetNic.Spec.IPs))
 	for _, apinetNicIP := range apinetNic.Spec.IPs {
 		// TODO: do proper IP type conversion here
-		nicIPs = append(nicIPs, net.ParseIP(apinetNicIP.String()))
+		nicIPs = append(nicIPs, apinetNicIP.String())
 	}
+	log.V(1).Info("Host device is ready", "HostDevice", hostDev, "IPs", nicIPs)
 	return &providernetworkinterface.NetworkInterface{
 		Handle: provider.GetNetworkInterfaceID(
 			apinetNic.Namespace,

@@ -172,6 +172,7 @@ func (r *MachineReconciler) attachDetachNetworkInterfaces(
 				Name:   nicName,
 				Handle: mountedNic.networkInterface.Handle,
 				State:  api.NetworkInterfaceStateAttached,
+				IPs:    desiredNic.Ips,
 			})
 		}
 	}

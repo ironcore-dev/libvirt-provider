@@ -4,7 +4,6 @@
 package api
 
 import (
-	"net"
 	"time"
 )
 
@@ -97,7 +96,7 @@ type NetworkInterfaceStatus struct {
 	Name   string                `json:"name"`
 	Handle string                `json:"handle"`
 	State  NetworkInterfaceState `json:"state"`
-	IPs    []net.IP              `json:"ips"`
+	IPs    []string              `json:"ips"`
 }
 
 type NetworkInterfaceState string
