@@ -4,8 +4,7 @@
 package server_test
 
 import (
-	"fmt"
-	"os"
+	"path/filepath"
 
 	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
@@ -99,7 +98,7 @@ var _ = Describe("DeleteMachine", func() {
 		Expect(domainXMLData).To(BeEmpty())
 
 		By("ensuring the respective machine's file is cleaned from machines directory")
-		_, err = os.Stat(fmt.Sprintf("%s/libvirt-provider/machines/%s", tempDir, createResp.Machine.Metadata.Id))
-		Expect(os.IsNotExist(err)).Should(BeTrue())
+		machineFile := filepath.Join(tempDir, "/libvirt-provider/machines/", createResp.Machine.Metadata.Id)
+		Expect(machineFile).NotTo(BeAnExistingFile())
 	})
 })

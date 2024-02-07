@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -93,10 +94,10 @@ var _ = BeforeSuite(func() {
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
-		Address:                     fmt.Sprintf("%s/test.sock", tempDir),
+		Address:                     filepath.Join(tempDir, "test.sock"),
 		BaseURL:                     baseURL,
 		PathSupportedMachineClasses: machineClassesFile.Name(),
-		RootDir:                     fmt.Sprintf("%s/libvirt-provider", tempDir),
+		RootDir:                     filepath.Join(tempDir, "libvirt-provider"),
 		StreamingAddress:            streamingAddress,
 		Libvirt: app.LibvirtOptions{
 			Socket:                "/var/run/libvirt/libvirt-sock",
@@ -123,7 +124,7 @@ var _ = BeforeSuite(func() {
 		return isSocketAvailable(opts.Address)
 	}).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
 
-	address, err := machine.GetAddressWithTimeout(3*time.Second, fmt.Sprintf("unix://%s", opts.Address))
+	address, err := machine.GetAddressWithTimeout(3*time.Second, filepath.Join("unix://", opts.Address))
 	Expect(err).NotTo(HaveOccurred())
 
 	gconn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
