@@ -464,20 +464,17 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	log.V(1).Info("Reconciling domain")
 	state, volumeStates, nicStates, err := r.reconcileDomain(ctx, log, machine)
 
-	machine.Status.VolumeStatus = volumeStates
 	if err != nil {
-		if _, locErr := r.machines.Update(ctx, machine); locErr != nil {
-			log.Error(locErr, "failed to update API machine state")
+		locErr := r.updateAPIMachineStatus(ctx, machine, state, volumeStates, nicStates)
+		if locErr != nil {
+			log.Error(locErr, "failed to update API machine")
 		}
 		return providerimage.IgnoreImagePulling(err)
 	}
 	log.V(1).Info("Reconciled domain")
 
-	machine.Status.NetworkInterfaceStatus = nicStates
-	machine.Status.State = state
-
-	if _, err = r.machines.Update(ctx, machine); err != nil {
-		return fmt.Errorf("failed to update API machine state: %w", err)
+	if err = r.updateAPIMachineStatus(ctx, machine, state, volumeStates, nicStates); err != nil {
+		return fmt.Errorf("failed to update API machine: %w", err)
 	}
 
 	return nil
@@ -491,7 +488,7 @@ func (r *MachineReconciler) reconcileDomain(
 	log.V(1).Info("Looking up domain")
 	if _, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
 		if !libvirt.IsNotFound(err) {
-			return "", machine.Status.VolumeStatus, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
+			return "", nil, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
 		}
 
 		log.V(1).Info("Creating new domain")
@@ -512,7 +509,7 @@ func (r *MachineReconciler) reconcileDomain(
 
 	state, err := r.getMachineState(machine.ID)
 	if err != nil {
-		return "", volumeStates, nil, fmt.Errorf("error getting machine state: %w", err)
+		return "", nil, nil, fmt.Errorf("error getting machine state: %w", err)
 	}
 
 	return state, volumeStates, nicStates, nil
@@ -901,6 +898,33 @@ func (r *MachineReconciler) getDomainDesc(machineID string) (*libvirtxml.Domain,
 		return nil, err
 	}
 	return domainXML, nil
+}
+
+func (r *MachineReconciler) updateAPIMachineStatus(ctx context.Context, machine *api.Machine, state api.MachineState, volumes []api.VolumeStatus, nics []api.NetworkInterfaceStatus) error {
+	// TODO: we can rewrite reconcile function for return whole new status structure.
+	requireUpdate := false
+
+	if state != "" && machine.Status.State != state {
+		requireUpdate = true
+		machine.Status.State = state
+	}
+
+	if len(volumes) != 0 {
+		requireUpdate = true
+		machine.Status.VolumeStatus = volumes
+	}
+
+	if len(nics) != 0 {
+		requireUpdate = true
+		machine.Status.NetworkInterfaceStatus = nics
+	}
+
+	if requireUpdate {
+		_, err := r.machines.Update(ctx, machine)
+		return err
+	}
+
+	return nil
 }
 
 func machineDomain(machineID string) libvirt.Domain {

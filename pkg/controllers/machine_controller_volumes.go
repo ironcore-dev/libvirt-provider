@@ -227,7 +227,7 @@ func convertVolumesMapToListAndNormalize(currentStatus map[string]*api.VolumeSta
 
 	// sort is required for avoid reconcile loop triggered by different order of volumes.
 	sort.SliceStable(newVolumeStatus, func(i, j int) bool {
-		return strings.Compare(newVolumeStatus[i].Name, newVolumeStatus[j].Name) == -1
+		return newVolumeStatus[i].Name < newVolumeStatus[j].Name
 	})
 
 	return newVolumeStatus
