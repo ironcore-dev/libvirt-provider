@@ -4,16 +4,21 @@
 package server_test
 
 import (
+	"time"
+
 	"github.com/digitalocean/go-libvirt"
+
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/pkg/libvirt/utils"
+
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("ListMachine", func() {
-	It("should list machines", func(ctx SpecContext) {
+var _ = Describe("DetachNetworkInterface", func() {
+	It("should detach a network interface from the machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -24,17 +29,28 @@ var _ = Describe("ListMachine", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
-					Class: machineClassx3xlarge,
-					Volumes: []*iri.Volume{
+					Class: machineClassx2medium,
+					Image: &iri.ImageSpec{
+						Image: osImage,
+					},
+					NetworkInterfaces: []*iri.NetworkInterface{
 						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: 5368709120,
+							Name:      "nic-1",
+							NetworkId: "nid-1",
+							Ips:       []string{"192.168.1.1"},
+							Attributes: map[string]string{
+								"key1": "value1",
 							},
-							Device: "oda",
+						},
+						{
+							Name:      "nic-2",
+							NetworkId: "nid-2",
+							Ips:       []string{"192.168.1.2"},
+							Attributes: map[string]string{
+								"key2": "value2",
+							},
 						},
 					},
-					NetworkInterfaces: nil,
 				},
 			},
 		})
@@ -58,7 +74,7 @@ var _ = Describe("ListMachine", func() {
 		Eventually(func() error {
 			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 			return err
-		}).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainXMLData).NotTo(BeEmpty())
@@ -70,8 +86,29 @@ var _ = Describe("ListMachine", func() {
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
-		By("listing machines using machine Id")
-		Eventually(func() iri.MachineState {
+		By("ensuring both network interfaces are attached to the machine domain")
+		var interfaces []libvirtxml.DomainInterface
+		Eventually(func() int {
+			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
+			Expect(err).NotTo(HaveOccurred())
+			domainXML := &libvirtxml.Domain{}
+			Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
+			interfaces = domainXML.Devices.Interfaces
+			return len(interfaces)
+		}).Should(Equal(2))
+		Expect(interfaces[0].Alias.Name).To(HaveSuffix("nic-1"))
+		Expect(interfaces[1].Alias.Name).To(HaveSuffix("nic-2"))
+
+		By("detaching nic-1 network interface from the machine")
+		detachNetworkResp, err := machineClient.DetachNetworkInterface(ctx, &iri.DetachNetworkInterfaceRequest{
+			MachineId: createResp.Machine.Metadata.Id,
+			Name:      "nic-1",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(detachNetworkResp).NotTo(BeNil())
+
+		By("ensuring network interface has been updated in the machine status")
+		Eventually(func() *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
@@ -80,32 +117,14 @@ var _ = Describe("ListMachine", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
 			Expect(listResp.Machines).Should(HaveLen(1))
-			return listResp.Machines[0].Status.State
-		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
-
-		By("listing machines using correct Label selector")
-		listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-			Filter: &iri.MachineFilter{
-				LabelSelector: map[string]string{
-					"foo": "bar",
-				},
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(listResp.Machines).NotTo(BeEmpty())
-		Expect(listResp.Machines).Should(HaveLen(1))
-		Expect(listResp.Machines[0].Status.State).Should(Equal(iri.MachineState_MACHINE_RUNNING))
-
-		By("listing machines using incorrect Label selector")
-		listResp, err = machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-			Filter: &iri.MachineFilter{
-				LabelSelector: map[string]string{
-					"foo": "wrong",
-				},
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(listResp).NotTo(BeNil())
-		Expect(listResp.Machines).To(BeEmpty())
+			return listResp.Machines[0].Status
+		}).Should(SatisfyAll(
+			HaveField("NetworkInterfaces", ContainElements(
+				&iri.NetworkInterfaceStatus{
+					Name:  "nic-2",
+					State: iri.NetworkInterfaceState_NETWORK_INTERFACE_ATTACHED,
+				})),
+			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
+		))
 	})
 })

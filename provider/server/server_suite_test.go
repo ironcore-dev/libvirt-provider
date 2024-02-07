@@ -20,15 +20,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 
 	. "github.com/onsi/gomega"
-	"github.com/spf13/pflag"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
-)
-
-var (
-	machineClient iriv1alpha1.MachineRuntimeClient
-	libvirtConn   *libvirt.Libvirt
+	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 const (
@@ -36,8 +31,20 @@ const (
 	pollingInterval      = 50 * time.Millisecond
 	consistentlyDuration = 1 * time.Second
 	machineClassx3xlarge = "x3-xlarge"
+	machineClassx2medium = "x2-medium"
 	baseURL              = "http://localhost:8080"
 	streamingAddress     = "127.0.0.1:20251"
+)
+
+var (
+	machineClient      iriv1alpha1.MachineRuntimeClient
+	libvirtConn        *libvirt.Libvirt
+	machineClassesFile *os.File
+	tempDir            string
+	cephMonitors       = os.Getenv("CEPH_MONITORS")
+	cephImage          = os.Getenv("CEPH_IMAGE")
+	cephUsername       = os.Getenv("CEPH_USERNAME")
+	cephUserkey        = os.Getenv("CEPH_USERKEY")
 )
 
 func TestServer(t *testing.T) {
@@ -51,7 +58,9 @@ func TestServer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(GinkgoLogr)
+	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+
+	By("starting the app")
 
 	machineClasses := []iriv1alpha1.MachineClass{
 		{
@@ -61,26 +70,26 @@ var _ = BeforeSuite(func() {
 				MemoryBytes: 8589934592,
 			},
 		},
+		{
+			Name: machineClassx2medium,
+			Capabilities: &iriv1alpha1.MachineClassCapabilities{
+				CpuMillis:   2000,
+				MemoryBytes: 2147483648,
+			},
+		},
 	}
 	machineClassData, err := json.Marshal(machineClasses)
 	Expect(err).NotTo(HaveOccurred())
-
-	machineClassesFile, err := os.CreateTemp(GinkgoT().TempDir(), "machineclasses")
+	machineClassesFile, err = os.CreateTemp(GinkgoT().TempDir(), "machineclasses")
 	Expect(err).NotTo(HaveOccurred())
-	defer func() {
-		_ = machineClassesFile.Close()
-	}()
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
+	DeferCleanup(machineClassesFile.Close)
+	DeferCleanup(os.Remove, machineClassesFile.Name())
 
-	By("starting the app")
+	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
+	pluginOpts.PluginName = "isolated"
 
-	fs := pflag.NewFlagSet("test", pflag.ContinueOnError)
-	apinetPlugin := networkinterfaceplugin.NewDefaultOptions()
-	apinetPlugin.PluginName = "apinet"
-	apinetPlugin.AddFlags(fs)
-	Expect(fs.Set("apinet-node-name", "test-node")).To(Succeed())
-
-	tempDir := GinkgoT().TempDir()
+	tempDir = GinkgoT().TempDir()
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
@@ -93,10 +102,13 @@ var _ = BeforeSuite(func() {
 			Socket:                "/var/run/libvirt/libvirt-sock",
 			URI:                   "qemu:///system",
 			PreferredDomainTypes:  []string{"kvm", "qemu"},
-			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx-2.9", "pc-i440fx-2.8"},
+			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx"},
 			Qcow2Type:             "exec",
 		},
-		NicPlugin: apinetPlugin,
+		NicPlugin:                      pluginOpts,
+		ResyncIntervalMachineState:     10 * time.Second,
+		GCVMGracefulShutdownTimeout:    10 * time.Second,
+		ResyncIntervalGarbageCollector: 5 * time.Second,
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())

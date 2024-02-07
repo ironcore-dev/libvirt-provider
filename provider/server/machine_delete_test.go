@@ -4,6 +4,9 @@
 package server_test
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
@@ -12,8 +15,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("ListMachine", func() {
-	It("should list machines", func(ctx SpecContext) {
+// TODO: This test will require update after merge of PR: #101
+var _ = Describe("DeleteMachine", func() {
+
+	It("should delete a machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -41,18 +46,6 @@ var _ = Describe("ListMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
-		})
-
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
 		Eventually(func() error {
@@ -70,7 +63,7 @@ var _ = Describe("ListMachine", func() {
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
-		By("listing machines using machine Id")
+		By("ensuring machine is in running state")
 		Eventually(func() iri.MachineState {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
@@ -79,33 +72,34 @@ var _ = Describe("ListMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status.State
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
-		By("listing machines using correct Label selector")
-		listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-			Filter: &iri.MachineFilter{
-				LabelSelector: map[string]string{
-					"foo": "bar",
-				},
-			},
+		By("deleting the machine")
+		_, err = machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{
+			MachineId: createResp.Machine.Metadata.Id,
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(listResp.Machines).NotTo(BeEmpty())
-		Expect(listResp.Machines).Should(HaveLen(1))
-		Expect(listResp.Machines[0].Status.State).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
-		By("listing machines using incorrect Label selector")
-		listResp, err = machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-			Filter: &iri.MachineFilter{
-				LabelSelector: map[string]string{
-					"foo": "wrong",
+		By("ensuring machine is deleted")
+		Eventually(func() int {
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
 				},
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(listResp).NotTo(BeNil())
-		Expect(listResp.Machines).To(BeEmpty())
+			})
+			Expect(err).NotTo(HaveOccurred())
+			return len(listResp.Machines)
+		}).Should(BeZero())
+
+		By("ensuring domain and domain XML is deleted for machine")
+		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+		Expect(libvirt.IsNotFound(err)).Should(BeTrue())
+		domainXMLData, err = libvirtConn.DomainGetXMLDesc(domain, 0)
+		Expect(domainXMLData).To(BeEmpty())
+
+		By("ensuring the respective machine's file is cleaned from machines directory")
+		_, err = os.Stat(fmt.Sprintf("%s/libvirt-provider/machines/%s", tempDir, createResp.Machine.Metadata.Id))
+		Expect(os.IsNotExist(err)).Should(BeTrue())
 	})
 })
