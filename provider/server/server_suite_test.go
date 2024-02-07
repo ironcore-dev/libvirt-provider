@@ -124,7 +124,7 @@ var _ = BeforeSuite(func() {
 		return isSocketAvailable(opts.Address)
 	}).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
 
-	address, err := machine.GetAddressWithTimeout(3*time.Second, filepath.Join("unix://", opts.Address))
+	address, err := machine.GetAddressWithTimeout(3*time.Second, fmt.Sprintf("unix://%s", opts.Address))
 	Expect(err).NotTo(HaveOccurred())
 
 	gconn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))

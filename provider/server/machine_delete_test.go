@@ -98,7 +98,7 @@ var _ = Describe("DeleteMachine", func() {
 		Expect(domainXMLData).To(BeEmpty())
 
 		By("ensuring the respective machine's file is cleaned from machines directory")
-		machineFile := filepath.Join(tempDir, "/libvirt-provider/machines/", createResp.Machine.Metadata.Id)
+		machineFile := filepath.Join(tempDir, "libvirt-provider", "machines", createResp.Machine.Metadata.Id)
 		Expect(machineFile).NotTo(BeAnExistingFile())
 	})
 })
