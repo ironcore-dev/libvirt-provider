@@ -221,6 +221,10 @@ func (s *Store[E]) get(id string) (E, error) {
 	}
 
 	obj := s.newFunc()
+	if len(file) == 0 {
+		return obj, err
+	}
+
 	if err := json.Unmarshal(file, &obj); err != nil {
 		return utils.Zero[E](), fmt.Errorf("failed to unmarshal object: %w", err)
 	}
