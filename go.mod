@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v1.4.1
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.9.1
-	github.com/ironcore-dev/ironcore v0.1.2-0.20240117153307-db8cb28ca802
+	github.com/ironcore-dev/ironcore v0.1.2-0.20240207230304-c34d268af578
 	github.com/ironcore-dev/ironcore-image v0.2.0
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20231127161134-cf5b10137532
 	github.com/moby/term v0.5.0
@@ -105,7 +105,7 @@ require (
 	golang.org/x/exp v0.0.0-20221212164502-fae10dda9338 // indirect
 	golang.org/x/net v0.19.0 // indirect
 	golang.org/x/oauth2 v0.14.0 // indirect
-	golang.org/x/sys v0.16.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
 	golang.org/x/term v0.15.0 // indirect
 	golang.org/x/text v0.14.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
@@ -119,9 +119,9 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/apiextensions-apiserver v0.29.0 // indirect
-	k8s.io/apiserver v0.29.0 // indirect
-	k8s.io/component-base v0.29.0 // indirect
-	k8s.io/klog/v2 v2.120.0 // indirect
+	k8s.io/apiserver v0.29.1 // indirect
+	k8s.io/component-base v0.29.1 // indirect
+	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20231010175941-2dd684a91f00 // indirect
 	oras.land/oras-go v1.2.4 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
