@@ -371,7 +371,7 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 		if _, err := r.machines.Update(ctx, machine); err != nil {
 			return false, fmt.Errorf("failed to update ShutdownAt and State: %w", err)
 		}
-		log.V(1).Info("Updated machine state", "ShutdownAt", machine.Spec.ShutdownAt, "State", machine.Status.State)
+		log.V(1).Info("Updated ShutdownAt and State", "ShutdownAt", machine.Spec.ShutdownAt, "State", machine.Status.State)
 	}
 
 	if time.Now().Before(machine.Spec.ShutdownAt.Add(r.gcVMGracefulShutdownTimeout)) {
