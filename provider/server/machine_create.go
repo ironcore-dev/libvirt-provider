@@ -89,6 +89,8 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		machine.Spec.Image = &iriMachine.Spec.Image.Image
 	}
 
+	machine.Spec.QemuGuestAgentEnable = s.enableQemuGuestAgent
+
 	apiMachine, err := s.machineStore.Create(ctx, machine)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create machine: %w", err)

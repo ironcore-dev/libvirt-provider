@@ -28,6 +28,8 @@ type MachineSpec struct {
 	NetworkInterfaces []*NetworkInterfaceSpec `json:"networkInterfaces"`
 
 	ShutdownAt time.Time `json:"shutdownAt,omitempty"`
+
+	QemuGuestAgentEnable bool
 }
 
 type MachineStatus struct {
@@ -35,6 +37,7 @@ type MachineStatus struct {
 	NetworkInterfaceStatus []NetworkInterfaceStatus `json:"networkInterfaceStatus"`
 	State                  MachineState             `json:"state"`
 	ImageRef               string                   `json:"imageRef"`
+	QemuGuestAgent         *AgentStatus             `json:"qemuGuestAgent,omitempty"`
 }
 
 type MachineState string
@@ -107,3 +110,7 @@ const (
 	NetworkInterfaceStatePending  NetworkInterfaceState = "Pending"
 	NetworkInterfaceStateAttached NetworkInterfaceState = "Attached"
 )
+
+type AgentStatus struct {
+	Addr string `json:"addr"`
+}

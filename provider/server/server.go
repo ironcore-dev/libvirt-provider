@@ -41,7 +41,8 @@ type Server struct {
 	libvirt          *libvirt.Libvirt
 	virshExecutable  string
 
-	enableHugepages bool
+	enableHugepages      bool
+	enableQemuGuestAgent bool
 }
 
 type Options struct {
@@ -57,9 +58,10 @@ type Options struct {
 
 	MachineClasses MachineClassRegistry
 
-	VolumePlugins   *volume.PluginManager
-	NetworkPlugins  providernetworkinterface.Plugin
-	EnableHugepages bool
+	VolumePlugins        *volume.PluginManager
+	NetworkPlugins       providernetworkinterface.Plugin
+	EnableHugepages      bool
+	EnableQemuGuestAgent bool
 }
 
 func setOptionsDefaults(o *Options) {
@@ -86,6 +88,7 @@ func New(opts Options) (*Server, error) {
 		networkInterfacePlugin: opts.NetworkPlugins,
 		machineClasses:         opts.MachineClasses,
 		enableHugepages:        opts.EnableHugepages,
+		enableQemuGuestAgent:   opts.EnableQemuGuestAgent,
 		execRequestCache:       request.NewCache[*iri.ExecRequest](),
 	}, nil
 }
