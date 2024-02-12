@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -93,10 +94,10 @@ var _ = BeforeSuite(func() {
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
-		Address:                     fmt.Sprintf("%s/test.sock", tempDir),
+		Address:                     filepath.Join(tempDir, "test.sock"),
 		BaseURL:                     baseURL,
 		PathSupportedMachineClasses: machineClassesFile.Name(),
-		RootDir:                     fmt.Sprintf("%s/libvirt-provider", tempDir),
+		RootDir:                     filepath.Join(tempDir, "libvirt-provider"),
 		StreamingAddress:            streamingAddress,
 		Libvirt: app.LibvirtOptions{
 			Socket:                "/var/run/libvirt/libvirt-sock",
