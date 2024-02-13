@@ -210,6 +210,8 @@ func (s *Server) getIRIState(state api.MachineState) (iri.MachineState, error) {
 		return iri.MachineState_MACHINE_SUSPENDED, nil
 	case api.MachineStateTerminated:
 		return iri.MachineState_MACHINE_TERMINATED, nil
+	case api.MachineStateTerminating:
+		return iri.MachineState_MACHINE_TERMINATING, nil
 	default:
 		return 0, fmt.Errorf("unknown machine state '%q'", state)
 	}

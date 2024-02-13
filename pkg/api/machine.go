@@ -40,10 +40,11 @@ type MachineStatus struct {
 type MachineState string
 
 const (
-	MachineStatePending    MachineState = "Pending"
-	MachineStateRunning    MachineState = "Running"
-	MachineStateSuspended  MachineState = "Suspended"
-	MachineStateTerminated MachineState = "Terminated"
+	MachineStatePending     MachineState = "Pending"
+	MachineStateRunning     MachineState = "Running"
+	MachineStateSuspended   MachineState = "Suspended"
+	MachineStateTerminating MachineState = "Terminating"
+	MachineStateTerminated  MachineState = "Terminated"
 )
 
 type PowerState int32

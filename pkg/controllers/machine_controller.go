@@ -48,12 +48,13 @@ var (
 	// TODO: improve domainStateToMachineState since some states are mapped to computev1alpha1.MachineStatePending
 	// where it doesn't make that much sense.
 	domainStateToMachineState = map[libvirt.DomainState]api.MachineState{
-		libvirt.DomainNostate: api.MachineStatePending,
-		libvirt.DomainRunning: api.MachineStateRunning,
-		libvirt.DomainBlocked: api.MachineStateRunning,
-		libvirt.DomainPaused:  api.MachineStatePending,
-		//libvirt.DomainShutdown:    api.MachineStateShutdown,
-		//libvirt.DomainShutoff:     api.MachineStateShutdown,
+		libvirt.DomainNostate:  api.MachineStatePending,
+		libvirt.DomainRunning:  api.MachineStateRunning,
+		libvirt.DomainBlocked:  api.MachineStatePending,
+		libvirt.DomainPaused:   api.MachineStatePending,
+		libvirt.DomainShutdown: api.MachineStateTerminating,
+		// it isn't probably supported by transient domain
+		libvirt.DomainShutoff:     api.MachineStateTerminated,
 		libvirt.DomainPmsuspended: api.MachineStatePending,
 	}
 )
@@ -329,6 +330,11 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 		return fmt.Errorf("failed to delete machine: %w", err)
 	}
 	log.V(1).Info("Deleted machine")
+	machine.Status.State = api.MachineStateTerminated
+	machine, err = r.machines.Update(ctx, machine)
+	if err != nil {
+		return fmt.Errorf("failed to update machine state: %w", err)
+	}
 
 	if err := r.deleteVolumes(ctx, log, machine); err != nil {
 		return fmt.Errorf("failed to remove machine disks: %w", err)
@@ -360,11 +366,12 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 	}
 
 	if machine.Spec.ShutdownAt.IsZero() {
+		machine.Status.State = api.MachineStateTerminating
 		machine.Spec.ShutdownAt = time.Now()
 		if _, err := r.machines.Update(ctx, machine); err != nil {
-			return false, fmt.Errorf("failed to update ShutdownAt: %w", err)
+			return false, fmt.Errorf("failed to update ShutdownAt and State: %w", err)
 		}
-		log.V(1).Info("Updated machine ShutdownAt", "ShutdownAt", machine.Spec.ShutdownAt)
+		log.V(1).Info("Updated ShutdownAt and State", "ShutdownAt", machine.Spec.ShutdownAt, "State", machine.Status.State)
 	}
 
 	if time.Now().Before(machine.Spec.ShutdownAt.Add(r.gcVMGracefulShutdownTimeout)) {
