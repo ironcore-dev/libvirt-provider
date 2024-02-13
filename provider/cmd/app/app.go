@@ -77,8 +77,9 @@ type Options struct {
 
 	ApinetKubeconfig string
 
-	EnableHugepages      bool
-	EnableQemuGuestAgent bool
+	EnableHugepages bool
+
+	GuestAgent string
 
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
@@ -116,7 +117,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.VirshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
-	fs.BoolVar(&o.EnableQemuGuestAgent, "enable-qemu-guest-agent", false, "Enable qemu quest agent.")
+	fs.StringVar(&o.GuestAgent, "guest-agent-type", string(api.GuestAgentNone), fmt.Sprintf("Guest agent implementation to use. Available: %v", api.GuestAgentAvailable()))
 
 	// LibvirtOptions
 	fs.StringVar(&o.Libvirt.Socket, "libvirt-socket", o.Libvirt.Socket, "Path to the libvirt socket to use.")
@@ -336,15 +337,15 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	srv, err := server.New(server.Options{
-		BaseURL:              baseURL,
-		Libvirt:              libvirt,
-		MachineStore:         machineStore,
-		MachineClasses:       machineClasses,
-		VolumePlugins:        volumePlugins,
-		NetworkPlugins:       nicPlugin,
-		VirshExecutable:      opts.VirshExecutable,
-		EnableHugepages:      opts.EnableHugepages,
-		EnableQemuGuestAgent: opts.EnableQemuGuestAgent,
+		BaseURL:         baseURL,
+		Libvirt:         libvirt,
+		MachineStore:    machineStore,
+		MachineClasses:  machineClasses,
+		VolumePlugins:   volumePlugins,
+		NetworkPlugins:  nicPlugin,
+		VirshExecutable: opts.VirshExecutable,
+		EnableHugepages: opts.EnableHugepages,
+		GuestAgent:      opts.GuestAgent,
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize server")

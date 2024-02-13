@@ -29,7 +29,18 @@ type MachineSpec struct {
 
 	ShutdownAt time.Time `json:"shutdownAt,omitempty"`
 
-	QemuGuestAgentEnable bool
+	GuestAgent GuestAgent `json:"guestAgent"`
+}
+
+type GuestAgent string
+
+const (
+	GuestAgentNone GuestAgent = "None"
+	GuestAgentQemu GuestAgent = "Qemu"
+)
+
+func GuestAgentAvailable() []string {
+	return []string{string(GuestAgentNone), string(GuestAgentQemu)}
 }
 
 type MachineStatus struct {
@@ -37,7 +48,7 @@ type MachineStatus struct {
 	NetworkInterfaceStatus []NetworkInterfaceStatus `json:"networkInterfaceStatus"`
 	State                  MachineState             `json:"state"`
 	ImageRef               string                   `json:"imageRef"`
-	QemuGuestAgent         *AgentStatus             `json:"qemuGuestAgent,omitempty"`
+	GuestAgent             AgentStatus              `json:"guestAgent"`
 }
 
 type MachineState string
@@ -112,5 +123,6 @@ const (
 )
 
 type AgentStatus struct {
-	Addr string `json:"addr"`
+	Type GuestAgent `json:"type"`
+	Addr string     `json:"addr,omitempty"`
 }

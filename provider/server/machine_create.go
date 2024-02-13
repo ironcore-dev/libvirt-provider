@@ -89,7 +89,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		machine.Spec.Image = &iriMachine.Spec.Image.Image
 	}
 
-	machine.Spec.QemuGuestAgentEnable = s.enableQemuGuestAgent
+	machine.Spec.GuestAgent = s.guestAgent
 
 	apiMachine, err := s.machineStore.Create(ctx, machine)
 	if err != nil {

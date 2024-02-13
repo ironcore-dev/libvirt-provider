@@ -73,7 +73,6 @@ type MachineReconcilerOptions struct {
 	ResyncIntervalVolumeSize       time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 	EnableHugepages                bool
-	EnableQemuGuestAgent           bool
 	GCVMGracefulShutdownTimeout    time.Duration
 }
 
@@ -112,7 +111,6 @@ func NewMachineReconciler(
 		resyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
 		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 		enableHugepages:                opts.EnableHugepages,
-		enableQemuGuestAgent:           opts.EnableQemuGuestAgent,
 		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
 	}, nil
 }
@@ -128,8 +126,7 @@ type MachineReconciler struct {
 	imageCache        providerimage.Cache
 	raw               raw.Raw
 
-	enableHugepages      bool
-	enableQemuGuestAgent bool
+	enableHugepages bool
 
 	volumePluginManager    *providervolume.PluginManager
 	networkInterfacePlugin providernetworkinterface.Plugin
@@ -683,7 +680,7 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	r.setQemuGuestAgent(machine, domainDesc)
+	r.setGuestAgent(machine, domainDesc)
 
 	if machineImgRef := machine.Spec.Image; machineImgRef != nil && ptr.Deref(machineImgRef, "") != "" {
 		if err := r.setDomainImage(ctx, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
@@ -797,8 +794,9 @@ func (r *MachineReconciler) setTCMallocPath(domain *libvirtxml.Domain) error {
 	return nil
 }
 
-func (r *MachineReconciler) setQemuGuestAgent(machine *api.Machine, domainDesc *libvirtxml.Domain) {
-	if !machine.Spec.QemuGuestAgentEnable {
+func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libvirtxml.Domain) {
+	machine.Status.GuestAgent.Type = machine.Spec.GuestAgent
+	if machine.Spec.GuestAgent == api.GuestAgentNone {
 		return
 	}
 
@@ -826,7 +824,7 @@ func (r *MachineReconciler) setQemuGuestAgent(machine *api.Machine, domainDesc *
 	}
 
 	domainDesc.Devices.Channels = append(domainDesc.Devices.Channels, agent)
-	machine.Status.QemuGuestAgent = &api.AgentStatus{Addr: socketPath}
+	machine.Status.GuestAgent.Addr = "unix://" + socketPath
 }
 
 func (r *MachineReconciler) setDomainImage(
