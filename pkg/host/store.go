@@ -211,6 +211,9 @@ func (s *Store[E]) Watch(ctx context.Context) (store.Watch[E], error) {
 }
 
 func (s *Store[E]) get(id string) (E, error) {
+	s.idMu.RLock(id)
+	defer s.idMu.RUnlock(id)
+
 	file, err := os.ReadFile(filepath.Join(s.dir, id))
 	if err != nil {
 		if !os.IsNotExist(err) {
@@ -221,12 +224,8 @@ func (s *Store[E]) get(id string) (E, error) {
 	}
 
 	obj := s.newFunc()
-	if len(file) == 0 {
-		return obj, err
-	}
-
 	if err := json.Unmarshal(file, &obj); err != nil {
-		return utils.Zero[E](), fmt.Errorf("failed to unmarshal object: %w", err)
+		return utils.Zero[E](), fmt.Errorf("failed to unmarshal object from file %s: %w", id, err)
 	}
 
 	return obj, err

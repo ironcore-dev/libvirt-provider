@@ -107,7 +107,7 @@ var _ = BeforeSuite(func() {
 			Qcow2Type:             "exec",
 		},
 		NicPlugin:                      pluginOpts,
-		ResyncIntervalMachineState:     10 * time.Second,
+		ResyncIntervalMachineState:     20 * time.Second,
 		GCVMGracefulShutdownTimeout:    10 * time.Second,
 		ResyncIntervalGarbageCollector: 5 * time.Second,
 	}
