@@ -39,16 +39,12 @@ const (
 	GuestAgentQemu GuestAgent = "Qemu"
 )
 
-func GuestAgentAvailable() []string {
-	return []string{string(GuestAgentNone), string(GuestAgentQemu)}
-}
-
 type MachineStatus struct {
 	VolumeStatus           []VolumeStatus           `json:"volumeStatus"`
 	NetworkInterfaceStatus []NetworkInterfaceStatus `json:"networkInterfaceStatus"`
 	State                  MachineState             `json:"state"`
 	ImageRef               string                   `json:"imageRef"`
-	GuestAgent             AgentStatus              `json:"guestAgent"`
+	GuestAgent             *GuestAgentStatus        `json:"guestAgent,omitempty"`
 }
 
 type MachineState string
@@ -122,7 +118,7 @@ const (
 	NetworkInterfaceStateAttached NetworkInterfaceState = "Attached"
 )
 
-type AgentStatus struct {
+type GuestAgentStatus struct {
 	Type GuestAgent `json:"type"`
 	Addr string     `json:"addr,omitempty"`
 }

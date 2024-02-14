@@ -32,7 +32,7 @@ var _ = Describe("HTTP Handler", func() {
 		var err error
 		server, err = libvirtserver.New(libvirtserver.Options{
 			BaseURL:    baseURL,
-			GuestAgent: string(api.GuestAgentNone),
+			GuestAgent: api.GuestAgentNone,
 		})
 		Expect(err).ShouldNot(HaveOccurred())
 		router = NewHandler(server, HandlerOptions{})

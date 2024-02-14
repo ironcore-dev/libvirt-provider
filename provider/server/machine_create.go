@@ -76,6 +76,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
+			GuestAgent:        s.guestAgent,
 		},
 	}
 
@@ -88,8 +89,6 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	if iriMachine.Spec.Image != nil {
 		machine.Spec.Image = &iriMachine.Spec.Image.Image
 	}
-
-	machine.Spec.GuestAgent = s.guestAgent
 
 	apiMachine, err := s.machineStore.Create(ctx, machine)
 	if err != nil {

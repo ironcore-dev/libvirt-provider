@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"net/url"
 	"path"
-	"slices"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
@@ -63,7 +62,7 @@ type Options struct {
 	VolumePlugins   *volume.PluginManager
 	NetworkPlugins  providernetworkinterface.Plugin
 	EnableHugepages bool
-	GuestAgent      string
+	GuestAgent      api.GuestAgent
 }
 
 func setOptionsDefaults(o *Options) {
@@ -72,23 +71,8 @@ func setOptionsDefaults(o *Options) {
 	}
 }
 
-func convertGuestAgentFromString(guestAgent string) (api.GuestAgent, error) {
-	availableGuestAgents := api.GuestAgentAvailable()
-	index := slices.Index(availableGuestAgents, guestAgent)
-	if index == -1 {
-		return api.GuestAgentNone, fmt.Errorf("unsupported guest agent type: %s", guestAgent)
-	}
-
-	return api.GuestAgent(availableGuestAgents[index]), nil
-}
-
 func New(opts Options) (*Server, error) {
 	setOptionsDefaults(&opts)
-
-	guestAgent, err := convertGuestAgentFromString(opts.GuestAgent)
-	if err != nil {
-		return nil, err
-	}
 
 	baseURL, err := url.ParseRequestURI(opts.BaseURL)
 	if err != nil {
@@ -105,7 +89,7 @@ func New(opts Options) (*Server, error) {
 		networkInterfacePlugin: opts.NetworkPlugins,
 		machineClasses:         opts.MachineClasses,
 		enableHugepages:        opts.EnableHugepages,
-		guestAgent:             guestAgent,
+		guestAgent:             opts.GuestAgent,
 		execRequestCache:       request.NewCache[*iri.ExecRequest](),
 	}, nil
 }

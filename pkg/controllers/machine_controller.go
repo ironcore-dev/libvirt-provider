@@ -795,7 +795,6 @@ func (r *MachineReconciler) setTCMallocPath(domain *libvirtxml.Domain) error {
 }
 
 func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libvirtxml.Domain) {
-	machine.Status.GuestAgent.Type = machine.Spec.GuestAgent
 	if machine.Spec.GuestAgent == api.GuestAgentNone {
 		return
 	}
@@ -824,7 +823,7 @@ func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libv
 	}
 
 	domainDesc.Devices.Channels = append(domainDesc.Devices.Channels, agent)
-	machine.Status.GuestAgent.Addr = "unix://" + socketPath
+	machine.Status.GuestAgent = &api.GuestAgentStatus{Type: machine.Spec.GuestAgent, Addr: "unix://" + socketPath}
 }
 
 func (r *MachineReconciler) setDomainImage(

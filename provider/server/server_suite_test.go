@@ -112,7 +112,7 @@ var _ = BeforeSuite(func() {
 		ResyncIntervalGarbageCollector: 5 * time.Second,
 		ResyncIntervalVolumeSize:       1 * time.Minute,
 		VirshExecutable:                "virsh",
-		GuestAgent:                     string(api.GuestAgentNone),
+		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
