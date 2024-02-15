@@ -25,7 +25,7 @@ jobs:
         run: |
           set -x
           
-          sudo snap install microceph --channel=latest/stable
+          sudo snap install microceph --channel=quincy/stable
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y ceph-common
           sudo microceph cluster bootstrap
