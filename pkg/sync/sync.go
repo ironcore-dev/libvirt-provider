@@ -25,67 +25,39 @@ func NewMutexMap[K comparable]() *MutexMap[K] {
 }
 
 type mutexMapEntry struct {
-	mu         sync.Mutex
-	readerCnt  int
-	writerCnt  int
-	readerDone *sync.Cond
+	mu    sync.Mutex
+	count int
 }
 
-// Lock locks the given key for writing.
+// Lock locks the given key.
 func (m *MutexMap[K]) Lock(key K) {
 	m.mu.Lock()
-	entry := m.getOrCreateEntry(key)
-	entry.writerCnt++
-	m.mu.Unlock()
-	entry.mu.Lock()
-	for entry.readerCnt > 0 {
-		entry.readerDone.Wait()
-	}
-}
-
-// Unlock unlocks the given key for writing.
-func (m *MutexMap[K]) Unlock(key K) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	entry := m.entries[key]
 	if entry == nil {
-		panic(fmt.Errorf("unlock: key %v not found", key))
-	}
-	entry.writerCnt--
-	if entry.writerCnt == 0 {
-		delete(m.entries, key)
-	}
-	entry.mu.Unlock()
-}
-
-func (m *MutexMap[K]) RLock(key K) {
-	m.mu.Lock()
-	entry := m.getOrCreateEntry(key)
-	entry.readerCnt++
-	m.mu.Unlock()
-}
-
-func (m *MutexMap[K]) RUnlock(key K) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	entry := m.entries[key]
-	if entry == nil {
-		return
-	}
-	entry.readerCnt--
-	if entry.readerCnt == 0 && entry.readerDone != nil {
-		entry.readerDone.Signal()
-	}
-}
-
-func (m *MutexMap[K]) getOrCreateEntry(key K) *mutexMapEntry {
-	entry, ok := m.entries[key]
-	if !ok {
 		entry = &mutexMapEntry{}
-		entry.readerDone = sync.NewCond(&entry.mu)
 		m.entries[key] = entry
 	}
-	return entry
+	entry.count++
+	m.mu.Unlock()
+
+	entry.mu.Lock()
+}
+
+// Unlock unlocks the given key.
+func (m *MutexMap[K]) Unlock(key K) {
+	m.mu.Lock()
+	entry := m.entries[key]
+	if entry == nil {
+		m.mu.Unlock()
+		panic(fmt.Errorf("unlock: key %v not found", key))
+	}
+
+	entry.count--
+	if entry.count == 0 {
+		delete(m.entries, key)
+	}
+	m.mu.Unlock()
+	entry.mu.Unlock()
 }
 
 type mutexMapLocker[K comparable] struct {
@@ -126,5 +98,5 @@ func (m *MutexMap[K]) Count(key K) int {
 	if entry == nil {
 		return 0
 	}
-	return entry.readerCnt + entry.writerCnt
+	return entry.count
 }
