@@ -67,6 +67,9 @@ jobs:
           echo "CEPH_IMAGE=devpool/test-img" >> $GITHUB_ENV
           echo "CEPH_USERNAME=admin" >> $GITHUB_ENV
           echo "CEPH_USERKEY=`ceph auth print-key client.admin`" >> $GITHUB_ENV
+          echo "CEPH_POOLNAME=devpool" >> $GITHUB_ENV
+          echo "CEPH_CLIENTNAME=client.admin" >> $GITHUB_ENV
+          echo "CEPH_KEYRING_FILENAME=/etc/ceph/ceph.client.admin.keyring" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: |
