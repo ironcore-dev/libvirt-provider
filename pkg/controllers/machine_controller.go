@@ -909,12 +909,12 @@ func (r *MachineReconciler) updateAPIMachineStatus(ctx context.Context, machine 
 		machine.Status.State = state
 	}
 
-	if len(volumes) != 0 {
+	if volumes != nil {
 		requireUpdate = true
 		machine.Status.VolumeStatus = volumes
 	}
 
-	if len(nics) != 0 {
+	if nics != nil {
 		requireUpdate = true
 		machine.Status.NetworkInterfaceStatus = nics
 	}

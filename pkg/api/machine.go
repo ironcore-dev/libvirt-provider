@@ -75,12 +75,10 @@ type VolumeSpec struct {
 }
 
 type VolumeStatus struct {
-	Name       string      `json:"name,omitempty"`
-	Handle     string      `json:"handle,omitempty"`
-	State      VolumeState `json:"state,omitempty"`
-	Size       int64       `json:"size,omitempty"`
-	DeletedAt  *time.Time  `json:"deletedAt,omitempty"`
-	DetachedAt *time.Time  `json:"detachedAt,omitempty"`
+	Name   string      `json:"name,omitempty"`
+	Handle string      `json:"handle,omitempty"`
+	State  VolumeState `json:"state,omitempty"`
+	Size   int64       `json:"size,omitempty"`
 }
 
 type EmptyDiskSpec struct {
