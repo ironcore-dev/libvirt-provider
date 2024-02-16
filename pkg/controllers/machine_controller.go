@@ -386,7 +386,7 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
 
-	if err := r.libvirt.DomainShutdownFlags(domain, getShutdownMode(machine.Status.GuestAgent)); err != nil {
+	if err := r.libvirt.DomainShutdownFlags(domain, getShutdownMode(machine.Status.GuestAgentStatus)); err != nil {
 		if libvirt.IsNotFound(err) {
 			return false, nil
 		}
@@ -824,7 +824,7 @@ func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libv
 	}
 
 	domainDesc.Devices.Channels = append(domainDesc.Devices.Channels, agent)
-	machine.Status.GuestAgent = &api.GuestAgentStatus{Type: machine.Spec.GuestAgent, Addr: "unix://" + socketPath}
+	machine.Status.GuestAgentStatus = &api.GuestAgentStatus{Type: machine.Spec.GuestAgent, Addr: "unix://" + socketPath}
 }
 
 func (r *MachineReconciler) setDomainImage(

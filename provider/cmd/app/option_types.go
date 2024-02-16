@@ -22,7 +22,7 @@ func (g *GuestAgentOption) Set(value string) error {
 		return fmt.Errorf("invalid pointer to object type %s", g.Type())
 	}
 
-	options := GuestAgentOptionAvailable()
+	options := guestAgentOptionAvailable()
 	index := slices.Index(options, value)
 	if index == -1 {
 		return fmt.Errorf("unsupported option %s", value)
@@ -43,6 +43,6 @@ func (g *GuestAgentOption) GetAPIGuestAgent() api.GuestAgent {
 	return api.GuestAgent(*g)
 }
 
-func GuestAgentOptionAvailable() []string {
+func guestAgentOptionAvailable() []string {
 	return []string{string(api.GuestAgentNone), string(api.GuestAgentQemu)}
 }

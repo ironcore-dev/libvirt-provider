@@ -44,7 +44,7 @@ type MachineStatus struct {
 	NetworkInterfaceStatus []NetworkInterfaceStatus `json:"networkInterfaceStatus"`
 	State                  MachineState             `json:"state"`
 	ImageRef               string                   `json:"imageRef"`
-	GuestAgent             *GuestAgentStatus        `json:"guestAgent,omitempty"`
+	GuestAgentStatus       *GuestAgentStatus        `json:"guestAgentStatus,omitempty"`
 }
 
 type MachineState string
