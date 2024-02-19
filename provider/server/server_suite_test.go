@@ -28,13 +28,14 @@ import (
 )
 
 const (
-	eventuallyTimeout    = 30 * time.Second
-	pollingInterval      = 50 * time.Millisecond
-	consistentlyDuration = 1 * time.Second
-	machineClassx3xlarge = "x3-xlarge"
-	machineClassx2medium = "x2-medium"
-	baseURL              = "http://localhost:8080"
-	streamingAddress     = "127.0.0.1:20251"
+	eventuallyTimeout       = 30 * time.Second
+	pollingInterval         = 50 * time.Millisecond
+	gracefulShutdownTimeout = 20 * time.Second
+	consistentlyDuration    = 1 * time.Second
+	machineClassx3xlarge    = "x3-xlarge"
+	machineClassx2medium    = "x2-medium"
+	baseURL                 = "http://localhost:8080"
+	streamingAddress        = "127.0.0.1:20251"
 )
 
 var (
@@ -107,7 +108,8 @@ var _ = BeforeSuite(func() {
 			Qcow2Type:             "exec",
 		},
 		NicPlugin:                      pluginOpts,
-		GCVMGracefulShutdownTimeout:    10 * time.Second,
+		ResyncIntervalMachineState:     10 * time.Second,
+		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
 		ResyncIntervalGarbageCollector: 5 * time.Second,
 		ResyncIntervalVolumeSize:       1 * time.Minute,
 	}
