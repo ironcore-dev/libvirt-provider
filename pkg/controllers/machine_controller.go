@@ -69,7 +69,6 @@ type MachineReconcilerOptions struct {
 	NetworkInterfacePlugin         providernetworkinterface.Plugin
 	VolumeEvents                   event.Source[*api.Machine]
 	ResyncIntervalVolumeSize       time.Duration
-	ResyncIntervalMachineState     time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 	EnableHugepages                bool
 	GCVMGracefulShutdownTimeout    time.Duration
@@ -116,7 +115,6 @@ func NewMachineReconciler(
 		volumePluginManager:            opts.VolumePluginManager,
 		networkInterfacePlugin:         opts.NetworkInterfacePlugin,
 		resyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
-		resyncIntervalMachineState:     opts.ResyncIntervalMachineState,
 		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 		enableHugepages:                opts.EnableHugepages,
 		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
@@ -141,8 +139,7 @@ type MachineReconciler struct {
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
 
-	resyncIntervalVolumeSize   time.Duration
-	resyncIntervalMachineState time.Duration
+	resyncIntervalVolumeSize time.Duration
 
 	gcVMGracefulShutdownTimeout    time.Duration
 	resyncIntervalGarbageCollector time.Duration
@@ -193,7 +190,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startCheckAndEnqueueMachineState(ctx, r.log.WithName("machine-state-sync"))
+		r.startCheckAndEnqueueMachineState(ctx, r.log.WithName("libvirt-event"))
 	}()
 
 	wg.Add(1)
@@ -268,35 +265,29 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 }
 
 func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context, log logr.Logger) {
-	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		machines, err := r.machines.List(ctx)
-		if err != nil {
-			log.Error(err, "failed to list machines")
+	eventChan, err := r.libvirt.LifecycleEvents(ctx)
+	if err != nil {
+		log.Error(err, "failed to subscribe lifecycle events")
+		return
+	}
+
+	log.Info("subscribing lifecycle events")
+
+	for {
+		select {
+		case ev, ok := <-eventChan:
+			if !ok {
+				log.Error(errors.New("missing lifecycle event"), "lifecycle event channel is closed")
+				return
+			}
+
+			log.Info("requeue machine id " + ev.Dom.Name)
+			r.queue.AddRateLimited(ev.Dom.Name)
+		case <-ctx.Done():
+			log.Info("context done for event lifecycle.")
 			return
 		}
-
-		for _, machine := range machines {
-			if machine.DeletedAt != nil || !slices.Contains(machine.Finalizers, MachineFinalizer) {
-				continue
-			}
-			id := machine.ID
-
-			state, err := r.getMachineState(id)
-			if err != nil {
-				if libvirt.IsNotFound(err) {
-					log.V(1).Info("Failed to retrieve domain. Requeueing", "machineID", id)
-					r.queue.AddRateLimited(id)
-				} else {
-					log.Error(err, "failed to get machine state", "machineID", id)
-				}
-				continue
-			}
-
-			if state != machine.Status.State {
-				r.queue.AddRateLimited(id)
-			}
-		}
-	}, r.resyncIntervalMachineState)
+	}
 }
 
 func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.Logger) {
