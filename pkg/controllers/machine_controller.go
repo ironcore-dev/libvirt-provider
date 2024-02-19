@@ -468,6 +468,19 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	}
 	log.V(1).Info("Reconciled domain")
 
+	// get latest machine from store before updating it
+	machine, err = r.machines.Get(ctx, id)
+	if err != nil {
+		if !errors.Is(err, store.ErrNotFound) {
+			return fmt.Errorf("failed to fetch machine from store: %w", err)
+		}
+		return nil
+	}
+
+	if machine.DeletedAt != nil {
+		return nil
+	}
+
 	machine.Status.VolumeStatus = volumeStates
 	machine.Status.NetworkInterfaceStatus = nicStates
 	machine.Status.State = state
