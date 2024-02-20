@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -190,7 +191,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startCheckAndEnqueueMachineState(ctx, r.log.WithName("libvirt-event"))
+		r.startEnqueMachineByLibvirtEvent(ctx, r.log.WithName("libvirt-event"))
 	}()
 
 	wg.Add(1)
@@ -264,7 +265,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 	}, r.resyncIntervalVolumeSize)
 }
 
-func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context, log logr.Logger) {
+func (r *MachineReconciler) startEnqueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
 	eventChan, err := r.libvirt.LifecycleEvents(ctx)
 	if err != nil {
 		log.Error(err, "failed to subscribe lifecycle events")
@@ -277,11 +278,11 @@ func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context
 		select {
 		case ev, ok := <-eventChan:
 			if !ok {
-				log.Error(errors.New("missing lifecycle event"), "lifecycle event channel is closed")
+				log.Error(fmt.Errorf("unexpected channel closure while waiting for data"), "failed to process libvirt event")
 				return
 			}
 
-			log.Info("requeue machine id " + ev.Dom.Name)
+			log.V(1).Info("requeue machine id " + ev.Dom.Name + " by lifecycle event ID " + strconv.FormatInt(int64(ev.Event), 10))
 			r.queue.AddRateLimited(ev.Dom.Name)
 		case <-ctx.Done():
 			log.Info("context done for event lifecycle.")
