@@ -42,6 +42,7 @@ const (
 	emptyDiskSize                  = 1024 * 1024 * 1024
 	baseURL                        = "http://localhost:20251"
 	streamingAddress               = "127.0.0.1:20251"
+	metricsAddress                 = "127.0.0.1:9090"
 )
 
 var (
@@ -106,6 +107,7 @@ var _ = BeforeSuite(func() {
 		PathSupportedMachineClasses: machineClassesFile.Name(),
 		RootDir:                     filepath.Join(tempDir, "libvirt-provider"),
 		StreamingAddress:            streamingAddress,
+		MetricsAddress:              metricsAddress,
 		Libvirt: app.LibvirtOptions{
 			Socket:                "/var/run/libvirt/libvirt-sock",
 			URI:                   "qemu:///system",
