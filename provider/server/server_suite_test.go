@@ -107,7 +107,11 @@ var _ = BeforeSuite(func() {
 		PathSupportedMachineClasses: machineClassesFile.Name(),
 		RootDir:                     filepath.Join(tempDir, "libvirt-provider"),
 		StreamingAddress:            streamingAddress,
-		MetricsAddress:              metricsAddress,
+		Servers: app.ServersOptions{
+			Metrics: app.HTTPServerOptions{
+				Addr: "127.0.0.1:9090",
+			},
+		},
 		Libvirt: app.LibvirtOptions{
 			Socket:                "/var/run/libvirt/libvirt-sock",
 			URI:                   "qemu:///system",
