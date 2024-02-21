@@ -28,12 +28,14 @@ import (
 )
 
 const (
-	eventuallyTimeout       = 30 * time.Second
+	eventuallyTimeout       = 80 * time.Second
 	pollingInterval         = 50 * time.Millisecond
-	gracefulShutdownTimeout = 20 * time.Second
+	gracefulShutdownTimeout = 60 * time.Second
 	consistentlyDuration    = 1 * time.Second
 	machineClassx3xlarge    = "x3-xlarge"
 	machineClassx2medium    = "x2-medium"
+	squashfsOsImage         = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:squashfs-dev-20240123-v2"
+	emptyDiskSize           = 1024 * 1024 * 1024
 	baseURL                 = "http://localhost:8080"
 	streamingAddress        = "127.0.0.1:20251"
 )
@@ -108,7 +110,6 @@ var _ = BeforeSuite(func() {
 			Qcow2Type:             "exec",
 		},
 		NicPlugin:                      pluginOpts,
-		ResyncIntervalMachineState:     10 * time.Second,
 		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
 		ResyncIntervalGarbageCollector: 5 * time.Second,
 		ResyncIntervalVolumeSize:       1 * time.Minute,

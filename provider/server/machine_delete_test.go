@@ -15,11 +15,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-// TODO: This test will require update after merge of PR: #101
 var _ = Describe("DeleteMachine", func() {
 
 	It("should delete a machine with graceful shutdown", func(ctx SpecContext) {
-		By("creating a machine with ceph volume which boots properly ")
+		By("creating a machine using squashfs osImage which boots properly ")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
@@ -30,7 +29,7 @@ var _ = Describe("DeleteMachine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOsImage,
 					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
@@ -40,22 +39,6 @@ var _ = Describe("DeleteMachine", func() {
 								SizeBytes: emptyDiskSize,
 							},
 							Device: "oda",
-						},
-						{
-							Name:   "volume-1",
-							Device: "odc",
-							Connection: &iri.VolumeConnection{
-								Driver: "ceph",
-								Handle: "dummy",
-								Attributes: map[string]string{
-									"image":    cephImage,
-									"monitors": cephMonitors,
-								},
-								SecretData: map[string][]byte{
-									"userID":  []byte(cephUsername),
-									"userKey": []byte(cephUserkey),
-								},
-							},
 						},
 					},
 				},
@@ -69,7 +52,7 @@ var _ = Describe("DeleteMachine", func() {
 		Eventually(func() error {
 			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 			return err
-		}).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainXMLData).NotTo(BeEmpty())
@@ -92,6 +75,9 @@ var _ = Describe("DeleteMachine", func() {
 			Expect(listResp.Machines).NotTo(BeEmpty())
 			return listResp.Machines[0].Status.State
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
+
+		//allow some time for the vm to boot properly
+		time.Sleep(30 * time.Second)
 
 		By("deleting the machine")
 		_, err = machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{
@@ -119,7 +105,7 @@ var _ = Describe("DeleteMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			return len(listResp.Machines)
-		}).WithTimeout(gracefulShutdownTimeout).WithPolling(1 * time.Second).Should(BeZero())
+		}).Within(gracefulShutdownTimeout).ProbeEvery(10).Should(BeZero())
 
 		By("ensuring domain and domain XML is deleted for machine")
 		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
@@ -143,12 +129,15 @@ var _ = Describe("DeleteMachine", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
+					Image: &iri.ImageSpec{
+						Image: osImage,
+					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
 							Name: "disk-1",
 							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: 5368709120,
+								SizeBytes: emptyDiskSize,
 							},
 							Device: "oda",
 						},
@@ -165,7 +154,7 @@ var _ = Describe("DeleteMachine", func() {
 		Eventually(func() error {
 			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 			return err
-		}).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainXMLData).NotTo(BeEmpty())
@@ -205,9 +194,20 @@ var _ = Describe("DeleteMachine", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status.State
-		}).WithTimeout(gracefulShutdownTimeout).WithPolling(1 * time.Second).Should(Equal(iri.MachineState_MACHINE_TERMINATING))
+		}).Should(Equal(iri.MachineState_MACHINE_TERMINATING))
 
-		By("ensuring machine is deleted")
+		By("ensuring machine is not deleted until gracefulShutdownTimeout ")
+		Eventually(func() []*iri.Machine {
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			return listResp.Machines
+		}).Within(gracefulShutdownTimeout).ProbeEvery(5).Should(HaveLen(1))
+
+		By("ensuring machine is deleted after gracefulShutdownTimeout ")
 		Eventually(func() int {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{

@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	osImage       = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
-	emptyDiskSize = 1024 * 1024 * 1024
+	osImage = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
 )
 
 var _ = Describe("CreateMachine", func() {
