@@ -12,11 +12,16 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/provider/apiutils"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func calcResources(class *iri.MachineClass) (int64, int64) {
+func calcResources(class *iri.MachineClass) api.ResourceList {
 	//Todo do some magic
-	return class.Capabilities.CpuMillis, class.Capabilities.MemoryBytes
+
+	return api.ResourceList{
+		api.ResourceCPU:    *resource.NewQuantity(class.Capabilities.CpuMillis, resource.DecimalSI),
+		api.ResourceMemory: *resource.NewQuantity(class.Capabilities.MemoryBytes, resource.BinarySI),
+	}
 }
 
 func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
@@ -37,7 +42,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	}
 	log.V(2).Info("Validated class")
 
-	cpu, memory := calcResources(class)
+	resources := calcResources(class)
 
 	power, err := s.getPowerStateFromIRI(iriMachine.Spec.Power)
 	if err != nil {
@@ -71,8 +76,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		},
 		Spec: api.MachineSpec{
 			Power:             power,
-			CpuMillis:         cpu,
-			MemoryBytes:       memory,
+			Resources:         resources,
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,

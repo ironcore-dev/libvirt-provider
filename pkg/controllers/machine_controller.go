@@ -755,7 +755,7 @@ func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Mach
 func (r *MachineReconciler) setDomainResources(machine *api.Machine, domain *libvirtxml.Domain) error {
 	// TODO: check if there is better or check possible while conversion to uint
 	domain.Memory = &libvirtxml.DomainMemory{
-		Value: uint(machine.Spec.MemoryBytes),
+		Value: uint(machine.Spec.Resources.Memory().Value()),
 		Unit:  "Byte",
 	}
 
@@ -765,7 +765,7 @@ func (r *MachineReconciler) setDomainResources(machine *api.Machine, domain *lib
 		}
 	}
 
-	cpu := uint(machine.Spec.CpuMillis / 1000)
+	cpu := uint(machine.Spec.Resources.CPU().Value() / 1000)
 	domain.VCPU = &libvirtxml.DomainVCPU{
 		Value: cpu,
 	}
