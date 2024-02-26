@@ -37,6 +37,18 @@ var _ = Describe("Exec", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func() bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
+
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
 		Eventually(func() error {
@@ -92,7 +104,7 @@ var _ = Describe("Exec", func() {
 			return libvirt.IsNotFound(err)
 		}).Should(BeTrue())
 
-		By("issuing exec for non existing machine")
+		By("verifying exec url with a valid token and a not existing machine fails")
 		err = runExec(ctx, parsedResUrl)
 		machineNotSynchErr := fmt.Sprintf("machine %s has not yet been synced", createResp.Machine.Metadata.Id)
 		Expect(err).To(SatisfyAny(MatchError(ContainSubstring("404 page not found")), MatchError(ContainSubstring(machineNotSynchErr))))
