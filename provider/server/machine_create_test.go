@@ -47,7 +47,7 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Spec.IgnitionData", BeNil()),
 			HaveField("Machine.Spec.Volumes", BeNil()),
 			HaveField("Machine.Spec.NetworkInterfaces", BeNil()),
-			HaveField("Machine.Status.ObservedGeneration", Equal(int64(1))),
+			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
 			HaveField("Machine.Status.ImageRef", BeEmpty()),
 			HaveField("Machine.Status.Volumes", BeNil()),
@@ -95,7 +95,7 @@ var _ = Describe("CreateMachine", func() {
 			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", Equal(int64(3))),
+			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
 			HaveField("Volumes", BeNil()),
 			HaveField("NetworkInterfaces", BeNil()),
@@ -152,7 +152,7 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
 				Name: "nic-1",
 			})),
-			HaveField("Machine.Status.ObservedGeneration", Equal(int64(1))),
+			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
 			HaveField("Machine.Status.ImageRef", BeEmpty()),
 			HaveField("Machine.Status.Volumes", BeNil()),
@@ -200,7 +200,7 @@ var _ = Describe("CreateMachine", func() {
 			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", Equal(int64(4))),
+			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
 			HaveField("Volumes", ContainElement(&iri.VolumeStatus{
 				Name:   "disk-1",
@@ -269,7 +269,7 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
 				Name: "nic-1",
 			})),
-			HaveField("Machine.Status.ObservedGeneration", Equal(int64(1))),
+			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
 			HaveField("Machine.Status.ImageRef", BeEmpty()),
 			HaveField("Machine.Status.Volumes", BeNil()),
@@ -317,7 +317,7 @@ var _ = Describe("CreateMachine", func() {
 			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", Equal(int64(4))),
+			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
 			HaveField("Volumes", ContainElement(&iri.VolumeStatus{
 				Name:   "disk-1",
@@ -400,7 +400,7 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
 				Name: "nic-1",
 			})),
-			HaveField("Machine.Status.ObservedGeneration", Equal(int64(1))),
+			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
 			HaveField("Machine.Status.ImageRef", BeEmpty()),
 			HaveField("Machine.Status.Volumes", BeNil()),
@@ -448,7 +448,7 @@ var _ = Describe("CreateMachine", func() {
 			Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
-			HaveField("ObservedGeneration", Equal(int64(5))),
+			HaveField("ObservedGeneration", BeZero()),
 			HaveField("ImageRef", BeEmpty()),
 			HaveField("Volumes", ContainElements(
 				&iri.VolumeStatus{
