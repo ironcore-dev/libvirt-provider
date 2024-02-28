@@ -191,7 +191,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startEnqueMachineByLibvirtEvent(ctx, r.log.WithName("libvirt-event"))
+		r.startEnqueueMachineByLibvirtEvent(ctx, r.log.WithName("libvirt-event"))
 	}()
 
 	wg.Add(1)
@@ -265,14 +265,14 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 	}, r.resyncIntervalVolumeSize)
 }
 
-func (r *MachineReconciler) startEnqueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
+func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
 	eventChan, err := r.libvirt.LifecycleEvents(ctx)
 	if err != nil {
-		log.Error(err, "failed to subscribe lifecycle events")
+		log.Error(err, "failed to subscribe to libvirt lifecycle events")
 		return
 	}
 
-	log.Info("subscribing lifecycle events")
+	log.Info("Subscribing to libvirt lifecycle events")
 
 	for {
 		select {
@@ -285,7 +285,7 @@ func (r *MachineReconciler) startEnqueMachineByLibvirtEvent(ctx context.Context,
 			log.V(1).Info("requeue machine id " + ev.Dom.Name + " by lifecycle event ID " + strconv.FormatInt(int64(ev.Event), 10))
 			r.queue.AddRateLimited(ev.Dom.Name)
 		case <-ctx.Done():
-			log.Info("context done for event lifecycle.")
+			log.Info("Context done for libvirt event lifecycle.")
 			return
 		}
 	}
