@@ -86,7 +86,7 @@ func (s *Store[E]) Create(ctx context.Context, obj E) (E, error) {
 	}
 
 	obj.SetCreatedAt(time.Now())
-	obj.SetGeneration(obj.GetGeneration() + 1)
+	obj.IncrementResourceVersion()
 
 	obj, err = s.set(obj)
 	if err != nil {
@@ -126,14 +126,15 @@ func (s *Store[E]) Update(ctx context.Context, obj E) (E, error) {
 		return obj, nil
 	}
 
+	if oldObj.GetResourceVersion() != obj.GetResourceVersion() {
+		return utils.Zero[E](), fmt.Errorf("failed to update object: resourceVersion is not latest")
+	}
+
 	if reflect.DeepEqual(oldObj, obj) {
 		return obj, nil
 	}
 
-	if oldObj.GetGeneration() != obj.GetGeneration() {
-		return utils.Zero[E](), fmt.Errorf("failed to update object: generation is not latest")
-	}
-	obj.SetGeneration(obj.GetGeneration() + 1)
+	obj.IncrementResourceVersion()
 
 	//Todo: update version
 	obj, err = s.set(obj)
@@ -164,7 +165,7 @@ func (s *Store[E]) Delete(ctx context.Context, id string) error {
 
 	now := time.Now()
 	obj.SetDeletedAt(&now)
-	obj.SetGeneration(obj.GetGeneration() + 1)
+	obj.IncrementResourceVersion()
 
 	if _, err := s.set(obj); err != nil {
 		return fmt.Errorf("failed to set object metadata: %w", err)
