@@ -75,7 +75,6 @@ type Options struct {
 
 	PathSupportedMachineClasses string
 	ResyncIntervalVolumeSize    time.Duration
-	ResyncIntervalMachineState  time.Duration
 
 	ApinetKubeconfig string
 
@@ -105,7 +104,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
 	fs.DurationVar(&o.ResyncIntervalVolumeSize, "volume-size-resync-duration", o.ResyncIntervalVolumeSize, "Interval to determine volume size changes.")
-	fs.DurationVar(&o.ResyncIntervalMachineState, "machine-state-resync-duration", 1*time.Minute, "Synchronization interval for aligning local machine state with corresponding libvirt machine state.")
 
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
@@ -311,7 +309,6 @@ func Run(ctx context.Context, opts Options) error {
 			VolumePluginManager:            volumePlugins,
 			NetworkInterfacePlugin:         nicPlugin,
 			ResyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
-			ResyncIntervalMachineState:     opts.ResyncIntervalMachineState,
 			ResyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 			EnableHugepages:                opts.EnableHugepages,
 			GCVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
