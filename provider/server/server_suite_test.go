@@ -34,7 +34,7 @@ const (
 	consistentlyDuration    = 1 * time.Second
 	machineClassx3xlarge    = "x3-xlarge"
 	machineClassx2medium    = "x2-medium"
-	squashfsOsImage         = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:squashfs-dev-20240123-v2"
+	squashfsOSImage         = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:squashfs-dev-20240123-v2"
 	emptyDiskSize           = 1024 * 1024 * 1024
 	baseURL                 = "http://localhost:8080"
 	streamingAddress        = "127.0.0.1:20251"
