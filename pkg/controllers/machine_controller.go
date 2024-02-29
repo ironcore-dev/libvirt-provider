@@ -75,12 +75,6 @@ type MachineReconcilerOptions struct {
 	GCVMGracefulShutdownTimeout    time.Duration
 }
 
-func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
-	if o.ResyncIntervalVolumeSize == 0 {
-		o.ResyncIntervalVolumeSize = time.Minute
-	}
-}
-
 func NewMachineReconciler(
 	log logr.Logger,
 	libvirt *libvirt.Libvirt,
@@ -88,8 +82,6 @@ func NewMachineReconciler(
 	machineEvents event.Source[*api.Machine],
 	opts MachineReconcilerOptions,
 ) (*MachineReconciler, error) {
-	setMachineReconcilerOptionsDefaults(&opts)
-
 	if libvirt == nil {
 		return nil, fmt.Errorf("must specify libvirt client")
 	}
