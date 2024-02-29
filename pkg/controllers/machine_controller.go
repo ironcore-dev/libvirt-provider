@@ -17,6 +17,7 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
+	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/event"
 	providerimage "github.com/ironcore-dev/libvirt-provider/pkg/image"
@@ -28,9 +29,12 @@ import (
 	providervolume "github.com/ironcore-dev/libvirt-provider/pkg/plugins/volume"
 	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/manager"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
@@ -300,6 +304,7 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.
 			if err := r.processMachineDeletion(ctx, logger, machine); err != nil {
 				logger.Error(err, "failed to garbage collect machine")
 			}
+
 		}
 
 	}, r.resyncIntervalGarbageCollector)
@@ -340,6 +345,12 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 		return fmt.Errorf("failed to update machine metadata: %w", err)
 	}
 	log.V(1).Info("Removed Finalizer. Deletion completed")
+
+	err = manager.Deallocate(machine)
+	if err != nil {
+		return fmt.Errorf("failed to deallocate resources: %w", err)
+	}
+	log.V(1).Info("Resources were deallocated")
 
 	return nil
 }
@@ -472,6 +483,22 @@ func (r *MachineReconciler) reconcileDomain(
 	if _, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
 		if !libvirt.IsNotFound(err) {
 			return "", nil, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
+		}
+
+		if !manager.HasMachineAllocatedResources(machine) {
+			err = manager.Allocate(machine)
+			if err != nil {
+				return api.MachineStatePending, nil, nil, fmt.Errorf("cannot allocate resources: %w", err)
+			}
+
+			_, err := r.machines.Update(ctx, machine)
+			if err != nil {
+				locErr := manager.Deallocate(machine)
+				if locErr != nil {
+					log.Error(err, "failed to deallocate resources")
+				}
+				return "", nil, nil, fmt.Errorf("cannot save allocated resources: %w", err)
+			}
 		}
 
 		log.V(1).Info("Creating new domain")
@@ -737,21 +764,22 @@ func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Mach
 }
 
 func (r *MachineReconciler) setDomainResources(machine *api.Machine, domain *libvirtxml.Domain) error {
-	// TODO: check if there is better or check possible while conversion to uint
+	memory := machine.Spec.Resources[core.ResourceMemory]
 	domain.Memory = &libvirtxml.DomainMemory{
-		Value: uint(machine.Spec.MemoryBytes),
+		Value: uint(memory.Value()),
 		Unit:  "Byte",
 	}
 
-	if r.enableHugepages {
+	hugepages, ok := machine.Spec.Resources[sources.ResourceHugepages]
+	if ok && hugepages.Value() > 0 {
 		domain.MemoryBacking = &libvirtxml.DomainMemoryBacking{
 			MemoryHugePages: &libvirtxml.DomainMemoryHugepages{},
 		}
 	}
 
-	cpu := uint(machine.Spec.CpuMillis / 1000)
+	cpu := machine.Spec.Resources[core.ResourceCPU]
 	domain.VCPU = &libvirtxml.DomainVCPU{
-		Value: cpu,
+		Value: uint(cpu.ScaledValue(resource.Kilo)),
 	}
 
 	return nil
