@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"strconv"
 	"sync"
 	"time"
 
@@ -69,16 +70,9 @@ type MachineReconcilerOptions struct {
 	NetworkInterfacePlugin         providernetworkinterface.Plugin
 	VolumeEvents                   event.Source[*api.Machine]
 	ResyncIntervalVolumeSize       time.Duration
-	ResyncIntervalMachineState     time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 	EnableHugepages                bool
 	GCVMGracefulShutdownTimeout    time.Duration
-}
-
-func setMachineReconcilerOptionsDefaults(o *MachineReconcilerOptions) {
-	if o.ResyncIntervalVolumeSize == 0 {
-		o.ResyncIntervalVolumeSize = time.Minute
-	}
 }
 
 func NewMachineReconciler(
@@ -88,8 +82,6 @@ func NewMachineReconciler(
 	machineEvents event.Source[*api.Machine],
 	opts MachineReconcilerOptions,
 ) (*MachineReconciler, error) {
-	setMachineReconcilerOptionsDefaults(&opts)
-
 	if libvirt == nil {
 		return nil, fmt.Errorf("must specify libvirt client")
 	}
@@ -116,7 +108,6 @@ func NewMachineReconciler(
 		volumePluginManager:            opts.VolumePluginManager,
 		networkInterfacePlugin:         opts.NetworkInterfacePlugin,
 		resyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
-		resyncIntervalMachineState:     opts.ResyncIntervalMachineState,
 		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 		enableHugepages:                opts.EnableHugepages,
 		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
@@ -141,8 +132,7 @@ type MachineReconciler struct {
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
 
-	resyncIntervalVolumeSize   time.Duration
-	resyncIntervalMachineState time.Duration
+	resyncIntervalVolumeSize time.Duration
 
 	gcVMGracefulShutdownTimeout    time.Duration
 	resyncIntervalGarbageCollector time.Duration
@@ -193,7 +183,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startCheckAndEnqueueMachineState(ctx, r.log.WithName("machine-state-sync"))
+		r.startEnqueueMachineByLibvirtEvent(ctx, r.log.WithName("libvirt-event"))
 	}()
 
 	wg.Add(1)
@@ -267,36 +257,30 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 	}, r.resyncIntervalVolumeSize)
 }
 
-func (r *MachineReconciler) startCheckAndEnqueueMachineState(ctx context.Context, log logr.Logger) {
-	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		machines, err := r.machines.List(ctx)
-		if err != nil {
-			log.Error(err, "failed to list machines")
+func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
+	eventChan, err := r.libvirt.LifecycleEvents(ctx)
+	if err != nil {
+		log.Error(err, "failed to subscribe to libvirt lifecycle events")
+		return
+	}
+
+	log.Info("Subscribing to libvirt lifecycle events")
+
+	for {
+		select {
+		case ev, ok := <-eventChan:
+			if !ok {
+				log.Error(fmt.Errorf("unexpected channel closure while waiting for data"), "failed to process libvirt event")
+				return
+			}
+
+			log.V(1).Info("requeue machine id " + ev.Dom.Name + " by lifecycle event ID " + strconv.FormatInt(int64(ev.Event), 10))
+			r.queue.AddRateLimited(ev.Dom.Name)
+		case <-ctx.Done():
+			log.Info("Context done for libvirt event lifecycle.")
 			return
 		}
-
-		for _, machine := range machines {
-			if machine.DeletedAt != nil || !slices.Contains(machine.Finalizers, MachineFinalizer) {
-				continue
-			}
-			id := machine.ID
-
-			state, err := r.getMachineState(id)
-			if err != nil {
-				if libvirt.IsNotFound(err) {
-					log.V(1).Info("Failed to retrieve domain. Requeueing", "machineID", id)
-					r.queue.AddRateLimited(id)
-				} else {
-					log.Error(err, "failed to get machine state", "machineID", id)
-				}
-				continue
-			}
-
-			if state != machine.Status.State {
-				r.queue.AddRateLimited(id)
-			}
-		}
-	}, r.resyncIntervalMachineState)
+	}
 }
 
 func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.Logger) {

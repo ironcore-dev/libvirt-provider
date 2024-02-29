@@ -68,7 +68,7 @@ type CreateStrategy[E api.Object] interface {
 	PrepareForCreate(obj E)
 }
 
-func (s *Store[E]) Create(ctx context.Context, obj E) (E, error) {
+func (s *Store[E]) Create(_ context.Context, obj E) (E, error) {
 	s.idMu.Lock(obj.GetID())
 	defer s.idMu.Unlock(obj.GetID())
 
@@ -101,7 +101,10 @@ func (s *Store[E]) Create(ctx context.Context, obj E) (E, error) {
 	return obj, nil
 }
 
-func (s *Store[E]) Get(ctx context.Context, id string) (E, error) {
+func (s *Store[E]) Get(_ context.Context, id string) (E, error) {
+	s.idMu.Lock(id)
+	defer s.idMu.Unlock(id)
+
 	object, err := s.get(id)
 	if err != nil {
 		return utils.Zero[E](), fmt.Errorf("failed to read object: %w", err)
@@ -110,7 +113,7 @@ func (s *Store[E]) Get(ctx context.Context, id string) (E, error) {
 	return object, nil
 }
 
-func (s *Store[E]) Update(ctx context.Context, obj E) (E, error) {
+func (s *Store[E]) Update(_ context.Context, obj E) (E, error) {
 	s.idMu.Lock(obj.GetID())
 	defer s.idMu.Unlock(obj.GetID())
 
@@ -150,7 +153,7 @@ func (s *Store[E]) Update(ctx context.Context, obj E) (E, error) {
 	return obj, nil
 }
 
-func (s *Store[E]) Delete(ctx context.Context, id string) error {
+func (s *Store[E]) Delete(_ context.Context, id string) error {
 	s.idMu.Lock(id)
 	defer s.idMu.Unlock(id)
 
@@ -191,7 +194,7 @@ func (s *Store[E]) List(ctx context.Context) ([]E, error) {
 			continue
 		}
 
-		object, err := s.get(entry.Name())
+		object, err := s.Get(ctx, entry.Name())
 		if err != nil {
 			return nil, fmt.Errorf("failed to read object: %w", err)
 		}
@@ -202,7 +205,7 @@ func (s *Store[E]) List(ctx context.Context) ([]E, error) {
 	return objs, nil
 }
 
-func (s *Store[E]) Watch(ctx context.Context) (store.Watch[E], error) {
+func (s *Store[E]) Watch(_ context.Context) (store.Watch[E], error) {
 	//TODO make configurable
 	const bufferSize = 10
 	s.watchesMu.Lock()
@@ -230,7 +233,7 @@ func (s *Store[E]) get(id string) (E, error) {
 
 	obj := s.newFunc()
 	if err := json.Unmarshal(file, &obj); err != nil {
-		return utils.Zero[E](), fmt.Errorf("failed to unmarshal object: %w", err)
+		return utils.Zero[E](), fmt.Errorf("failed to unmarshal object from file %s: %w", id, err)
 	}
 
 	return obj, err
