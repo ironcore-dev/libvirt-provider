@@ -109,6 +109,7 @@ var _ = BeforeSuite(func() {
 		NicPlugin:                      pluginOpts,
 		GCVMGracefulShutdownTimeout:    10 * time.Second,
 		ResyncIntervalGarbageCollector: 5 * time.Second,
+		ResyncIntervalVolumeSize:       1 * time.Minute,
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
