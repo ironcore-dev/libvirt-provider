@@ -24,8 +24,9 @@ const (
 
 	defaultSize = 500 * 1024 * 1024 // 500Mi by default
 
-	perm     = 0777
-	filePerm = 0666
+	permFolder = 0750
+	// vm has to has permission for write
+	permFile = 0660
 )
 
 type plugin struct {
@@ -67,7 +68,7 @@ func (p *plugin) diskFilename(computeVolumeName string, machineID string) string
 
 func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (*volume.Volume, error) {
 	volumeDir := p.host.MachineVolumeDir(machine.ID, utilstrings.EscapeQualifiedName(pluginName), spec.Name)
-	if err := os.MkdirAll(volumeDir, perm); err != nil {
+	if err := os.MkdirAll(volumeDir, permFolder); err != nil {
 		return nil, err
 	}
 
@@ -90,7 +91,7 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 		if err := p.raw.Create(diskFilename, raw.WithSize(size)); err != nil {
 			return nil, fmt.Errorf("error creating disk %w", err)
 		}
-		if err := os.Chmod(diskFilename, filePerm); err != nil {
+		if err := os.Chmod(diskFilename, permFile); err != nil {
 			return nil, fmt.Errorf("error changing disk file mode: %w", err)
 		}
 	}

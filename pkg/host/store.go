@@ -21,7 +21,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/sets"
 )
 
-const perm = 0777
+const (
+	permFolder = 0750
+	permFile   = 0640
+)
 
 type Options[E api.Object] struct {
 	//TODO
@@ -36,7 +39,7 @@ func NewStore[E api.Object](opts Options[E]) (*Store[E], error) {
 		return nil, fmt.Errorf("must specify opts.NewFunc")
 	}
 
-	if err := os.MkdirAll(opts.Dir, perm); err != nil {
+	if err := os.MkdirAll(opts.Dir, permFolder); err != nil {
 		return nil, fmt.Errorf("error creating store directory: %w", err)
 	}
 
@@ -237,8 +240,8 @@ func (s *Store[E]) set(obj E) (E, error) {
 		return utils.Zero[E](), fmt.Errorf("failed to marshal obj: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(s.dir, obj.GetID()), data, 0666); err != nil {
-		return utils.Zero[E](), nil
+	if err := os.WriteFile(filepath.Join(s.dir, obj.GetID()), data, permFile); err != nil {
+		return utils.Zero[E](), fmt.Errorf("cannot update file in store: %w", err)
 	}
 
 	return obj, nil

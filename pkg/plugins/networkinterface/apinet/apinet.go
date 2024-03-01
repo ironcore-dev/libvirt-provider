@@ -35,8 +35,8 @@ const (
 
 	defaultAPINetConfigFile = "api-net.json"
 
-	perm         = 0777
-	filePerm     = 0666
+	permFolder   = 0750
+	permFile     = 0640
 	pluginAPInet = "apinet"
 )
 
@@ -82,7 +82,7 @@ func (p *Plugin) writeAPINetNetworkInterfaceConfig(machineID string, networkInte
 		return err
 	}
 
-	return os.WriteFile(p.apiNetNetworkInterfaceConfigFile(machineID, networkInterfaceName), data, filePerm)
+	return os.WriteFile(p.apiNetNetworkInterfaceConfigFile(machineID, networkInterfaceName), data, permFile)
 }
 
 func (p *Plugin) readAPINetNetworkInterfaceConfig(machineID string, networkInterfaceName string) (*apiNetNetworkInterfaceConfig, error) {
@@ -106,7 +106,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	log := ctrl.LoggerFrom(ctx)
 
 	log.V(1).Info("Writing network interface dir")
-	if err := os.MkdirAll(p.host.MachineNetworkInterfaceDir(machine.ID, spec.Name), perm); err != nil {
+	if err := os.MkdirAll(p.host.MachineNetworkInterfaceDir(machine.ID, spec.Name), permFolder); err != nil {
 		return nil, err
 	}
 
