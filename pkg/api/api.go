@@ -13,7 +13,7 @@ type Metadata struct {
 	CreatedAt       time.Time  `json:"createdAt"`
 	DeletedAt       *time.Time `json:"deletedAt,omitempty"`
 	Generation      int64      `json:"generation"`
-	ResourceVersion uint64     `json:"resourceVersion,omitempty"`
+	ResourceVersion uint64     `json:"resourceVersion"`
 
 	Finalizers []string `json:"finalizers,omitempty"`
 }
