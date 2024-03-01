@@ -105,7 +105,7 @@ var _ = Describe("DeleteMachine", func() {
 			})
 			Expect(err).NotTo(HaveOccurred())
 			return len(listResp.Machines)
-		}).Within(gracefulShutdownTimeout).ProbeEvery(2).Should(BeZero()) // ProbeEvery has to be ideally less than or equal to half of ResyncIntervalGarbageCollector
+		}).Within(gracefulShutdownTimeout).ProbeEvery(2 * time.Second).Should(BeZero()) // ProbeEvery has to be ideally less than or equal to half of ResyncIntervalGarbageCollector
 
 		By("ensuring domain and domain XML is deleted for machine")
 		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))

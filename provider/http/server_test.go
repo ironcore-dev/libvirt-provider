@@ -43,5 +43,12 @@ var _ = Describe("HTTP Handler", func() {
 				Expect(recorder.Code).To(Equal(http.StatusNotFound))
 			})
 		})
+		It("should fail when http request with a not expected method called", func() {
+			req, err := http.NewRequest(http.MethodPut, "/exec/unknowntoken", nil)
+			Expect(err).NotTo(HaveOccurred())
+			recorder := httptest.NewRecorder()
+			router.ServeHTTP(recorder, req)
+			Expect(recorder.Code).To(Equal(http.StatusMethodNotAllowed))
+		})
 	})
 })
