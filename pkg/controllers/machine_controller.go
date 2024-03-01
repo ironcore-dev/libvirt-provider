@@ -681,7 +681,9 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	r.setGuestAgent(machine, domainDesc)
+	if machine.Spec.GuestAgent != api.GuestAgentNone {
+		r.setGuestAgent(machine, domainDesc)
+	}
 
 	if machineImgRef := machine.Spec.Image; machineImgRef != nil && ptr.Deref(machineImgRef, "") != "" {
 		if err := r.setDomainImage(ctx, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
@@ -796,10 +798,6 @@ func (r *MachineReconciler) setTCMallocPath(domain *libvirtxml.Domain) error {
 }
 
 func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libvirtxml.Domain) {
-	if machine.Spec.GuestAgent == api.GuestAgentNone {
-		return
-	}
-
 	if domainDesc.Devices == nil {
 		domainDesc.Devices = &libvirtxml.DomainDeviceList{}
 	}
