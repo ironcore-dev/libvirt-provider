@@ -130,7 +130,7 @@ func (s *Store[E]) Update(_ context.Context, obj E) (E, error) {
 	}
 
 	if oldObj.GetResourceVersion() != obj.GetResourceVersion() {
-		return utils.Zero[E](), fmt.Errorf("failed to update object: resourceVersion is not latest")
+		return utils.Zero[E](), fmt.Errorf("failed to update object: %w", store.ErrResourceVersionNotLatest)
 	}
 
 	if reflect.DeepEqual(oldObj, obj) {
