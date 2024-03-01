@@ -15,6 +15,7 @@ import (
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"
@@ -29,9 +30,11 @@ var (
 	ErrManagerSourcesMissing     = errors.New("any source wasn't registered")
 	ErrManagerListFuncInvalid    = errors.New("invalid pointer to list machine function")
 
-	ErrResourceNotAvailable     = errors.New("not enough available resources")
-	ErrResourceUnsupported      = errors.New("resource isn't supported")
-	ErrResourceAlreadyRegistred = errors.New("resource is already registred")
+	ErrSourcesDummyIncompatible = errors.New("dummy source cannot be use with another sources")
+
+	ErrResourceNotAvailable      = errors.New("not enough available resources")
+	ErrResourceUnsupported       = errors.New("resource isn't supported")
+	ErrResourceAlreadyRegistered = errors.New("resource is already registered")
 
 	ErrMachineClassMissing = errors.New("machine class is missing")
 
@@ -39,14 +42,11 @@ var (
 )
 
 func init() {
-	manager.operationError = ErrManagerNotInitialized
-	manager.log = ctrl.Log
-	manager.sources = map[string]Source{}
-	manager.resourcesAvailable = core.ResourceList{}
+	mng.reset()
 }
 
 // unexported manager structure, it contains state and main logic
-var manager resourceManager
+var mng resourceManager
 
 type resourceManager struct {
 	// context serves primary for optimize shutdown and it can be use in sources
@@ -119,6 +119,18 @@ func (r *resourceManager) loadTotalResources() error {
 		return ErrManagerSourcesMissing
 	}
 
+	// dummy source uses reference for change available sources in runtime.
+	dummySource, ok := r.sources[sources.NewSourceDummy(nil).GetName()]
+	if ok {
+		if len(r.sources) != 1 {
+			return ErrSourcesDummyIncompatible
+		}
+
+		var err error
+		r.resourcesAvailable, err = dummySource.GetTotalResources(r.ctx)
+		return err
+	}
+
 	for sourceName, source := range r.sources {
 		r.log.V(1).Info("loading total resources from source " + sourceName)
 		resources, err := source.GetTotalResources(r.ctx)
@@ -128,7 +140,7 @@ func (r *resourceManager) loadTotalResources() error {
 		for name, quantity := range resources {
 			_, locErr := getResource(name, r.resourcesAvailable)
 			if locErr == nil {
-				return fmt.Errorf("resource %s cannot be register: %w", name, ErrResourceAlreadyRegistred)
+				return fmt.Errorf("resource %s cannot be register: %w", name, ErrResourceAlreadyRegistered)
 			}
 
 			r.resourcesAvailable[name] = quantity
@@ -154,8 +166,8 @@ func (r *resourceManager) calculateAvailableResources(machines []*api.Machine) e
 }
 
 func (r *resourceManager) createMachineClasses() error {
-	r.machineClasses = make([]*machineclass, len(manager.tmpIRIMachineClasses))
-	for index, class := range manager.tmpIRIMachineClasses {
+	r.machineClasses = make([]*machineclass, len(mng.tmpIRIMachineClasses))
+	for index, class := range mng.tmpIRIMachineClasses {
 		resourceManagerClass := &machineclass{
 			// break reference
 			name:         class.GetName(),
@@ -227,7 +239,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 func (r *resourceManager) allocate(machine *api.Machine) error {
 	r.mx.Lock()
-	defer manager.mx.Unlock()
+	defer mng.mx.Unlock()
 
 	if r.operationError != nil {
 		return r.operationError
@@ -250,9 +262,9 @@ func (r *resourceManager) allocate(machine *api.Machine) error {
 		return err
 	}
 
-	if manager.numaScheduler != nil {
+	if mng.numaScheduler != nil {
 		cpuQuantity := requiredResources[core.ResourceCPU]
-		err = manager.numaScheduler.Pin(uint(cpuQuantity.Value()/1000), machine)
+		err = mng.numaScheduler.Pin(uint(cpuQuantity.Value()/1000), machine)
 		if err != nil {
 			return err
 		}
@@ -313,8 +325,8 @@ func (r *resourceManager) deallocate(machine *api.Machine) error {
 		newResources[key] = *available
 	}
 
-	if manager.numaScheduler != nil {
-		err = manager.numaScheduler.Unpin(machine)
+	if mng.numaScheduler != nil {
+		err = mng.numaScheduler.Unpin(machine)
 		if err != nil {
 			return err
 		}
@@ -333,7 +345,7 @@ func (r *resourceManager) deallocate(machine *api.Machine) error {
 // updateMachineClassAvailable is updating count of available machines for all machine classes
 func (r *resourceManager) updateMachineClassAvailable() error {
 	for _, class := range r.machineClasses {
-		err := manager.calculateMachineClassQuantity(class)
+		err := mng.calculateMachineClassQuantity(class)
 		if err != nil {
 			return err
 		}
@@ -473,6 +485,24 @@ func (r *resourceManager) getMachineClassAvailibilityAsString() string {
 	return removeSeparatorFromEnd(result)
 }
 
+// reset internal state of manager and allow reinit
+// Use it for unit test only.
+func (r *resourceManager) reset() {
+	mng.ctx = nil
+	mng.log = ctrl.Log
+	mng.machineClasses = nil
+	mng.numaScheduler = nil
+	mng.operationError = ErrManagerNotInitialized
+	mng.sources = map[string]Source{}
+	mng.resourcesAvailable = core.ResourceList{}
+	mng.tmpIRIMachineClasses = nil
+	mng.initialized = false
+}
+
 func removeSeparatorFromEnd(in string) string {
+	if len(in) <= len(sep) {
+		return ""
+	}
+
 	return in[:len(in)-len(sep)]
 }
