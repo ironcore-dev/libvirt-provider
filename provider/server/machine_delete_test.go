@@ -18,7 +18,7 @@ import (
 var _ = Describe("DeleteMachine", func() {
 
 	It("should delete a machine with graceful shutdown", func(ctx SpecContext) {
-		By("creating a machine using squashfs os image which boots properly")
+		By("creating a machine using squashfs os image")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
