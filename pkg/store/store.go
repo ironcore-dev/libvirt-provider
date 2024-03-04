@@ -11,8 +11,9 @@ import (
 )
 
 var (
-	ErrNotFound      = errors.New("not found")
-	ErrAlreadyExists = errors.New("already exists")
+	ErrNotFound                 = errors.New("not found")
+	ErrAlreadyExists            = errors.New("already exists")
+	ErrResourceVersionNotLatest = errors.New("resourceVersion is not latest")
 )
 
 func IgnoreErrNotFound(err error) error {
