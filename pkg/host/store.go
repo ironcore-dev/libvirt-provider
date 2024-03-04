@@ -248,7 +248,7 @@ func (s *Store[E]) set(obj E) (E, error) {
 	}
 
 	if err := os.WriteFile(filepath.Join(s.dir, obj.GetID()), data, permFile); err != nil {
-		return utils.Zero[E](), fmt.Errorf("cannot update file in store: %w", err)
+		return utils.Zero[E](), fmt.Errorf("failed to update file in store: %w", err)
 	}
 
 	return obj, nil
