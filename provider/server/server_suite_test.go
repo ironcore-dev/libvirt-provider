@@ -33,7 +33,7 @@ const (
 	consistentlyDuration = 1 * time.Second
 	machineClassx3xlarge = "x3-xlarge"
 	machineClassx2medium = "x2-medium"
-	baseURL              = "http://localhost:8080"
+	baseURL              = "http://localhost:20251"
 	streamingAddress     = "127.0.0.1:20251"
 )
 
@@ -110,6 +110,7 @@ var _ = BeforeSuite(func() {
 		GCVMGracefulShutdownTimeout:    10 * time.Second,
 		ResyncIntervalGarbageCollector: 5 * time.Second,
 		ResyncIntervalVolumeSize:       1 * time.Minute,
+		VirshExecutable:                "virsh",
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
