@@ -15,17 +15,16 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("AttachVolume", func() {
+var _ = Describe("AttachVolume", Ordered, func() {
 	It("should correctly attach volume to machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
+					Image: &iri.ImageSpec{
+						Image: squashfsOSImage,
+					},
 					Power: iri.Power_POWER_ON,
 					Class: machineClassx3xlarge,
 				},
@@ -62,6 +61,10 @@ var _ = Describe("AttachVolume", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
+
+		Eventually(func(g Gomega) {
+			isDomainVMUpAndRunning(g, libvirtConn, &domain, &networkID)
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 		By("attaching empty disk to a machine")
 		attachEmptyDiskResp, err := machineClient.AttachVolume(ctx, &iri.AttachVolumeRequest{
@@ -130,9 +133,11 @@ var _ = Describe("AttachVolume", func() {
 			g.Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(2))
-		Expect(disks[0].Serial).To(HavePrefix("oda"))
-		Expect(disks[1].Serial).To(HavePrefix("odb"))
+		}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(3))
+		for index := range disks {
+			Expect(disks[index].Serial).To(
+				SatisfyAny(HavePrefix("oda"), HavePrefix("odb"), HavePrefix("machineboot")))
+		}
 
 		By("ensuring attached volume have been updated in machine status field")
 		Eventually(func(g Gomega) *iri.MachineStatus {

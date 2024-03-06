@@ -17,21 +17,17 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("AttachNetworkInterface", func() {
+var _ = Describe("AttachNetworkInterface", Ordered, func() {
 	It("should attach a network interface to the machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Class: machineClassx2medium,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
 				},
 			},
@@ -72,7 +68,8 @@ var _ = Describe("AttachNetworkInterface", func() {
 		attachNetworkResp, err := machineClient.AttachNetworkInterface(ctx, &iri.AttachNetworkInterfaceRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			NetworkInterface: &iri.NetworkInterface{
-				Name: "nic-1",
+				Name:      "nic-1",
+				NetworkId: networkID.Name,
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
