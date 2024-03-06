@@ -194,14 +194,16 @@ var _ = Describe("DeleteMachine", func() {
 		}).Should(Equal(iri.MachineState_MACHINE_TERMINATING))
 
 		By("ensuring machine is not deleted until gracefulShutdownTimeout")
-		time.Sleep(gracefulShutdownTimeout)
-		listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-			Filter: &iri.MachineFilter{
-				Id: createResp.Machine.Metadata.Id,
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(listResp.Machines).Should(HaveLen(1))
+		Consistently(func() bool {
+			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
+				Filter: &iri.MachineFilter{
+					Id: createResp.Machine.Metadata.Id,
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(listResp.Machines).Should(HaveLen(1))
+			return err == nil && len(listResp.Machines) == 1
+		}, gracefulShutdownTimeout, consistentlyDuration).Should(BeTrue())
 
 		By("ensuring machine is deleted after gracefulShutdownTimeout")
 		Eventually(func() int {
