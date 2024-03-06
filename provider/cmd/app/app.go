@@ -66,9 +66,7 @@ func init() {
 }
 
 type Options struct {
-	Address          string
-	StreamingAddress string
-	BaseURL          string
+	BaseURL string
 
 	RootDir string
 
@@ -83,9 +81,27 @@ type Options struct {
 
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
+	Servers   ServersOptions
 
 	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
+}
+
+type HTTPServerOptions struct {
+	Addr         string
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
+	IdleTimeout  time.Duration
+}
+
+type GRPCServerOptions struct {
+	Addr              string
+	ConnectionTimeout time.Duration
+}
+
+type ServersOptions struct {
+	Streaming HTTPServerOptions
+	GRPC      GRPCServerOptions
 }
 
 type LibvirtOptions struct {
@@ -100,15 +116,20 @@ type LibvirtOptions struct {
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.Address, "address", "/var/run/iri-machinebroker.sock", "Address to listen on.")
-	fs.StringVar(&o.RootDir, "libvirt-provider-dir", filepath.Join(homeDir, ".libvirt-provider"), "Path to the directory libvirt-provider manages its content at.")
+	// ServerOptions
+	fs.StringVar(&o.Servers.GRPC.Addr, "servers-grpc-address", "/var/run/iri-machinebroker.sock", "Address to listen on.")
+	fs.DurationVar(&o.Servers.GRPC.ConnectionTimeout, "servers-grpc-connectiontimeout", 3*time.Second, "Connection timeout for GRPC server.")
+	fs.StringVar(&o.Servers.Streaming.Addr, "servers-streaming-address", "127.0.0.1:20251", "Address to run the streaming server on")
+	fs.DurationVar(&o.Servers.Streaming.ReadTimeout, "servers-streaming-readtimeout", 200*time.Millisecond, "Read timeout for streaming server.")
+	fs.DurationVar(&o.Servers.Streaming.WriteTimeout, "servers-streaming-writetimeout", 200*time.Millisecond, "Write timeout for streaming server.")
+	fs.DurationVar(&o.Servers.Streaming.IdleTimeout, "server-streaming-idletimeout", 1*time.Second, "Idle timeout for connections to streaming server.")
 
+	fs.StringVar(&o.RootDir, "libvirt-provider-dir", filepath.Join(homeDir, ".libvirt-provider"), "Path to the directory libvirt-provider manages its content at.")
 	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
 	fs.DurationVar(&o.ResyncIntervalVolumeSize, "volume-size-resync-interval", 1*time.Minute, "Interval to determine volume size changes.")
 
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
-	fs.StringVar(&o.StreamingAddress, "streaming-address", "127.0.0.1:20251", "Address to run the streaming server on")
 	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
 		"constructed from the streaming-address")
 
@@ -189,7 +210,7 @@ func Run(ctx context.Context, opts Options) error {
 	if baseURL == "" {
 		u := &url.URL{
 			Scheme: "http",
-			Host:   opts.StreamingAddress,
+			Host:   opts.Servers.Streaming.Addr,
 		}
 		baseURL = u.String()
 	}
@@ -398,7 +419,7 @@ func Run(ctx context.Context, opts Options) error {
 
 func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, srv *server.Server, opts Options) error {
 	setupLog.V(1).Info("Cleaning up any previous socket")
-	if err := common.CleanupSocketIfExists(opts.Address); err != nil {
+	if err := common.CleanupSocketIfExists(opts.Servers.GRPC.Addr); err != nil {
 		return fmt.Errorf("error cleaning up socket: %w", err)
 	}
 
@@ -407,11 +428,12 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 			commongrpc.InjectLogger(log.WithName("iri-server")),
 			commongrpc.LogRequest,
 		),
+		grpc.ConnectionTimeout(opts.Servers.GRPC.ConnectionTimeout),
 	)
 	iri.RegisterMachineRuntimeServer(grpcSrv, srv)
 
-	setupLog.V(1).Info("Start listening on unix socket", "Address", opts.Address)
-	l, err := net.Listen("unix", opts.Address)
+	setupLog.V(1).Info("Start listening on unix socket", "Address", opts.Servers.GRPC.Addr)
+	l, err := net.Listen("unix", opts.Servers.GRPC.Addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
@@ -435,8 +457,11 @@ func runStreamingServer(ctx context.Context, setupLog, log logr.Logger, srv *ser
 	})
 
 	httpSrv := &http.Server{
-		Addr:    opts.StreamingAddress,
-		Handler: httpHandler,
+		Addr:         opts.Servers.Streaming.Addr,
+		Handler:      httpHandler,
+		ReadTimeout:  opts.Servers.Streaming.ReadTimeout,
+		WriteTimeout: opts.Servers.Streaming.WriteTimeout,
+		IdleTimeout:  opts.Servers.Streaming.IdleTimeout,
 	}
 
 	go func() {
@@ -446,7 +471,7 @@ func runStreamingServer(ctx context.Context, setupLog, log logr.Logger, srv *ser
 		setupLog.Info("Shut down streaming server")
 	}()
 
-	setupLog.V(1).Info("Starting streaming server", "Address", opts.StreamingAddress)
+	setupLog.V(1).Info("Starting streaming server", "Address", opts.Servers.Streaming.Addr)
 	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("error listening / serving streaming server: %w", err)
 	}

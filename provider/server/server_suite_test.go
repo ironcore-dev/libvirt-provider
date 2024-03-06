@@ -101,11 +101,9 @@ var _ = BeforeSuite(func() {
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
-		Address:                     filepath.Join(tempDir, "test.sock"),
 		BaseURL:                     baseURL,
 		PathSupportedMachineClasses: machineClassesFile.Name(),
 		RootDir:                     filepath.Join(tempDir, "libvirt-provider"),
-		StreamingAddress:            streamingAddress,
 		Libvirt: app.LibvirtOptions{
 			Socket:                "/var/run/libvirt/libvirt-sock",
 			URI:                   "qemu:///system",
@@ -118,6 +116,18 @@ var _ = BeforeSuite(func() {
 		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
+		Servers: app.ServersOptions{
+			GRPC: app.GRPCServerOptions{
+				Addr:              filepath.Join(tempDir, "test.sock"),
+				ConnectionTimeout: 3 * time.Second,
+			},
+			Streaming: app.HTTPServerOptions{
+				Addr:         streamingAddress,
+				ReadTimeout:  200 * time.Millisecond,
+				WriteTimeout: 200 * time.Millisecond,
+				IdleTimeout:  1 * time.Second,
+			},
+		},
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
@@ -129,10 +139,10 @@ var _ = BeforeSuite(func() {
 	}()
 
 	Eventually(func() error {
-		return isSocketAvailable(opts.Address)
+		return isSocketAvailable(opts.Servers.GRPC.Addr)
 	}).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
 
-	address, err := machine.GetAddressWithTimeout(3*time.Second, fmt.Sprintf("unix://%s", opts.Address))
+	address, err := machine.GetAddressWithTimeout(3*time.Second, fmt.Sprintf("unix://%s", opts.Servers.GRPC.Addr))
 	Expect(err).NotTo(HaveOccurred())
 
 	gconn, err := grpc.Dial(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
