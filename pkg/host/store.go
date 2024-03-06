@@ -165,12 +165,14 @@ func (s *Store[E]) Delete(_ context.Context, id string) error {
 		return s.delete(id)
 	}
 
-	now := time.Now()
-	obj.SetDeletedAt(&now)
-	obj.IncrementResourceVersion()
+	if obj.GetDeletedAt() == nil {
+		now := time.Now()
+		obj.SetDeletedAt(&now)
+		obj.IncrementResourceVersion()
 
-	if _, err := s.set(obj); err != nil {
-		return fmt.Errorf("failed to set object metadata: %w", err)
+		if _, err := s.set(obj); err != nil {
+			return fmt.Errorf("failed to set object metadata: %w", err)
+		}
 	}
 
 	s.enqueue(store.WatchEvent[E]{
