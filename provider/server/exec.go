@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -33,7 +32,7 @@ const (
 	StreamIdleTimeout     = 2 * time.Minute
 )
 
-var activeConsoleFlag int32
+var activeConsoles sync.Map
 
 type executorExec struct {
 	Libvirt         *libvirt.Libvirt
@@ -107,18 +106,17 @@ func (s *Server) ServeExec(w http.ResponseWriter, req *http.Request, token strin
 }
 
 func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser, _ remotecommand.TerminalSizeQueue) error {
-	// Check if a console is already active
-	if atomic.LoadInt32(&activeConsoleFlag) == 1 {
+	machineID := e.ExecRequest.MachineId
+
+	// Check if a console is already active for this machine
+	if _, ok := activeConsoles.Load(machineID); ok {
 		return errors.New("operation failed: Active console session exists for this domain")
 	}
 
-	// Atomically set the active console flag to indicate a console is active
-	atomic.StoreInt32(&activeConsoleFlag, 1)
-	defer atomic.StoreInt32(&activeConsoleFlag, 0)
+	activeConsoles.Store(machineID, true)
+	defer activeConsoles.Delete(machineID)
 
 	var wg sync.WaitGroup
-
-	machineID := e.ExecRequest.MachineId
 	log := logr.FromContextOrDiscard(ctx).WithName(machineID)
 
 	// Check if the apiMachine doesn't exist, to avoid making the libvirt-lookup call.
