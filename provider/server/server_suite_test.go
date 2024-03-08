@@ -42,7 +42,7 @@ const (
 	emptyDiskSize                  = 1024 * 1024 * 1024
 	baseURL                        = "http://localhost:20251"
 	streamingAddress               = "127.0.0.1:20251"
-	metricsAddress                 = "127.0.0.1:9090"
+	metricsAddress                 = "" // disable metrics server for integration tests
 )
 
 var (
@@ -109,7 +109,7 @@ var _ = BeforeSuite(func() {
 		StreamingAddress:            streamingAddress,
 		Servers: app.ServersOptions{
 			Metrics: app.HTTPServerOptions{
-				Addr: "127.0.0.1:9090",
+				Addr: metricsAddress,
 			},
 		},
 		Libvirt: app.LibvirtOptions{
