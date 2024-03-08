@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -31,6 +32,8 @@ const (
 	StreamCreationTimeout = 30 * time.Second
 	StreamIdleTimeout     = 2 * time.Minute
 )
+
+var activeConsoleFlag int32
 
 type executorExec struct {
 	Libvirt         *libvirt.Libvirt
@@ -104,6 +107,15 @@ func (s *Server) ServeExec(w http.ResponseWriter, req *http.Request, token strin
 }
 
 func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser, _ remotecommand.TerminalSizeQueue) error {
+	// Check if a console is already active
+	if atomic.LoadInt32(&activeConsoleFlag) == 1 {
+		return errors.New("operation failed: Active console session exists for this domain")
+	}
+
+	// Atomically set the active console flag to indicate a console is active
+	atomic.StoreInt32(&activeConsoleFlag, 1)
+	defer atomic.StoreInt32(&activeConsoleFlag, 0)
+
 	var wg sync.WaitGroup
 
 	machineID := e.ExecRequest.MachineId
@@ -133,6 +145,9 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 		return fmt.Errorf("failed to unmarshal domain: %w", err)
 	}
 
+	if domainXML.Devices == nil || len(domainXML.Devices.Consoles) == 0 {
+		return errors.New("device console not set in machine domainXML")
+	}
 	ttyPath := domainXML.Devices.Consoles[0].TTY
 
 	f, err := os.OpenFile(ttyPath, os.O_RDWR, 0)
@@ -142,6 +157,9 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 
 	// Wrap the input stream with an escape proxy. Escape Sequence Ctrl + ] = 29
 	inputReader := term.NewEscapeProxy(in, []byte{29})
+
+	// Print escape character information to the exec console
+	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\n")
 
 	wg.Add(2)
 	// ReadInput: go routine to read the input from the reader, and write to the terminal.
@@ -153,7 +171,7 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 			n, err := inputReader.Read(buf)
 			if err != nil {
 				if _, ok := err.(term.EscapeError); ok {
-					f.Close() // This is to close the writer.
+					f.Close() // This is to close the writer, allowing io.Copy to exit the loop.
 					log.Info("Closed reading the terminal. Escape sequence received")
 					return
 				}
