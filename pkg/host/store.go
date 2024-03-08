@@ -165,6 +165,10 @@ func (s *Store[E]) Delete(_ context.Context, id string) error {
 		return s.delete(id)
 	}
 
+	if obj.GetDeletedAt() != nil {
+		return nil
+	}
+
 	now := time.Now()
 	obj.SetDeletedAt(&now)
 	obj.IncrementResourceVersion()
