@@ -35,10 +35,9 @@ const (
 var activeConsoles sync.Map
 
 type executorExec struct {
-	Libvirt         *libvirt.Libvirt
-	ExecRequest     *iri.ExecRequest
-	VirshExecutable string
-	Machine         *api.Machine
+	Libvirt     *libvirt.Libvirt
+	ExecRequest *iri.ExecRequest
+	Machine     *api.Machine
 }
 
 func (s *Server) Exec(ctx context.Context, req *iri.ExecRequest) (*iri.ExecResponse, error) {
@@ -85,10 +84,9 @@ func (s *Server) ServeExec(w http.ResponseWriter, req *http.Request, token strin
 	}
 
 	exec := executorExec{
-		Libvirt:         s.libvirt,
-		ExecRequest:     request,
-		VirshExecutable: s.virshExecutable,
-		Machine:         apiMachine,
+		Libvirt:     s.libvirt,
+		ExecRequest: request,
+		Machine:     apiMachine,
 	}
 
 	handler, err := remotecommandserver.NewExecHandler(exec, remotecommandserver.ExecHandlerOptions{
@@ -115,9 +113,6 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 
 	activeConsoles.Store(machineID, true)
 	defer activeConsoles.Delete(machineID)
-
-	var wg sync.WaitGroup
-	log := logr.FromContextOrDiscard(ctx).WithName(machineID)
 
 	// Check if the apiMachine doesn't exist, to avoid making the libvirt-lookup call.
 	if e.Machine == nil {
@@ -158,6 +153,9 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 
 	// Print escape character information to the exec console
 	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\n")
+
+	var wg sync.WaitGroup
+	log := logr.FromContextOrDiscard(ctx).WithName(machineID)
 
 	wg.Add(2)
 	// ReadInput: go routine to read the input from the reader, and write to the terminal.

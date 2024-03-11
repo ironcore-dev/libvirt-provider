@@ -34,7 +34,7 @@
     cd ironcore
     ```
 
-2. **Build `irictl-machine`**
+1. **Build `irictl-machine`**
 
     ```bash
     go build -o bin/irictl-machine ./irictl-machine/cmd/irictl-machine/main.go
@@ -102,19 +102,19 @@
             device: oda
     ```
 
-2. **Listing machines**
+1. **Listing machines**
 
     ```bash
     irictl-machine --address=unix:<local-path-to-socket>/iri-machinebroker.sock get machine
     ```
 
-3. **Deleting machine**
+1. **Deleting machine**
 
     ```bash
     irictl-machine --address=unix:<local-path-to-socket>/iri-machinebroker.sock delete machine <machine UUID>
     ```
 
-4. **Taking machine console**
+1. **Taking machine console**
 
     ```bash
     irictl-machine --address=unix:<local-path-to-socket>/iri-machinebroker.sock exec <machine UUID>
@@ -135,7 +135,7 @@
     make docker-build
     ```
 
-2. **Deploy virtlet as kubernetes**
+1. **Deploy virtlet as kubernetes**
 
     ```bash
     make deploy

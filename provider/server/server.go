@@ -39,7 +39,6 @@ type Server struct {
 
 	execRequestCache request.Cache[*iri.ExecRequest]
 	libvirt          *libvirt.Libvirt
-	virshExecutable  string
 
 	enableHugepages bool
 
@@ -50,8 +49,7 @@ type Options struct {
 	// BaseURL is the base URL in form http(s)://host:port/path?query to produce request URLs relative to.
 	BaseURL string
 
-	Libvirt         *libvirt.Libvirt
-	VirshExecutable string
+	Libvirt *libvirt.Libvirt
 
 	IDGen idgen.IDGen
 
@@ -83,7 +81,6 @@ func New(opts Options) (*Server, error) {
 		baseURL:                baseURL,
 		idGen:                  opts.IDGen,
 		libvirt:                opts.Libvirt,
-		virshExecutable:        opts.VirshExecutable,
 		machineStore:           opts.MachineStore,
 		volumePlugins:          opts.VolumePlugins,
 		networkInterfacePlugin: opts.NetworkPlugins,
