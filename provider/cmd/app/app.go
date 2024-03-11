@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -92,10 +93,11 @@ type Options struct {
 }
 
 type HTTPServerOptions struct {
-	Addr         string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
-	IdleTimeout  time.Duration
+	Addr            string
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	IdleTimeout     time.Duration
+	GracefulTimeout time.Duration
 }
 
 type ServersOptions struct {
@@ -129,7 +131,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.Servers.Metrics.Addr, "servers-metrics-address", "", "Address to listen on exposing of metrics. If address isn't set, server is disabled.")
 	fs.DurationVar(&o.Servers.Metrics.ReadTimeout, "servers-metrics-readtimeout", 200*time.Millisecond, "Read timeout for metrics server.")
 	fs.DurationVar(&o.Servers.Metrics.WriteTimeout, "servers-metrics-writetimeout", 200*time.Millisecond, "Write timeout for metrics server.")
-	fs.DurationVar(&o.Servers.Metrics.IdleTimeout, "server-metrics-idletimeout", 1*time.Second, "Idle timeout for connections to metrics server.")
+	fs.DurationVar(&o.Servers.Metrics.IdleTimeout, "servers-metrics-idletimeout", 1*time.Second, "Idle timeout for connections to metrics server.")
+	fs.DurationVar(&o.Servers.Metrics.GracefulTimeout, "servers-metrics-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown metrics server. Ideally set it little longer as idletimeout.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
 	fs.Var(&o.GuestAgent, "guest-agent-type", fmt.Sprintf("Guest agent implementation to use. Available: %v", guestAgentOptionAvailable()))
@@ -496,22 +499,30 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 		IdleTimeout:  opts.IdleTimeout,
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
 	go func() {
+		defer wg.Done()
 		<-ctx.Done()
-		setupLog.Info("Shutting down streaming server")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+		setupLog.Info("Shutting down metrics server")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), opts.GracefulTimeout)
 		defer cancel()
 		locErr := srv.Shutdown(shutdownCtx)
 		if locErr != nil {
 			setupLog.Error(locErr, "metrics server wasn't shutdown properly")
+		} else {
+			setupLog.Info("Metrics server is shutdown")
 		}
-		setupLog.Info("Metrics server is shutdown")
 	}()
 
 	err := srv.ListenAndServe()
 	if err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("error listening / serving metrics server: %w", err)
 	}
+
+	setupLog.Info("Metrics server stopped serve new connections")
+
+	wg.Wait()
 
 	return nil
 }
