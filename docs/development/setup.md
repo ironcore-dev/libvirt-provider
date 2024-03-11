@@ -82,24 +82,24 @@
     Sample `iri-machine.yaml`:
 
     ```yaml
-        metadata:
-          id: 91076287116041d00fd421f43c3760389041dac4a8bd9201afba9a5baeb21c7
-          labels:
-            downward-api.machinepoollet.api.onmetal.de/root-machine-name: machine-hd4
-            downward-api.machinepoollet.api.onmetal.de/root-machine-namespace: default
-            downward-api.machinepoollet.api.onmetal.de/root-machine-uid: cab82eac-09d8-4428-9e6c-c98b40027b74
-            machinepoollet.api.onmetal.de/machine-name: machine-hd4
-            machinepoollet.api.onmetal.de/machine-namespace: default
-            machinepoollet.api.onmetal.de/machine-uid: cab82eac-09d8-4428-9e6c-c98b40027b74
-        spec:
-          class: x3-small
-          image:
-            image: ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1
-          volumes:
-          - empty_disk:
-              size_bytes: 5368709120
-            name: ephe-disk
-            device: oda
+    metadata:
+      id: 91076287116041d00fd421f43c3760389041dac4a8bd9201afba9a5baeb21c7
+      labels:
+        downward-api.machinepoollet.api.onmetal.de/root-machine-name: machine-hd4
+        downward-api.machinepoollet.api.onmetal.de/root-machine-namespace: default
+        downward-api.machinepoollet.api.onmetal.de/root-machine-uid: cab82eac-09d8-4428-9e6c-c98b40027b74
+        machinepoollet.api.onmetal.de/machine-name: machine-hd4
+        machinepoollet.api.onmetal.de/machine-namespace: default
+        machinepoollet.api.onmetal.de/machine-uid: cab82eac-09d8-4428-9e6c-c98b40027b74
+    spec:
+      class: x3-small
+      image:
+        image: ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1
+      volumes:
+      - empty_disk:
+          size_bytes: 5368709120
+        name: ephe-disk
+        device: oda
     ```
 
 1. **Listing machines**

@@ -107,11 +107,11 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 	machineID := e.ExecRequest.MachineId
 
 	// Check if a console is already active for this machine
-	if _, ok := activeConsoles.Load(machineID); ok {
+	_, loaded := activeConsoles.LoadOrStore(machineID, true)
+	if loaded {
 		return errors.New("operation failed: Active console session exists for this domain")
 	}
 
-	activeConsoles.Store(machineID, true)
 	defer activeConsoles.Delete(machineID)
 
 	// Check if the apiMachine doesn't exist, to avoid making the libvirt-lookup call.
