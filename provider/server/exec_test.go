@@ -38,9 +38,9 @@ var _ = Describe("Exec", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
+				g.Expect(err).To(SatisfyAny(
 					BeNil(),
 					MatchError(ContainSubstring("NotFound")),
 				))
@@ -60,9 +60,9 @@ var _ = Describe("Exec", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
