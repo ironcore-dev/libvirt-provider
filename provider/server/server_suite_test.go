@@ -122,10 +122,11 @@ var _ = BeforeSuite(func() {
 				ConnectionTimeout: 3 * time.Second,
 			},
 			Streaming: app.HTTPServerOptions{
-				Addr:         streamingAddress,
-				ReadTimeout:  200 * time.Millisecond,
-				WriteTimeout: 200 * time.Millisecond,
-				IdleTimeout:  1 * time.Second,
+				Addr:            streamingAddress,
+				ReadTimeout:     200 * time.Millisecond,
+				WriteTimeout:    200 * time.Millisecond,
+				IdleTimeout:     1 * time.Second,
+				GracefulTimeout: 2 * time.Second,
 			},
 		},
 	}
