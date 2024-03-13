@@ -55,9 +55,9 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
+				g.Expect(err).To(SatisfyAny(
 					BeNil(),
 					MatchError(ContainSubstring("NotFound")),
 				))
@@ -77,22 +77,22 @@ var _ = Describe("CreateMachine", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("ensuring machine is in running state and other status fields have been updated")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func(g Gomega) *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
@@ -160,9 +160,9 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
+				g.Expect(err).To(SatisfyAny(
 					BeNil(),
 					MatchError(ContainSubstring("NotFound")),
 				))
@@ -182,22 +182,22 @@ var _ = Describe("CreateMachine", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("ensuring machine is in running state and other status fields have been updated")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func(g Gomega) *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
@@ -277,9 +277,9 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
+				g.Expect(err).To(SatisfyAny(
 					BeNil(),
 					MatchError(ContainSubstring("NotFound")),
 				))
@@ -299,22 +299,22 @@ var _ = Describe("CreateMachine", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("ensuring machine is in running state and other status fields have been updated")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func(g Gomega) *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),
@@ -408,9 +408,9 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
+				g.Expect(err).To(SatisfyAny(
 					BeNil(),
 					MatchError(ContainSubstring("NotFound")),
 				))
@@ -430,22 +430,22 @@ var _ = Describe("CreateMachine", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("ensuring machine is in running state and other status fields have been updated")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func(g Gomega) *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("ObservedGeneration", BeZero()),

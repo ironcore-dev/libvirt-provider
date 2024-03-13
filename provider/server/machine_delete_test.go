@@ -56,21 +56,21 @@ var _ = Describe("DeleteMachine", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("ensuring machine is in running state")
-		Eventually(func() iri.MachineState {
+		Eventually(func(g Gomega) iri.MachineState {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
 			return listResp.Machines[0].Status.State
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
@@ -81,13 +81,13 @@ var _ = Describe("DeleteMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("ensuring machine is deleted")
-		Eventually(func() int {
+		Eventually(func(g Gomega) int {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return len(listResp.Machines)
 		}).Should(BeZero())
 
