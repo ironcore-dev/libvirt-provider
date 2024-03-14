@@ -71,7 +71,7 @@ var _ = Describe("DetachVolume", func() {
 
 		DeferCleanup(func(ctx SpecContext) {
 			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-			Expect(err).To(BeNil())
+			Expect(err).To(Succeed())
 			Eventually(func(g Gomega) bool {
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
