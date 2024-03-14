@@ -70,9 +70,9 @@ var _ = Describe("DetachVolume", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
+				g.Expect(err).To(SatisfyAny(
 					BeNil(),
 					MatchError(ContainSubstring("NotFound")),
 				))
@@ -92,22 +92,22 @@ var _ = Describe("DetachVolume", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("ensuring machine is in running state and other status fields have been updated")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func(g Gomega) *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(
@@ -131,11 +131,11 @@ var _ = Describe("DetachVolume", func() {
 
 		By("ensuring both the empty disks and a ceph volume is attached to a machine domain")
 		var disks []libvirtxml.DomainDisk
-		Eventually(func() int {
+		Eventually(func(g Gomega) int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			domainXML := &libvirtxml.Domain{}
-			Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
+			g.Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
 		}).Should(Equal(4))
@@ -155,12 +155,12 @@ var _ = Describe("DetachVolume", func() {
 		Expect(diskDetachResp).NotTo(BeNil())
 
 		By("ensuring empty disk disk-1 is unplugged from a machine domain")
-		Eventually(func() int {
+		Eventually(func(g Gomega) int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			domainXML := &libvirtxml.Domain{}
 			err = domainXML.Unmarshal(domainXMLData)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			disks = domainXML.Devices.Disks
 			return len(disks)
 		}).Should(Equal(3))
@@ -177,26 +177,26 @@ var _ = Describe("DetachVolume", func() {
 		Expect(volumeDetachResp).NotTo(BeNil())
 
 		By("ensuring ceph volume volume-1 is unplugged from a machine domain")
-		Eventually(func() int {
+		Eventually(func(g Gomega) int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			domainXML := &libvirtxml.Domain{}
 			err = domainXML.Unmarshal(domainXMLData)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			disks = domainXML.Devices.Disks
 			return len(disks)
 		}).Should(Equal(2))
 
 		By("ensuring detached disk and volume have been updated in machine status field")
-		Eventually(func() *iri.MachineStatus {
+		Eventually(func(g Gomega) *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(
