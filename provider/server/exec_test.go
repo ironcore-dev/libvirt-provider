@@ -37,18 +37,6 @@ var _ = Describe("Exec", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
-		})
-
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
 		Eventually(func() error {
