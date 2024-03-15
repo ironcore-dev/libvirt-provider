@@ -346,7 +346,7 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	}
 	log.V(1).Info("Removed Finalizer. Deletion completed")
 
-	err = manager.Deallocate(machine)
+	err = manager.Deallocate(machine, machine.Spec.Resources.DeepCopy())
 	if err != nil {
 		return fmt.Errorf("failed to deallocate resources: %w", err)
 	}
@@ -483,22 +483,6 @@ func (r *MachineReconciler) reconcileDomain(
 	if _, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
 		if !libvirt.IsNotFound(err) {
 			return "", nil, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
-		}
-
-		if !manager.HasMachineAllocatedResources(machine) {
-			err = manager.Allocate(machine)
-			if err != nil {
-				return api.MachineStatePending, nil, nil, fmt.Errorf("cannot allocate resources: %w", err)
-			}
-
-			_, err := r.machines.Update(ctx, machine)
-			if err != nil {
-				locErr := manager.Deallocate(machine)
-				if locErr != nil {
-					log.Error(err, "failed to deallocate resources")
-				}
-				return "", nil, nil, fmt.Errorf("cannot save allocated resources: %w", err)
-			}
 		}
 
 		log.V(1).Info("Creating new domain")

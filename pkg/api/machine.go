@@ -20,7 +20,6 @@ type Machine struct {
 type MachineSpec struct {
 	Power PowerState `json:"power"`
 
-	Class     string            `json:"class"`
 	Resources core.ResourceList `json:"resources,omitempty"`
 
 	Image    *string `json:"image"`

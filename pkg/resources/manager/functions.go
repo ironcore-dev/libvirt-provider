@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
@@ -23,23 +24,25 @@ func AddSource(source Source) error {
 // Allocate reserve resources base on machine class.
 // Allocated resources are saved into machine specification.
 // All resources has to allocated, partially allocation isn't supported.
-func Allocate(machine *api.Machine) error {
-	if HasMachineAllocatedResources(machine) {
-		return ErrResourceAlreadyRegistered
+func Allocate(machine *api.Machine, requiredResources core.ResourceList) error {
+	if len(requiredResources) == 0 {
+		return ErrResourcesEmpty
 	}
-
-	return mng.allocate(machine)
+	return mng.allocate(machine, requiredResources)
 }
 
 // Deallocate free all resources from machine class.
 // Deallocated resources are deleted from machine specification.
-// All resources has to deallocated, partially deallocation isn't supported.
-func Deallocate(machine *api.Machine) error {
+func Deallocate(machine *api.Machine, deallocateResources core.ResourceList) error {
+	if len(deallocateResources) == 0 {
+		return ErrResourcesEmpty
+	}
+
 	if !HasMachineAllocatedResources(machine) {
 		return nil
 	}
 
-	return mng.deallocate(machine)
+	return mng.deallocate(machine, deallocateResources)
 }
 
 // SetLogger sets logger for internal logging.
@@ -95,4 +98,13 @@ func GetSource(name string) (Source, error) {
 
 func GetSourcesAvailable() []string {
 	return []string{"memory", "cpu", "hugepages"}
+}
+
+func GetMachineClassRequiredResources(name string) (core.ResourceList, error) {
+	class, err := mng.getMachineClass(name)
+	if err != nil {
+		return nil, err
+	}
+
+	return class.resources.DeepCopy(), nil
 }

@@ -32,9 +32,13 @@ var (
 
 	ErrSourcesDummyIncompatible = errors.New("dummy source cannot be use with another sources")
 
+	ErrResourcesNotInitialized = errors.New("resources aren't initialized")
+	ErrResourcesEmpty          = errors.New("resources cannot be empty")
+
 	ErrResourceNotAvailable      = errors.New("not enough available resources")
 	ErrResourceUnsupported       = errors.New("resource isn't supported")
 	ErrResourceAlreadyRegistered = errors.New("resource is already registered")
+	ErrResourceNegativeQuantity  = errors.New("resource quantity is negative")
 
 	ErrMachineClassMissing = errors.New("machine class is missing")
 
@@ -237,7 +241,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 	return nil
 }
 
-func (r *resourceManager) allocate(machine *api.Machine) error {
+func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.ResourceList) error {
 	r.mx.Lock()
 	defer mng.mx.Unlock()
 
@@ -249,13 +253,6 @@ func (r *resourceManager) allocate(machine *api.Machine) error {
 	if err != nil {
 		return err
 	}
-
-	class, err := r.getMachineClass(machine.Spec.Class)
-	if err != nil {
-		return fmt.Errorf("failed to get class specification %s: %w", machine.Spec.Class, err)
-	}
-
-	requiredResources := class.resources.DeepCopy()
 
 	newAvailableResources, err := r.preallocateAvailableResources(requiredResources)
 	if err != nil {
@@ -270,12 +267,12 @@ func (r *resourceManager) allocate(machine *api.Machine) error {
 		}
 	}
 
+	assignResourcesIntoMachine(&machine.Spec, requiredResources)
+
 	r.resourcesAvailable = newAvailableResources
 
 	// error cannot ocurre here
 	_ = r.updateMachineClassAvailable()
-
-	machine.Spec.Resources = requiredResources
 
 	r.printAvailableResources("allocation")
 
@@ -301,7 +298,7 @@ func (r *resourceManager) preallocateAvailableResources(resources core.ResourceL
 	return newAvailableResources, nil
 }
 
-func (r *resourceManager) deallocate(machine *api.Machine) error {
+func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources core.ResourceList) error {
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
@@ -315,7 +312,7 @@ func (r *resourceManager) deallocate(machine *api.Machine) error {
 	}
 
 	newResources := r.resourcesAvailable
-	for key, resource := range machine.Spec.Resources {
+	for key, resource := range deallocateResources {
 		available, err := getResource(key, newResources)
 		if err != nil {
 			return err
@@ -330,6 +327,11 @@ func (r *resourceManager) deallocate(machine *api.Machine) error {
 		if err != nil {
 			return err
 		}
+	}
+
+	err = deassignResourcesFromMachine(&machine.Spec, deallocateResources)
+	if err != nil {
+		return err
 	}
 
 	r.resourcesAvailable = newResources
@@ -505,4 +507,55 @@ func removeSeparatorFromEnd(in string) string {
 	}
 
 	return in[:len(in)-len(sep)]
+}
+
+func assignResourcesIntoMachine(machineSpec *api.MachineSpec, requiredResources core.ResourceList) {
+	if len(machineSpec.Resources) == 0 {
+		machineSpec.Resources = requiredResources.DeepCopy()
+		return
+	}
+
+	for key, resource := range requiredResources {
+		quantity, ok := machineSpec.Resources[key]
+		if !ok {
+			machineSpec.Resources[key] = resource
+			continue
+		}
+
+		quantity.Add(resource)
+		machineSpec.Resources[key] = quantity
+	}
+}
+
+func deassignResourcesFromMachine(machineSpec *api.MachineSpec, deallocatedResources core.ResourceList) error {
+	if len(machineSpec.Resources) == 0 {
+		return ErrResourcesNotInitialized
+	}
+
+	machineResources := machineSpec.Resources.DeepCopy()
+	for key, resource := range deallocatedResources {
+		quantity, err := getResource(key, machineResources)
+		if err != nil {
+			return fmt.Errorf("failed to deassign resource %s: %w", key, err)
+		}
+
+		if quantity.Sign() == -1 {
+			return fmt.Errorf("failed to deassign resource %s: %w", key, ErrResourceNegativeQuantity)
+		}
+
+		quantity.Sub(resource)
+		if quantity.IsZero() {
+			delete(machineResources, key)
+		} else {
+			machineResources[key] = *quantity
+		}
+	}
+
+	if len(machineResources) == 0 {
+		machineResources = nil
+	}
+
+	machineSpec.Resources = machineResources
+
+	return nil
 }

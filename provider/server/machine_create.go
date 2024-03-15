@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/manager"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/provider/apiutils"
 )
@@ -64,7 +65,6 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		},
 		Spec: api.MachineSpec{
 			Power:             power,
-			Class:             iriMachine.Spec.Class,
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
@@ -81,8 +81,22 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		machine.Spec.Image = &iriMachine.Spec.Image.Image
 	}
 
+	requiredResources, err := manager.GetMachineClassRequiredResources(iriMachine.Spec.Class)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get class resources: %w", err)
+	}
+
+	err = manager.Allocate(machine, requiredResources)
+	if err != nil {
+		return nil, fmt.Errorf("cannot allocate resources: %w", err)
+	}
+
 	apiMachine, err := s.machineStore.Create(ctx, machine)
 	if err != nil {
+		locErr := manager.Deallocate(machine, machine.Spec.Resources.DeepCopy())
+		if locErr != nil {
+			log.Error(locErr, "failed to deallocate resources")
+		}
 		return nil, fmt.Errorf("failed to create machine: %w", err)
 	}
 
