@@ -37,9 +37,9 @@ var _ = Describe("UpdateMachinePower", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func() bool {
+			Eventually(func(g Gomega) bool {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				Expect(err).To(SatisfyAny(
+				g.Expect(err).To(SatisfyAny(
 					BeNil(),
 					MatchError(ContainSubstring("NotFound")),
 				))
@@ -59,22 +59,22 @@ var _ = Describe("UpdateMachinePower", func() {
 		Expect(domainXMLData).NotTo(BeEmpty())
 
 		By("ensuring domain for machine is in running state")
-		Eventually(func() libvirt.DomainState {
+		Eventually(func(g Gomega) libvirt.DomainState {
 			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			Expect(err).NotTo(HaveOccurred())
+			g.Expect(err).NotTo(HaveOccurred())
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("ensuring machine is in running state")
-		Eventually(func() bool {
+		Eventually(func(g Gomega) bool {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 
 			machineStatus := listResp.Machines[0].Status
 			return machineStatus.State == iri.MachineState_MACHINE_RUNNING
@@ -88,15 +88,15 @@ var _ = Describe("UpdateMachinePower", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		By("ensuring the correct power state")
-		Eventually(func() *iri.MachineSpec {
+		Eventually(func(g Gomega) *iri.MachineSpec {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
 				},
 			})
-			Expect(err).NotTo(HaveOccurred())
-			Expect(listResp.Machines).NotTo(BeEmpty())
-			Expect(listResp.Machines).Should(HaveLen(1))
+			g.Expect(err).NotTo(HaveOccurred())
+			g.Expect(listResp.Machines).NotTo(BeEmpty())
+			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Spec
 		}).Should(SatisfyAll(
 			HaveField("Power", Equal(iri.Power_POWER_OFF)),

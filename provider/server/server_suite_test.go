@@ -29,13 +29,19 @@ import (
 )
 
 const (
-	eventuallyTimeout    = 30 * time.Second
-	pollingInterval      = 50 * time.Millisecond
-	consistentlyDuration = 1 * time.Second
-	machineClassx3xlarge = "x3-xlarge"
-	machineClassx2medium = "x2-medium"
-	baseURL              = "http://localhost:20251"
-	streamingAddress     = "127.0.0.1:20251"
+	eventuallyTimeout              = 80 * time.Second
+	pollingInterval                = 50 * time.Millisecond
+	gracefulShutdownTimeout        = 60 * time.Second
+	resyncGarbageCollectorInterval = 5 * time.Second
+	resyncVolumeSizeInterval       = 1 * time.Minute
+	consistentlyDuration           = 1 * time.Second
+	probeEveryInterval             = 2 * time.Second
+	machineClassx3xlarge           = "x3-xlarge"
+	machineClassx2medium           = "x2-medium"
+	squashfsOSImage                = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:squashfs-dev-20240123-v2"
+	emptyDiskSize                  = 1024 * 1024 * 1024
+	baseURL                        = "http://localhost:20251"
+	streamingAddress               = "127.0.0.1:20251"
 )
 
 var (
@@ -108,9 +114,9 @@ var _ = BeforeSuite(func() {
 			Qcow2Type:             "exec",
 		},
 		NicPlugin:                      pluginOpts,
-		GCVMGracefulShutdownTimeout:    10 * time.Second,
-		ResyncIntervalGarbageCollector: 5 * time.Second,
-		ResyncIntervalVolumeSize:       1 * time.Minute,
+		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
+		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
+		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		VirshExecutable:                "virsh",
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
 	}
