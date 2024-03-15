@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"sync"
@@ -124,7 +125,8 @@ type MachineReconciler struct {
 	host              providerhost.Host
 	imageCache        providerimage.Cache
 	raw               raw.Raw
-	enableHugepages   bool
+
+	enableHugepages bool
 
 	volumePluginManager    *providervolume.PluginManager
 	networkInterfacePlugin providernetworkinterface.Plugin
@@ -383,7 +385,12 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain
 
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
-	if err := r.libvirt.DomainShutdownFlags(domain, libvirt.DomainShutdownAcpiPowerBtn); err != nil {
+
+	shutdownMode := libvirt.DomainShutdownAcpiPowerBtn
+	if machine.Spec.GuestAgent == api.GuestAgentQemu {
+		shutdownMode = libvirt.DomainShutdownGuestAgent
+	}
+	if err := r.libvirt.DomainShutdownFlags(domain, shutdownMode); err != nil {
 		if libvirt.IsNotFound(err) {
 			return false, nil
 		}
@@ -678,6 +685,10 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
+	if machine.Spec.GuestAgent != api.GuestAgentNone {
+		r.setGuestAgent(machine, domainDesc)
+	}
+
 	if machineImgRef := machine.Spec.Image; machineImgRef != nil && ptr.Deref(machineImgRef, "") != "" {
 		if err := r.setDomainImage(ctx, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
 			return nil, nil, nil, err
@@ -788,6 +799,34 @@ func (r *MachineReconciler) setTCMallocPath(domain *libvirtxml.Domain) error {
 		Value: r.tcMallocLibPath,
 	})
 	return nil
+}
+
+func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libvirtxml.Domain) {
+	if domainDesc.Devices == nil {
+		domainDesc.Devices = &libvirtxml.DomainDeviceList{}
+	}
+
+	if domainDesc.Devices.Channels == nil {
+		domainDesc.Devices.Channels = make([]libvirtxml.DomainChannel, 0, 1)
+	}
+
+	socketPath := filepath.Join(r.host.MachineDir(machine.GetID()), "qemu-guest-agent.sock")
+	agent := libvirtxml.DomainChannel{
+		Source: &libvirtxml.DomainChardevSource{
+			UNIX: &libvirtxml.DomainChardevSourceUNIX{
+				Mode: "bind",
+				Path: socketPath,
+			},
+		},
+		Target: &libvirtxml.DomainChannelTarget{
+			VirtIO: &libvirtxml.DomainChannelTargetVirtIO{
+				Name: "org.qemu.guest_agent.0",
+			},
+		},
+	}
+
+	domainDesc.Devices.Channels = append(domainDesc.Devices.Channels, agent)
+	machine.Status.GuestAgentStatus = &api.GuestAgentStatus{Addr: "unix://" + socketPath}
 }
 
 func (r *MachineReconciler) setDomainImage(

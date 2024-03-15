@@ -16,6 +16,7 @@ import (
 	"github.com/digitalocean/go-libvirt/socket/dialers"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/provider/cmd/app"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
@@ -117,6 +118,7 @@ var _ = BeforeSuite(func() {
 		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		VirshExecutable:                "virsh",
+		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())

@@ -79,6 +79,8 @@ type Options struct {
 
 	EnableHugepages bool
 
+	GuestAgent GuestAgentOption
+
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
 
@@ -115,6 +117,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.VirshExecutable, "virsh-executable", "virsh", "Path / name of the virsh executable.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
+	fs.Var(&o.GuestAgent, "guest-agent-type", fmt.Sprintf("Guest agent implementation to use. Available: %v", guestAgentOptionAvailable()))
 
 	// LibvirtOptions
 	fs.StringVar(&o.Libvirt.Socket, "libvirt-socket", o.Libvirt.Socket, "Path to the libvirt socket to use.")
@@ -342,6 +345,7 @@ func Run(ctx context.Context, opts Options) error {
 		NetworkPlugins:  nicPlugin,
 		VirshExecutable: opts.VirshExecutable,
 		EnableHugepages: opts.EnableHugepages,
+		GuestAgent:      opts.GuestAgent.GetAPIGuestAgent(),
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize server")

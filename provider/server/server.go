@@ -42,6 +42,8 @@ type Server struct {
 	virshExecutable  string
 
 	enableHugepages bool
+
+	guestAgent api.GuestAgent
 }
 
 type Options struct {
@@ -60,6 +62,7 @@ type Options struct {
 	VolumePlugins   *volume.PluginManager
 	NetworkPlugins  providernetworkinterface.Plugin
 	EnableHugepages bool
+	GuestAgent      api.GuestAgent
 }
 
 func setOptionsDefaults(o *Options) {
@@ -86,6 +89,7 @@ func New(opts Options) (*Server, error) {
 		networkInterfacePlugin: opts.NetworkPlugins,
 		machineClasses:         opts.MachineClasses,
 		enableHugepages:        opts.EnableHugepages,
+		guestAgent:             opts.GuestAgent,
 		execRequestCache:       request.NewCache[*iri.ExecRequest](),
 	}, nil
 }

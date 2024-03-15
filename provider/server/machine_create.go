@@ -76,6 +76,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
+			GuestAgent:        s.guestAgent,
 		},
 	}
 
