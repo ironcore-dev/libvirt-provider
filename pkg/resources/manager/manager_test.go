@@ -41,9 +41,11 @@ var _ = Describe("Resource Manager", Ordered, func() {
 	Context("without initialized manager", func() {
 		machine := api.Machine{}
 		It("should be failed with error ErrManagerNotInitialized", func() {
-			Expect(Allocate(&machine)).To(MatchError(ErrManagerNotInitialized))
-			machine.Spec.Resources = core.ResourceList{core.ResourceCPU: *resource.NewQuantity(1000, resource.DecimalSI)}
-			Expect(Deallocate(&machine)).To(MatchError(ErrManagerNotInitialized))
+			resources := core.ResourceList{core.ResourceCPU: *resource.NewQuantity(1000, resource.DecimalSI)}
+			Expect(Allocate(&machine, resources)).To(MatchError(ErrManagerNotInitialized))
+
+			machine.Spec.Resources = resources
+			Expect(Deallocate(&machine, machine.Spec.Resources.DeepCopy())).To(MatchError(ErrManagerNotInitialized))
 		})
 
 		It("should be return empty machine classes status", func() {
@@ -102,8 +104,10 @@ var _ = Describe("Resource Manager", Ordered, func() {
 		})
 
 		It("should allocate one machine", func() {
-			machine.Spec.Class = machineClasses[0].GetName()
-			Expect(Allocate(&machine)).NotTo(HaveOccurred())
+			requiredResource, err := GetMachineClassRequiredResources(machineClasses[0].GetName())
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(requiredResource).NotTo(BeEmpty())
+			Expect(Allocate(&machine, requiredResource)).NotTo(HaveOccurred())
 			Expect(machine.Spec.Resources).Should(HaveLen(2))
 			Expect(mng.resourcesAvailable).Should(Equal(core.ResourceList{
 				core.ResourceCPU:    *resource.NewQuantity(4000, resource.DecimalSI),
