@@ -386,7 +386,11 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
 
-	if err := r.libvirt.DomainShutdownFlags(domain, getShutdownMode(machine.Status.GuestAgentStatus)); err != nil {
+	shutdownMode := libvirt.DomainShutdownAcpiPowerBtn
+	if machine.Spec.GuestAgent == api.GuestAgentQemu {
+		shutdownMode = libvirt.DomainShutdownGuestAgent
+	}
+	if err := r.libvirt.DomainShutdownFlags(domain, shutdownMode); err != nil {
 		if libvirt.IsNotFound(err) {
 			return false, nil
 		}
@@ -822,7 +826,7 @@ func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libv
 	}
 
 	domainDesc.Devices.Channels = append(domainDesc.Devices.Channels, agent)
-	machine.Status.GuestAgentStatus = &api.GuestAgentStatus{Type: machine.Spec.GuestAgent, Addr: "unix://" + socketPath}
+	machine.Status.GuestAgentStatus = &api.GuestAgentStatus{Addr: "unix://" + socketPath}
 }
 
 func (r *MachineReconciler) setDomainImage(
@@ -922,12 +926,4 @@ func machineDomain(machineID string) libvirt.Domain {
 	return libvirt.Domain{
 		UUID: libvirtutils.UUIDStringToBytes(machineID),
 	}
-}
-
-func getShutdownMode(agent *api.GuestAgentStatus) libvirt.DomainShutdownFlagValues {
-	if agent != nil && agent.Type == api.GuestAgentQemu {
-		return libvirt.DomainShutdownGuestAgent
-	}
-
-	return libvirt.DomainShutdownAcpiPowerBtn
 }

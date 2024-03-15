@@ -119,6 +119,5 @@ const (
 )
 
 type GuestAgentStatus struct {
-	Type GuestAgent `json:"type"`
-	Addr string     `json:"addr,omitempty"`
+	Addr string `json:"addr,omitempty"`
 }
