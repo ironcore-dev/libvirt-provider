@@ -5,42 +5,99 @@ package raw
 
 import (
 	"fmt"
-	"os/exec"
-	"strconv"
+	"io"
+	"os"
 
+	"github.com/go-logr/logr"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	ctrl "sigs.k8s.io/controller-runtime"
 )
 
-type Exec struct {
-}
+type Exec struct{}
+
+const filePerm = 0644
 
 func (Exec) Create(filename string, opts ...CreateOption) error {
 	o := &CreateOptions{}
 	o.ApplyOptions(opts)
-	var seek string
+	log := ctrl.Log
 
-	if o.SourceFile == "" && o.Size == nil {
-		return fmt.Errorf("must specify Size when creating without source file")
-	}
-
-	ofilename := "of=" + filename
-	if o.Size != nil {
-		seek = "seek=" + strconv.FormatInt(*o.Size, 10) // TODO: verify if the disk size is proper, else G as a suffix
-	}
 	if o.SourceFile == "" {
-		outMsgDD, err := exec.Command("dd", "if=/dev/zero", ofilename, "bs=1", "count=0", seek).Output()
+		if o.Size == nil {
+			return fmt.Errorf("must specify Size when creating without source file")
+		}
+		seek := *o.Size
+		// Position the file cursor one byte before the desired seek position to write a single byte,
+		// to ensure that data is written at the exact byte position specified by seek.
+		err := createEmptyFileWithSeek(log, filename, seek-1)
 		if err != nil {
-			return fmt.Errorf("failed creating the ephemeral disk: %s, exit error %w", string(outMsgDD), err)
+			return fmt.Errorf("failed creating the empty ephemeral disk: %w", err)
 		}
 	} else {
-		ifilename := "if=" + o.SourceFile
-		outMsgDD, err := exec.Command("dd", ifilename, ofilename).Output()
+		err := copyFile(log, o.SourceFile, filename)
 		if err != nil {
-			return fmt.Errorf("failed creating the image for virtual disk: %s, exit error %w", string(outMsgDD), err)
+			return fmt.Errorf("failed creating the image for virtual disk: %w", err)
 		}
 	}
 
 	return nil
+}
+
+func createEmptyFileWithSeek(log logr.Logger, filename string, seek int64) error {
+	log = log.WithName("createEmptyFileWithSeek")
+	dstFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		destErr := dstFile.Close()
+		if destErr != nil {
+			log.Error(destErr, "error closing file", "Path", dstFile)
+		}
+	}()
+
+	_, err = dstFile.Seek(seek, io.SeekStart)
+	if err != nil {
+		return err
+	}
+
+	_, err = dstFile.Write([]byte{0})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func copyFile(log logr.Logger, src, dst string) error {
+	log = log.WithName("copyFile")
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		srcErr := srcFile.Close()
+		if srcErr != nil {
+			log.Error(srcErr, "error closing file", "Path", srcFile)
+		}
+	}()
+
+	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		destErr := dstFile.Close()
+		if destErr != nil {
+			log.Error(destErr, "error closing file", "Path", dstFile)
+		}
+	}()
+
+	_, err = io.Copy(dstFile, srcFile)
+
+	return err
 }
 
 func init() {
