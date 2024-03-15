@@ -32,12 +32,11 @@ const (
 	StreamIdleTimeout     = 2 * time.Minute
 )
 
-var activeConsoles sync.Map
-
 type executorExec struct {
-	Libvirt     *libvirt.Libvirt
-	ExecRequest *iri.ExecRequest
-	Machine     *api.Machine
+	Libvirt        *libvirt.Libvirt
+	ExecRequest    *iri.ExecRequest
+	Machine        *api.Machine
+	activeConsoles *sync.Map
 }
 
 func (s *Server) Exec(ctx context.Context, req *iri.ExecRequest) (*iri.ExecResponse, error) {
@@ -84,9 +83,10 @@ func (s *Server) ServeExec(w http.ResponseWriter, req *http.Request, token strin
 	}
 
 	exec := executorExec{
-		Libvirt:     s.libvirt,
-		ExecRequest: request,
-		Machine:     apiMachine,
+		Libvirt:        s.libvirt,
+		ExecRequest:    request,
+		Machine:        apiMachine,
+		activeConsoles: &s.activeConsoles,
 	}
 
 	handler, err := remotecommandserver.NewExecHandler(exec, remotecommandserver.ExecHandlerOptions{
@@ -107,12 +107,12 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 	machineID := e.ExecRequest.MachineId
 
 	// Check if a console is already active for this machine
-	_, loaded := activeConsoles.LoadOrStore(machineID, true)
+	_, loaded := e.activeConsoles.LoadOrStore(machineID, true)
 	if loaded {
 		return errors.New("operation failed: Active console session exists for this domain")
 	}
 
-	defer activeConsoles.Delete(machineID)
+	defer e.activeConsoles.Delete(machineID)
 
 	// Check if the apiMachine doesn't exist, to avoid making the libvirt-lookup call.
 	if e.Machine == nil {

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"sync"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
@@ -38,6 +39,7 @@ type Server struct {
 	machineClasses MachineClassRegistry
 
 	execRequestCache request.Cache[*iri.ExecRequest]
+	activeConsoles   sync.Map
 	libvirt          *libvirt.Libvirt
 
 	enableHugepages bool
@@ -88,6 +90,7 @@ func New(opts Options) (*Server, error) {
 		enableHugepages:        opts.EnableHugepages,
 		guestAgent:             opts.GuestAgent,
 		execRequestCache:       request.NewCache[*iri.ExecRequest](),
+		activeConsoles:         sync.Map{},
 	}, nil
 }
 
