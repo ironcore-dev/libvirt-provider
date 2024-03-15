@@ -9,7 +9,7 @@
 > ℹ️ **NOTE**:</br>
 > To be able to take exec console of the machine, you can follow any one of the below approaches:</br>
 > - Run the `libvirt-provider` as the `libvirt-qemu` user.</br>
-> - Create an entry with `devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=0660 0 0` in `/etc/fstab`.</br>
+> - Add user to `tty` group and create an entry with `devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=0660 0 0` in `/etc/fstab`.</br>
 > - Manually ensure that you have `0660` access permissions on the character files created in `/dev/pts`.</br>
 
 ## Prerequisites
