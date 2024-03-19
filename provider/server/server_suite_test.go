@@ -117,7 +117,6 @@ var _ = BeforeSuite(func() {
 		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
 		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
-		VirshExecutable:                "virsh",
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
 	}
 
