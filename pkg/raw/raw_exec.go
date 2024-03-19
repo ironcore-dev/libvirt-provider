@@ -15,12 +15,12 @@ import (
 
 type Exec struct{}
 
-const filePerm = 0644
+const filePerm = 0640
 
 func (Exec) Create(filename string, opts ...CreateOption) error {
 	o := &CreateOptions{}
 	o.ApplyOptions(opts)
-	log := ctrl.Log
+	log := ctrl.Log.WithName("raw-disk")
 
 	if o.SourceFile == "" {
 		if o.Size == nil {
@@ -63,11 +63,8 @@ func createEmptyFileWithSeek(log logr.Logger, filename string, seek int64) error
 	}
 
 	_, err = dstFile.Write([]byte{0})
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func copyFile(log logr.Logger, src, dst string) error {
