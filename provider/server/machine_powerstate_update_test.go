@@ -41,7 +41,7 @@ var _ = Describe("UpdateMachinePower", func() {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
 				g.Expect(err).Should(Succeed())
 			}).Should(Succeed())
-			Eventually(func(g Gomega) bool {
+			Eventually(func() bool {
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
