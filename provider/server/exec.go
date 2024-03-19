@@ -9,12 +9,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os/exec"
-	"strings"
+	"os"
 	"sync"
 	"time"
 
-	"github.com/creack/pty"
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
@@ -26,6 +24,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/client-go/tools/remotecommand"
+	"libvirt.org/go/libvirtxml"
 )
 
 const (
@@ -34,10 +33,10 @@ const (
 )
 
 type executorExec struct {
-	Libvirt         *libvirt.Libvirt
-	ExecRequest     *iri.ExecRequest
-	VirshExecutable string
-	Machine         *api.Machine
+	Libvirt        *libvirt.Libvirt
+	ExecRequest    *iri.ExecRequest
+	Machine        *api.Machine
+	activeConsoles *sync.Map
 }
 
 func (s *Server) Exec(ctx context.Context, req *iri.ExecRequest) (*iri.ExecResponse, error) {
@@ -84,10 +83,10 @@ func (s *Server) ServeExec(w http.ResponseWriter, req *http.Request, token strin
 	}
 
 	exec := executorExec{
-		Libvirt:         s.libvirt,
-		ExecRequest:     request,
-		VirshExecutable: s.virshExecutable,
-		Machine:         apiMachine,
+		Libvirt:        s.libvirt,
+		ExecRequest:    request,
+		Machine:        apiMachine,
+		activeConsoles: &s.activeConsoles,
 	}
 
 	handler, err := remotecommandserver.NewExecHandler(exec, remotecommandserver.ExecHandlerOptions{
@@ -105,17 +104,22 @@ func (s *Server) ServeExec(w http.ResponseWriter, req *http.Request, token strin
 }
 
 func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser, _ remotecommand.TerminalSizeQueue) error {
-	var wg sync.WaitGroup
-
 	machineID := e.ExecRequest.MachineId
-	log := logr.FromContextOrDiscard(ctx).WithName(machineID)
+
+	// Check if a console is already active for this machine
+	_, loaded := e.activeConsoles.LoadOrStore(machineID, true)
+	if loaded {
+		return errors.New("operation failed: Active console session exists for this domain")
+	}
+
+	defer e.activeConsoles.Delete(machineID)
 
 	// Check if the apiMachine doesn't exist, to avoid making the libvirt-lookup call.
 	if e.Machine == nil {
 		return fmt.Errorf("apiMachine %w in the store", store.ErrNotFound)
 	}
 
-	_, err := e.Libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
+	domain, err := e.Libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
 	if err != nil {
 		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
 			return fmt.Errorf("error looking up domain: %w", err)
@@ -124,20 +128,34 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 		return fmt.Errorf("machine %s has not yet been synced", machineID)
 	}
 
-	uri, err := e.Libvirt.ConnectGetUri()
+	domainXMLData, err := e.Libvirt.DomainGetXMLDesc(domain, 0)
 	if err != nil {
-		return fmt.Errorf("error getting connection uri")
+		return fmt.Errorf("failed to lookup domain: %w", err)
 	}
 
-	cmd := exec.CommandContext(ctx, e.VirshExecutable, "-c", strings.TrimSpace(uri), "console", machineID)
+	domainXML := &libvirtxml.Domain{}
+	if err := domainXML.Unmarshal(domainXMLData); err != nil {
+		return fmt.Errorf("failed to unmarshal domain: %w", err)
+	}
 
-	f, err := pty.Start(cmd)
+	if domainXML.Devices == nil || len(domainXML.Devices.Consoles) == 0 {
+		return errors.New("device console not set in machine domainXML")
+	}
+	ttyPath := domainXML.Devices.Consoles[0].TTY
+
+	f, err := os.OpenFile(ttyPath, os.O_RDWR, 0)
 	if err != nil {
-		return fmt.Errorf("error starting command: %w", err)
+		return fmt.Errorf("error opening PTY: %w", err)
 	}
 
 	// Wrap the input stream with an escape proxy. Escape Sequence Ctrl + ] = 29
 	inputReader := term.NewEscapeProxy(in, []byte{29})
+
+	// Print escape character information to the exec console
+	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\n")
+
+	var wg sync.WaitGroup
+	log := logr.FromContextOrDiscard(ctx).WithName(machineID)
 
 	wg.Add(2)
 	// ReadInput: go routine to read the input from the reader, and write to the terminal.
@@ -149,7 +167,7 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 			n, err := inputReader.Read(buf)
 			if err != nil {
 				if _, ok := err.(term.EscapeError); ok {
-					_, _ = f.Write(buf) // This is to close the writer.
+					f.Close() // This is to close the writer, allowing io.Copy to exit the loop.
 					log.Info("Closed reading the terminal. Escape sequence received")
 					return
 				}
@@ -172,11 +190,6 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 		_, _ = io.Copy(out, f)
 		log.Info("Closed writing to the terminal")
 	}()
-
-	if err := cmd.Wait(); err != nil {
-		// Avoid returning so that the function can verify if all go routines are terminated.
-		log.Error(err, "console command interrupted")
-	}
 
 	wg.Wait()
 	log.Info("Closed console for the machine")

@@ -285,7 +285,7 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 				continue
 			}
 
-			log.V(1).Info("requeue machine", "machineID", machine.ID, "eventID", evt.Event)
+			log.V(1).Info("requeue machine", "machineID", machine.ID, "lifecycleEventID", evt.Event)
 			r.queue.AddRateLimited(machine.ID)
 		case <-ctx.Done():
 			log.Info("Context done for libvirt event lifecycle.")

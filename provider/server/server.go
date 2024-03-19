@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"path"
+	"sync"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
@@ -38,8 +39,8 @@ type Server struct {
 	machineClasses MachineClassRegistry
 
 	execRequestCache request.Cache[*iri.ExecRequest]
+	activeConsoles   sync.Map
 	libvirt          *libvirt.Libvirt
-	virshExecutable  string
 
 	enableHugepages bool
 
@@ -50,8 +51,7 @@ type Options struct {
 	// BaseURL is the base URL in form http(s)://host:port/path?query to produce request URLs relative to.
 	BaseURL string
 
-	Libvirt         *libvirt.Libvirt
-	VirshExecutable string
+	Libvirt *libvirt.Libvirt
 
 	IDGen idgen.IDGen
 
@@ -83,7 +83,6 @@ func New(opts Options) (*Server, error) {
 		baseURL:                baseURL,
 		idGen:                  opts.IDGen,
 		libvirt:                opts.Libvirt,
-		virshExecutable:        opts.VirshExecutable,
 		machineStore:           opts.MachineStore,
 		volumePlugins:          opts.VolumePlugins,
 		networkInterfacePlugin: opts.NetworkPlugins,
@@ -91,6 +90,7 @@ func New(opts Options) (*Server, error) {
 		enableHugepages:        opts.EnableHugepages,
 		guestAgent:             opts.GuestAgent,
 		execRequestCache:       request.NewCache[*iri.ExecRequest](),
+		activeConsoles:         sync.Map{},
 	}, nil
 }
 

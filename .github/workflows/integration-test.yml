@@ -20,11 +20,11 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
-      
+
       - name: Setup MicroCeph
         run: |
           set -x
-          
+
           sudo snap install microceph --channel=quincy/stable
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y ceph-common
@@ -37,7 +37,7 @@ jobs:
           for flag in nosnaptrim noscrub nobackfill norebalance norecover noscrub nodeep-scrub; do
               sudo microceph.ceph osd set $flag
           done
-          
+
           # Repurpose the ephemeral disk for ceph OSD.
           sudo swapoff /mnt/swapfile
           ephemeral_disk="$(findmnt --noheadings --output SOURCE --target /mnt | sed 's/[0-9]\+$//')"
@@ -45,9 +45,9 @@ jobs:
           sudo rm -rf /etc/ceph
           sudo ln -s /var/snap/microceph/current/conf/ /etc/ceph
           sudo microceph enable rgw
-          
+
           sudo ceph osd pool create devpool 8
-          
+
           # Wait until there are no more "unkowns" pgs
           for _ in $(seq 60); do
             if sudo microceph.ceph pg stat | grep -wF unknown; then
@@ -60,7 +60,7 @@ jobs:
           sudo rbd create --size 5000 --pool devpool test-img
           sudo rm -f /snap/bin/rbd
           sudo chmod 644 /etc/ceph/ceph.client.admin.keyring
-      
+
       - name: Set Environment Variables
         run: |
           echo "CEPH_MONITORS=$(hostname):6789" >> $GITHUB_ENV
@@ -78,11 +78,15 @@ jobs:
           librbd-dev librados-dev libc-bin gcc
           sudo apt-get install -y qemu-kvm libvirt-daemon-system
           sudo systemctl enable --now libvirtd
-          sudo usermod -aG kvm,libvirt $USER
+          sudo usermod -aG kvm,libvirt,tty $USER
           sudo usermod -aG $(id -gn $USER) libvirt-qemu
           sudo setfacl -m user:$USER:rw /var/run/libvirt/libvirt-sock
           sudo update-ca-certificates
           sudo rm -rf /var/lib/apt/lists
+          sudo sed -i '$a\ devpts /dev/pts devpts rw,nosuid,noexec,relatime,gid=5,mode=0660 0 0' /etc/fstab
+          sudo mount -o remount /dev/pts
+
 
       - name: Run integration tests
-        run: make integration-tests
+        # Starting a new instance of the Bash shell to reflect the added permissions
+        run: sudo -H -E -u $USER bash -c 'make integration-tests'
