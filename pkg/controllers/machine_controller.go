@@ -12,7 +12,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"sync"
 	"time"
 
@@ -260,7 +259,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 }
 
 func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
-	eventChan, err := r.libvirt.LifecycleEvents(ctx)
+	lifecycleEvents, err := r.libvirt.LifecycleEvents(ctx)
 	if err != nil {
 		log.Error(err, "failed to subscribe to libvirt lifecycle events")
 		return
@@ -270,14 +269,24 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 
 	for {
 		select {
-		case ev, ok := <-eventChan:
+		case evt, ok := <-lifecycleEvents:
 			if !ok {
-				log.Error(fmt.Errorf("unexpected channel closure while waiting for data"), "failed to process libvirt event")
+				log.Error(fmt.Errorf("libvirt lifecycle event channel closed"), "failed to process event")
 				return
 			}
 
-			log.V(1).Info("requeue machine id " + ev.Dom.Name + " by lifecycle event ID " + strconv.FormatInt(int64(ev.Event), 10))
-			r.queue.AddRateLimited(ev.Dom.Name)
+			machine, err := r.machines.Get(ctx, evt.Dom.Name)
+			if err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					log.V(2).Info("Skipped: not managed by libvirt-provider", "machineID", machine.ID)
+					continue
+				}
+				log.Error(err, "failed to fetch machine from store")
+				continue
+			}
+
+			log.V(1).Info("requeue machine", "machineID", machine.ID, "eventID", evt.Event)
+			r.queue.AddRateLimited(machine.ID)
 		case <-ctx.Done():
 			log.Info("Context done for libvirt event lifecycle.")
 			return
