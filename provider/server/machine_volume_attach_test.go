@@ -22,9 +22,6 @@ var _ = Describe("AttachVolume", Ordered, func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Image: &iri.ImageSpec{
-						Image: squashfsOSImage,
-					},
 					Class: machineClassx3xlarge,
 				},
 			},
