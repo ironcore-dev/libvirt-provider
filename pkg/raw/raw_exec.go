@@ -44,22 +44,22 @@ func (Exec) Create(filename string, opts ...CreateOption) error {
 }
 
 func createEmptyFileWithSeek(log logr.Logger, filename string, seek int64) error {
-	log = log.WithName("createEmptyFileWithSeek")
+	log = log.WithName("createEmptyFileWithSeek").WithValues("filename", filename)
 	dstFile, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed opening destination file: %w", err)
 	}
 
 	defer func() {
 		destErr := dstFile.Close()
 		if destErr != nil {
-			log.Error(destErr, "error closing file", "Path", dstFile)
+			log.Error(destErr, "error closing file")
 		}
 	}()
 
 	_, err = dstFile.Seek(seek, io.SeekStart)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed seeking destination file: %w", err)
 	}
 
 	_, err = dstFile.Write([]byte{0})
@@ -68,27 +68,27 @@ func createEmptyFileWithSeek(log logr.Logger, filename string, seek int64) error
 }
 
 func copyFile(log logr.Logger, src, dst string) error {
-	log = log.WithName("copyFile")
+	log = log.WithName("copyFile").WithValues("source", src, "destination", dst)
 	srcFile, err := os.Open(src)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed opening source file: %w", err)
 	}
 	defer func() {
 		srcErr := srcFile.Close()
 		if srcErr != nil {
-			log.Error(srcErr, "error closing file", "Path", srcFile)
+			log.Error(srcErr, "error closing source file")
 		}
 	}()
 
 	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed opening destination file: %w", err)
 	}
 
 	defer func() {
 		destErr := dstFile.Close()
 		if destErr != nil {
-			log.Error(destErr, "error closing file", "Path", dstFile)
+			log.Error(destErr, "error closing destination file")
 		}
 	}()
 
