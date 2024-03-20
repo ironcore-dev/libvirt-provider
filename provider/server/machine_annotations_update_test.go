@@ -12,9 +12,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("UpdateMachineAnnotations", func() {
+var _ = Describe("UpdateMachineAnnotations", Ordered, func() {
 	It("should update machine annotations", func(ctx SpecContext) {
-		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -24,11 +23,10 @@ var _ = Describe("UpdateMachineAnnotations", func() {
 					},
 				},
 				Spec: &iri.MachineSpec{
-					Power:             iri.Power_POWER_ON,
-					Class:             machineClassx3xlarge,
-					IgnitionData:      ignitionData,
-					Volumes:           nil,
-					NetworkInterfaces: nil,
+					Image: &iri.ImageSpec{
+						Image: squashfsOSImage,
+					},
+					Class: machineClassx3xlarge,
 				},
 			},
 		})

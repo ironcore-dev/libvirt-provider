@@ -14,22 +14,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	osImage = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
-)
-
-var _ = Describe("CreateMachine", func() {
+var _ = Describe("CreateMachine", Ordered, func() {
 	It("should create a machine without boot image, volume and network interface", func(ctx SpecContext) {
 		By("creating a machine without boot image, volume and network interface")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
 					Class: machineClassx3xlarge,
 				},
 			},
@@ -40,7 +31,6 @@ var _ = Describe("CreateMachine", func() {
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
-			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
 			HaveField("Machine.Spec.Image", BeNil()),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
 			HaveField("Machine.Spec.IgnitionData", BeNil()),
@@ -106,13 +96,8 @@ var _ = Describe("CreateMachine", func() {
 		By("creating a machine without boot image")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
@@ -137,10 +122,8 @@ var _ = Describe("CreateMachine", func() {
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
-			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
 			HaveField("Machine.Spec.Image", BeNil()),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
-			HaveField("Machine.Spec.IgnitionData", BeNil()),
 			HaveField("Machine.Spec.Volumes", ContainElement(&iri.Volume{
 				Name: "disk-1",
 				EmptyDisk: &iri.EmptyDisk{
@@ -219,15 +202,10 @@ var _ = Describe("CreateMachine", func() {
 		By("creating a machine with boot image and single empty disk")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
 					Class:        machineClassx3xlarge,
 					IgnitionData: ignitionData,
@@ -254,8 +232,7 @@ var _ = Describe("CreateMachine", func() {
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
-			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image.Image", Equal(osImage)),
+			HaveField("Machine.Spec.Image.Image", Equal(squashfsOSImage)),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
 			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
 			HaveField("Machine.Spec.Volumes", ContainElement(&iri.Volume{
@@ -335,18 +312,12 @@ var _ = Describe("CreateMachine", func() {
 		By("creating a machine with boot image and multiple empty disks")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
-					Class:        machineClassx3xlarge,
-					IgnitionData: ignitionData,
+					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
 							Name: "disk-1",
@@ -377,10 +348,8 @@ var _ = Describe("CreateMachine", func() {
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
-			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image.Image", Equal(osImage)),
+			HaveField("Machine.Spec.Image.Image", Equal(squashfsOSImage)),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
-			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
 			HaveField("Machine.Spec.Volumes", ContainElements(
 				&iri.Volume{
 					Name:   "disk-1",

@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("ListMachine", func() {
+var _ = Describe("ListMachine", Ordered, func() {
 	It("should list machines", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
@@ -23,18 +23,10 @@ var _ = Describe("ListMachine", func() {
 					},
 				},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
-					Class: machineClassx3xlarge,
-					Volumes: []*iri.Volume{
-						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: 5368709120,
-							},
-							Device: "oda",
-						},
+					Image: &iri.ImageSpec{
+						Image: squashfsOSImage,
 					},
-					NetworkInterfaces: nil,
+					Class: machineClassx3xlarge,
 				},
 			},
 		})

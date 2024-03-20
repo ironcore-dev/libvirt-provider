@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Status", func() {
+var _ = Describe("Status", Ordered, func() {
 	It("should get list of supported machine class with calculated quantity in status", func(ctx SpecContext) {
 		By("getting machine class status")
 		statusResp, err := machineClient.Status(ctx, &iriv1alpha1.StatusRequest{})
@@ -36,16 +36,6 @@ var _ = Describe("Status", func() {
 					},
 				},
 				Quantity: mcr.GetQuantity(&machineClasses[0], hostResources),
-			},
-			&iriv1alpha1.MachineClassStatus{
-				MachineClass: &iriv1alpha1.MachineClass{
-					Name: machineClasses[1].Name,
-					Capabilities: &iriv1alpha1.MachineClassCapabilities{
-						CpuMillis:   machineClasses[1].Capabilities.CpuMillis,
-						MemoryBytes: machineClasses[1].Capabilities.MemoryBytes,
-					},
-				},
-				Quantity: mcr.GetQuantity(&machineClasses[1], hostResources),
 			},
 		))
 	})

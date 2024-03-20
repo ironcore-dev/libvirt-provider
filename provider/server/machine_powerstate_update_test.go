@@ -13,23 +13,18 @@ import (
 )
 
 // TODO: This test will require update after implementation of: https://github.com/ironcore-dev/libvirt-provider/issues/106
-var _ = Describe("UpdateMachinePower", func() {
+var _ = Describe("UpdateMachinePower", Ordered, func() {
 	It("should update machine power state", func(ctx SpecContext) {
-		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power:             iri.Power_POWER_ON,
-					Class:             machineClassx3xlarge,
-					IgnitionData:      ignitionData,
-					Volumes:           nil,
-					NetworkInterfaces: nil,
+					Image: &iri.ImageSpec{
+						Image: squashfsOSImage,
+					},
+					Power: iri.Power_POWER_ON,
+					Class: machineClassx3xlarge,
 				},
 			},
 		})

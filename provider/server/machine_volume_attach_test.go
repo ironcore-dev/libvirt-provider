@@ -15,18 +15,16 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("AttachVolume", func() {
+var _ = Describe("AttachVolume", Ordered, func() {
 	It("should correctly attach volume to machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
+					Image: &iri.ImageSpec{
+						Image: squashfsOSImage,
+					},
 					Class: machineClassx3xlarge,
 				},
 			},
