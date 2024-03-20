@@ -31,12 +31,12 @@ func (Exec) Create(filename string, opts ...CreateOption) error {
 		// to ensure that data is written at the exact byte position specified by seek.
 		err := createEmptyFileWithSeek(log, filename, seek-1)
 		if err != nil {
-			return fmt.Errorf("failed creating the empty ephemeral disk: %w", err)
+			return fmt.Errorf("failed creating the empty ephemeral disk %s: %w", filename, err)
 		}
 	} else {
 		err := copyFile(log, o.SourceFile, filename)
 		if err != nil {
-			return fmt.Errorf("failed creating the image for virtual disk: %w", err)
+			return fmt.Errorf("failed creating virtual disk image, source: %s, destination: %s: %w", o.SourceFile, filename, err)
 		}
 	}
 
@@ -71,7 +71,7 @@ func copyFile(log logr.Logger, src, dst string) error {
 	log = log.WithName("copyFile").WithValues("source", src, "destination", dst)
 	srcFile, err := os.Open(src)
 	if err != nil {
-		return fmt.Errorf("failed opening source file: %w", err)
+		return fmt.Errorf("failed opening source file %s: %w", src, err)
 	}
 	defer func() {
 		srcErr := srcFile.Close()
@@ -82,7 +82,7 @@ func copyFile(log logr.Logger, src, dst string) error {
 
 	dstFile, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, filePerm)
 	if err != nil {
-		return fmt.Errorf("failed opening destination file: %w", err)
+		return fmt.Errorf("failed opening destination file %s: %w", dst, err)
 	}
 
 	defer func() {
