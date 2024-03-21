@@ -103,20 +103,30 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 	}
 
 	var errs []error
+	var volumeStates []api.VolumeStatus
 	for volumeName := range currentVolumeNames {
-		if _, ok := specVolumes[volumeName]; ok {
+		_, ok := specVolumes[volumeName]
+		if ok {
 			continue
 		}
 
 		log.V(1).Info("Deleting non-required volume", "volumeName", volumeName)
-		if err := r.deleteVolume(ctx, log, mounter, attacher, volumeName); err != nil {
+		deleted, err := r.deleteVolume(ctx, log, mounter, attacher, volumeName)
+		if err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error detaching: %w", volumeName, err))
-		} else {
-			log.V(1).Info("Successfully detached volume", "volumeName", volumeName)
 		}
+
+		if deleted {
+			log.V(1).Info("Successfully detached volume", "volumeName", volumeName)
+			continue
+		}
+
+		volumeStates = append(volumeStates, api.VolumeStatus{
+			Name:  volumeName,
+			State: api.VolumeStatePending,
+		})
 	}
 
-	var volumeStates []api.VolumeStatus
 	for _, volume := range specVolumes {
 		log.V(1).Info("Reconciling volume", "volumeName", volume.Name)
 		volumeID, volumeSize, err := r.applyVolume(ctx, log, machine, volume, mounter, attacher)
@@ -140,18 +150,23 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 	return volumeStates, nil
 }
 
-func (r *MachineReconciler) deleteVolume(ctx context.Context, log logr.Logger, mounter VolumeMounter, attacher VolumeAttacher, volumeName string) error {
+func (r *MachineReconciler) deleteVolume(ctx context.Context, log logr.Logger, mounter VolumeMounter, attacher VolumeAttacher, volumeName string) (bool, error) {
 	log.V(1).Info("Detaching volume if attached")
-	if err := attacher.DetachVolume(volumeName); err != nil && !errors.Is(err, ErrAttachedVolumeNotFound) {
-		return fmt.Errorf("error detaching volume: %w", err)
+	err := attacher.DetachVolume(volumeName)
+	switch {
+	case err == nil:
+		return false, nil
+	case !errors.Is(err, ErrAttachedVolumeNotFound):
+		return false, fmt.Errorf("error detaching volume: %w", err)
+	default:
 	}
 
 	log.V(1).Info("Unmounting volume if mounted")
 	if err := mounter.DeleteVolume(ctx, volumeName); err != nil && !errors.Is(err, ErrMountedVolumeNotFound) {
-		return fmt.Errorf("error unmounting volume: %w", err)
+		return false, fmt.Errorf("error unmounting volume: %w", err)
 	}
 
-	return nil
+	return true, nil
 }
 
 type AttachVolume struct {
