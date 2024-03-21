@@ -62,7 +62,7 @@ var _ = Describe("DeleteMachine", Ordered, func() {
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
 		//allow some time for the vm to boot properly
-		time.Sleep(10 * time.Second)
+		time.Sleep(30 * time.Second)
 
 		By("deleting the machine")
 		_, err = machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{

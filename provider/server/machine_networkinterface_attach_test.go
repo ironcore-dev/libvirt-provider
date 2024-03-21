@@ -24,7 +24,7 @@ var _ = Describe("AttachNetworkInterface", Ordered, func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Class: machineClassx3xlarge,
+					Class: machineClassx2medium,
 					Image: &iri.ImageSpec{
 						Image: squashfsOSImage,
 					},

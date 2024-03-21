@@ -24,26 +24,16 @@ var _ = Describe("DetachNetworkInterface", Ordered, func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Class: machineClassx3xlarge,
+					Class: machineClassx2medium,
 					Image: &iri.ImageSpec{
 						Image: squashfsOSImage,
 					},
 					NetworkInterfaces: []*iri.NetworkInterface{
 						{
-							Name:      "nic-1",
-							NetworkId: "nid-1",
-							Ips:       []string{"192.168.1.1"},
-							Attributes: map[string]string{
-								"key1": "value1",
-							},
+							Name: "nic-1",
 						},
 						{
-							Name:      "nic-2",
-							NetworkId: "nid-2",
-							Ips:       []string{"192.168.1.2"},
-							Attributes: map[string]string{
-								"key2": "value2",
-							},
+							Name: "nic-2",
 						},
 					},
 				},

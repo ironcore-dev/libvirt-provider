@@ -78,6 +78,13 @@ var _ = BeforeSuite(func() {
 				MemoryBytes: 8589934592,
 			},
 		},
+		{
+			Name: machineClassx2medium,
+			Capabilities: &iriv1alpha1.MachineClassCapabilities{
+				CpuMillis:   2000,
+				MemoryBytes: 2147483648,
+			},
+		},
 	}
 	machineClassData, err := json.Marshal(machineClasses)
 	Expect(err).NotTo(HaveOccurred())

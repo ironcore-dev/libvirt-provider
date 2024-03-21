@@ -37,6 +37,16 @@ var _ = Describe("Status", Ordered, func() {
 				},
 				Quantity: mcr.GetQuantity(&machineClasses[0], hostResources),
 			},
+			&iriv1alpha1.MachineClassStatus{
+				MachineClass: &iriv1alpha1.MachineClass{
+					Name: machineClasses[1].Name,
+					Capabilities: &iriv1alpha1.MachineClassCapabilities{
+						CpuMillis:   machineClasses[1].Capabilities.CpuMillis,
+						MemoryBytes: machineClasses[1].Capabilities.MemoryBytes,
+					},
+				},
+				Quantity: mcr.GetQuantity(&machineClasses[1], hostResources),
+			},
 		))
 	})
 })
