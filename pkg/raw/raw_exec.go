@@ -29,13 +29,11 @@ func (Exec) Create(filename string, opts ...CreateOption) error {
 		seek := *o.Size
 		// Position the file cursor one byte before the desired seek position to write a single byte,
 		// to ensure that data is written at the exact byte position specified by seek.
-		err := createEmptyFileWithSeek(log, filename, seek-1)
-		if err != nil {
+		if err := createEmptyFileWithSeek(log, filename, seek-1); err != nil {
 			return fmt.Errorf("failed creating the empty ephemeral disk at %s: %w", filename, err)
 		}
 	} else {
-		err := copyFile(log, o.SourceFile, filename)
-		if err != nil {
+		if err := copyFile(log, o.SourceFile, filename); err != nil {
 			return fmt.Errorf("failed creating virtual disk image, source: %s, destination: %s: %w", o.SourceFile, filename, err)
 		}
 	}
@@ -55,14 +53,15 @@ func createEmptyFileWithSeek(log logr.Logger, filename string, seek int64) error
 		}
 	}()
 
-	_, err = dstFile.Seek(seek, io.SeekStart)
-	if err != nil {
+	if _, err = dstFile.Seek(seek, io.SeekStart); err != nil {
 		return fmt.Errorf("failed seeking destination file: %w", err)
 	}
 
-	_, err = dstFile.Write([]byte{0})
+	if _, err = dstFile.Write([]byte{0}); err != nil {
+		return fmt.Errorf("failed to write data to destination file: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func copyFile(log logr.Logger, src, dst string) error {
@@ -87,9 +86,11 @@ func copyFile(log logr.Logger, src, dst string) error {
 		}
 	}()
 
-	_, err = io.Copy(dstFile, srcFile)
+	if _, err = io.Copy(dstFile, srcFile); err != nil {
+		return fmt.Errorf("failed to copy data from source file to destination file: %w", err)
+	}
 
-	return err
+	return nil
 }
 
 func init() {
