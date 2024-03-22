@@ -50,9 +50,8 @@ func createEmptyFileWithSeek(log logr.Logger, filename string, seek int64) error
 	}
 
 	defer func() {
-		destErr := dstFile.Close()
-		if destErr != nil {
-			log.Error(destErr, "error closing file in createEmptyFileWithSeek")
+		if err := dstFile.Close(); err != nil {
+			log.Error(err, "error closing file in createEmptyFileWithSeek")
 		}
 	}()
 
