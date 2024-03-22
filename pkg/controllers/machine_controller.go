@@ -10,8 +10,8 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
-	"strconv"
 	"sync"
 	"time"
 
@@ -125,7 +125,8 @@ type MachineReconciler struct {
 	host              providerhost.Host
 	imageCache        providerimage.Cache
 	raw               raw.Raw
-	enableHugepages   bool
+
+	enableHugepages bool
 
 	volumePluginManager    *providervolume.PluginManager
 	networkInterfacePlugin providernetworkinterface.Plugin
@@ -259,7 +260,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 }
 
 func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
-	eventChan, err := r.libvirt.LifecycleEvents(ctx)
+	lifecycleEvents, err := r.libvirt.LifecycleEvents(ctx)
 	if err != nil {
 		log.Error(err, "failed to subscribe to libvirt lifecycle events")
 		return
@@ -269,14 +270,24 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 
 	for {
 		select {
-		case ev, ok := <-eventChan:
+		case evt, ok := <-lifecycleEvents:
 			if !ok {
-				log.Error(fmt.Errorf("unexpected channel closure while waiting for data"), "failed to process libvirt event")
+				log.Error(fmt.Errorf("libvirt lifecycle event channel closed"), "failed to process event")
 				return
 			}
 
-			log.V(1).Info("requeue machine id " + ev.Dom.Name + " by lifecycle event ID " + strconv.FormatInt(int64(ev.Event), 10))
-			r.queue.AddRateLimited(ev.Dom.Name)
+			machine, err := r.machines.Get(ctx, evt.Dom.Name)
+			if err != nil {
+				if errors.Is(err, store.ErrNotFound) {
+					log.V(2).Info("Skipped: not managed by libvirt-provider", "machineID", evt.Dom.Name)
+					continue
+				}
+				log.Error(err, "failed to fetch machine from store")
+				continue
+			}
+
+			log.V(1).Info("requeue machine", "machineID", machine.ID, "lifecycleEventID", evt.Event)
+			r.queue.AddRateLimited(machine.ID)
 		case <-ctx.Done():
 			log.Info("Context done for libvirt event lifecycle.")
 			return
@@ -384,7 +395,12 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, domain libvirt.Domain
 
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
-	if err := r.libvirt.DomainShutdownFlags(domain, libvirt.DomainShutdownAcpiPowerBtn); err != nil {
+
+	shutdownMode := libvirt.DomainShutdownAcpiPowerBtn
+	if machine.Spec.GuestAgent == api.GuestAgentQemu {
+		shutdownMode = libvirt.DomainShutdownGuestAgent
+	}
+	if err := r.libvirt.DomainShutdownFlags(domain, shutdownMode); err != nil {
 		if libvirt.IsNotFound(err) {
 			return false, nil
 		}
@@ -679,6 +695,10 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
+	if machine.Spec.GuestAgent != api.GuestAgentNone {
+		r.setGuestAgent(machine, domainDesc)
+	}
+
 	if machineImgRef := machine.Spec.Image; machineImgRef != nil && ptr.Deref(machineImgRef, "") != "" {
 		if err := r.setDomainImage(ctx, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
 			return nil, nil, nil, err
@@ -789,6 +809,34 @@ func (r *MachineReconciler) setTCMallocPath(domain *libvirtxml.Domain) error {
 		Value: r.tcMallocLibPath,
 	})
 	return nil
+}
+
+func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libvirtxml.Domain) {
+	if domainDesc.Devices == nil {
+		domainDesc.Devices = &libvirtxml.DomainDeviceList{}
+	}
+
+	if domainDesc.Devices.Channels == nil {
+		domainDesc.Devices.Channels = make([]libvirtxml.DomainChannel, 0, 1)
+	}
+
+	socketPath := filepath.Join(r.host.MachineDir(machine.GetID()), "qemu-guest-agent.sock")
+	agent := libvirtxml.DomainChannel{
+		Source: &libvirtxml.DomainChardevSource{
+			UNIX: &libvirtxml.DomainChardevSourceUNIX{
+				Mode: "bind",
+				Path: socketPath,
+			},
+		},
+		Target: &libvirtxml.DomainChannelTarget{
+			VirtIO: &libvirtxml.DomainChannelTargetVirtIO{
+				Name: "org.qemu.guest_agent.0",
+			},
+		},
+	}
+
+	domainDesc.Devices.Channels = append(domainDesc.Devices.Channels, agent)
+	machine.Status.GuestAgentStatus = &api.GuestAgentStatus{Addr: "unix://" + socketPath}
 }
 
 func (r *MachineReconciler) setDomainImage(

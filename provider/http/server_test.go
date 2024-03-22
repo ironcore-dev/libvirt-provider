@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	libvirtserver "github.com/ironcore-dev/libvirt-provider/provider/server"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -28,9 +29,12 @@ var _ = Describe("HTTP Handler", func() {
 		router http.Handler
 	)
 	BeforeEach(func() {
-		server, _ = libvirtserver.New(libvirtserver.Options{
-			BaseURL: baseURL,
+		var err error
+		server, err = libvirtserver.New(libvirtserver.Options{
+			BaseURL:    baseURL,
+			GuestAgent: api.GuestAgentNone,
 		})
+		Expect(err).ShouldNot(HaveOccurred())
 		router = NewHandler(server, HandlerOptions{})
 	})
 	Describe("NewHandler", func() {
