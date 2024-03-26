@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/go-logr/logr"
@@ -36,6 +37,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/qcow2"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	providerhttp "github.com/ironcore-dev/libvirt-provider/provider/http"
 	"github.com/ironcore-dev/libvirt-provider/provider/networkinterfaceplugin"
@@ -70,6 +72,8 @@ type Options struct {
 	StreamingAddress string
 	BaseURL          string
 
+	Servers ServersOptions
+
 	RootDir string
 
 	PathSupportedMachineClasses string
@@ -86,6 +90,18 @@ type Options struct {
 
 	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
+}
+
+type HTTPServerOptions struct {
+	Addr            string
+	ReadTimeout     time.Duration
+	WriteTimeout    time.Duration
+	IdleTimeout     time.Duration
+	GracefulTimeout time.Duration
+}
+
+type ServersOptions struct {
+	Metrics HTTPServerOptions
 }
 
 type LibvirtOptions struct {
@@ -111,6 +127,12 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.StreamingAddress, "streaming-address", "127.0.0.1:20251", "Address to run the streaming server on")
 	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
 		"constructed from the streaming-address")
+
+	fs.StringVar(&o.Servers.Metrics.Addr, "servers-metrics-address", "", "Address to listen on exposing of metrics. If address isn't set, server is disabled.")
+	fs.DurationVar(&o.Servers.Metrics.ReadTimeout, "servers-metrics-readtimeout", 200*time.Millisecond, "Read timeout for metrics server.")
+	fs.DurationVar(&o.Servers.Metrics.WriteTimeout, "servers-metrics-writetimeout", 200*time.Millisecond, "Write timeout for metrics server.")
+	fs.DurationVar(&o.Servers.Metrics.IdleTimeout, "servers-metrics-idletimeout", 1*time.Second, "Idle timeout for connections to metrics server.")
+	fs.DurationVar(&o.Servers.Metrics.GracefulTimeout, "servers-metrics-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown metrics server. Ideally set it little longer as idletimeout.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
 	fs.Var(&o.GuestAgent, "guest-agent-type", fmt.Sprintf("Guest agent implementation to use. Available: %v", guestAgentOptionAvailable()))
@@ -348,6 +370,11 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		return runMetricsServer(ctx, setupLog, opts.Servers.Metrics)
+	})
+
 	g.Go(func() error {
 		setupLog.Info("Starting image cache")
 		if err := imgCache.Start(ctx); err != nil {
@@ -450,5 +477,52 @@ func runStreamingServer(ctx context.Context, setupLog, log logr.Logger, srv *ser
 	if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		return fmt.Errorf("error listening / serving streaming server: %w", err)
 	}
+	return nil
+}
+
+func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServerOptions) error {
+	if opts.Addr == "" {
+		setupLog.Info("Metrics server address isn't configured. Metrics server is disabled.")
+		return nil
+	}
+
+	setupLog.Info("Starting metrics server on " + opts.Addr)
+
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+
+	srv := http.Server{
+		Addr:         opts.Addr,
+		Handler:      mux,
+		ReadTimeout:  opts.ReadTimeout,
+		WriteTimeout: opts.WriteTimeout,
+		IdleTimeout:  opts.IdleTimeout,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		setupLog.Info("Shutting down metrics server")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), opts.GracefulTimeout)
+		defer cancel()
+		locErr := srv.Shutdown(shutdownCtx)
+		if locErr != nil {
+			setupLog.Error(locErr, "metrics server wasn't shutdown properly")
+		} else {
+			setupLog.Info("Metrics server is shutdown")
+		}
+	}()
+
+	err := srv.ListenAndServe()
+	if err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("error listening / serving metrics server: %w", err)
+	}
+
+	setupLog.Info("Metrics server stopped serve new connections")
+
+	wg.Wait()
+
 	return nil
 }
