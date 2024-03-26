@@ -197,7 +197,6 @@ var _ = Describe("CreateMachine", Ordered, func() {
 		))
 	})
 
-	ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
 	It("should create a machine with boot image and single empty disk", func(ctx SpecContext) {
 		By("creating a machine with boot image and single empty disk")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
@@ -207,8 +206,7 @@ var _ = Describe("CreateMachine", Ordered, func() {
 					Image: &iri.ImageSpec{
 						Image: squashfsOSImage,
 					},
-					Class:        machineClassx3xlarge,
-					IgnitionData: ignitionData,
+					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
 							Name: "disk-1",
@@ -246,7 +244,7 @@ var _ = Describe("CreateMachine", Ordered, func() {
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
 			HaveField("Machine.Spec.Image.Image", Equal(squashfsOSImage)),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
-			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
+			HaveField("Machine.Spec.IgnitionData", BeNil()),
 			HaveField("Machine.Spec.Volumes", ContainElement(&iri.Volume{
 				Name:   "disk-1",
 				Device: "oda",
