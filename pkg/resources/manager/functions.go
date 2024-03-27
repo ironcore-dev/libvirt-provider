@@ -14,8 +14,6 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 )
 
-// TODO: we will need to solve additional allocation/deallocation (adding disk, network cards, ...)
-
 // AddSource just registers source into manager
 func AddSource(source Source) error {
 	return mng.addSource(source)

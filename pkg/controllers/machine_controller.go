@@ -351,17 +351,17 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	}
 	log.V(1).Info("Removed machine directory")
 
-	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
-	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
-		return fmt.Errorf("failed to update machine metadata: %w", err)
-	}
-	log.V(1).Info("Removed Finalizer. Deletion completed")
-
 	err = manager.Deallocate(machine, machine.Spec.Resources.DeepCopy())
 	if err != nil {
 		return fmt.Errorf("failed to deallocate resources: %w", err)
 	}
 	log.V(1).Info("Resources were deallocated")
+
+	machine.Finalizers = utils.DeleteSliceElement(machine.Finalizers, MachineFinalizer)
+	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
+		return fmt.Errorf("failed to update machine metadata: %w", err)
+	}
+	log.V(1).Info("Removed Finalizer. Deletion completed")
 
 	return nil
 }

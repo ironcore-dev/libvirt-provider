@@ -15,7 +15,6 @@ import (
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
-	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"
@@ -29,8 +28,6 @@ var (
 	ErrManagerNotInitialized     = errors.New("resource manager isn't initialized")
 	ErrManagerSourcesMissing     = errors.New("any source wasn't registered")
 	ErrManagerListFuncInvalid    = errors.New("invalid pointer to list machine function")
-
-	ErrSourcesDummyIncompatible = errors.New("dummy source cannot be use with another sources")
 
 	ErrResourcesNotInitialized = errors.New("resources aren't initialized")
 	ErrResourcesEmpty          = errors.New("resources cannot be empty")
@@ -123,18 +120,6 @@ func (r *resourceManager) loadTotalResources() error {
 		return ErrManagerSourcesMissing
 	}
 
-	// dummy source uses reference for change available sources in runtime.
-	dummySource, ok := r.sources[sources.NewSourceDummy(nil).GetName()]
-	if ok {
-		if len(r.sources) != 1 {
-			return ErrSourcesDummyIncompatible
-		}
-
-		var err error
-		r.resourcesAvailable, err = dummySource.GetTotalResources(r.ctx)
-		return err
-	}
-
 	for sourceName, source := range r.sources {
 		r.log.V(1).Info("loading total resources from source " + sourceName)
 		resources, err := source.GetTotalResources(r.ctx)
@@ -170,8 +155,8 @@ func (r *resourceManager) calculateAvailableResources(machines []*api.Machine) e
 }
 
 func (r *resourceManager) createMachineClasses() error {
-	r.machineClasses = make([]*machineclass, len(mng.tmpIRIMachineClasses))
-	for index, class := range mng.tmpIRIMachineClasses {
+	r.machineClasses = make([]*machineclass, len(r.tmpIRIMachineClasses))
+	for index, class := range r.tmpIRIMachineClasses {
 		resourceManagerClass := &machineclass{
 			// break reference
 			name:         class.GetName(),
@@ -243,7 +228,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.ResourceList) error {
 	r.mx.Lock()
-	defer mng.mx.Unlock()
+	defer r.mx.Unlock()
 
 	if r.operationError != nil {
 		return r.operationError
@@ -259,9 +244,9 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 		return err
 	}
 
-	if mng.numaScheduler != nil {
+	if r.numaScheduler != nil {
 		cpuQuantity := requiredResources[core.ResourceCPU]
-		err = mng.numaScheduler.Pin(uint(cpuQuantity.Value()/1000), machine)
+		err = r.numaScheduler.Pin(uint(cpuQuantity.Value()/1000), machine)
 		if err != nil {
 			return err
 		}
@@ -289,7 +274,7 @@ func (r *resourceManager) preallocateAvailableResources(resources core.ResourceL
 		}
 
 		available.Sub(resource)
-		if available.Value() < 0 {
+		if available.Sign() == -1 {
 			return nil, ErrResourceNotAvailable
 		}
 		newAvailableResources[key] = *available
@@ -322,8 +307,8 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 		newResources[key] = *available
 	}
 
-	if mng.numaScheduler != nil {
-		err = mng.numaScheduler.Unpin(machine)
+	if r.numaScheduler != nil {
+		err = r.numaScheduler.Unpin(machine)
 		if err != nil {
 			return err
 		}
@@ -347,7 +332,7 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 // updateMachineClassAvailable is updating count of available machines for all machine classes
 func (r *resourceManager) updateMachineClassAvailable() error {
 	for _, class := range r.machineClasses {
-		err := mng.calculateMachineClassQuantity(class)
+		err := r.calculateMachineClassQuantity(class)
 		if err != nil {
 			return err
 		}
@@ -490,15 +475,15 @@ func (r *resourceManager) getMachineClassAvailibilityAsString() string {
 // reset internal state of manager and allow reinit
 // Use it for unit test only.
 func (r *resourceManager) reset() {
-	mng.ctx = nil
-	mng.log = ctrl.Log
-	mng.machineClasses = nil
-	mng.numaScheduler = nil
-	mng.operationError = ErrManagerNotInitialized
-	mng.sources = map[string]Source{}
-	mng.resourcesAvailable = core.ResourceList{}
-	mng.tmpIRIMachineClasses = nil
-	mng.initialized = false
+	r.ctx = nil
+	r.log = ctrl.Log
+	r.machineClasses = nil
+	r.numaScheduler = nil
+	r.operationError = ErrManagerNotInitialized
+	r.sources = map[string]Source{}
+	r.resourcesAvailable = core.ResourceList{}
+	r.tmpIRIMachineClasses = nil
+	r.initialized = false
 }
 
 func removeSeparatorFromEnd(in string) string {
@@ -522,6 +507,8 @@ func assignResourcesIntoMachine(machineSpec *api.MachineSpec, requiredResources 
 			continue
 		}
 
+		// quantity use add function for support resources which can be extend during run (storage, network card)
+		// WARN: this logic can be problemtic in future, if machine can change machineclass during running
 		quantity.Add(resource)
 		machineSpec.Resources[key] = quantity
 	}
