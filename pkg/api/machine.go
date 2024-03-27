@@ -18,8 +18,8 @@ type Machine struct {
 type MachineSpec struct {
 	Power PowerState `json:"power"`
 
-	CpuMillis   int64 `json:"cpuMillis"`
-	MemoryBytes int64 `json:"memoryBytes"`
+	Resources       ResourceList    `json:"resources"`
+	NUMAPreferences NUMAPreferences `json:"numaPreferences,omitempty"`
 
 	Image    *string `json:"image"`
 	Ignition []byte  `json:"ignition"`
@@ -40,6 +40,7 @@ const (
 )
 
 type MachineStatus struct {
+	NUMAPlacement          NUMAPlacement            `json:"numaPlacement,omitempty"`
 	VolumeStatus           []VolumeStatus           `json:"volumeStatus"`
 	NetworkInterfaceStatus []NetworkInterfaceStatus `json:"networkInterfaceStatus"`
 	State                  MachineState             `json:"state"`
