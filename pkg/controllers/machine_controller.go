@@ -463,17 +463,18 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 
 	log.V(1).Info("Reconciling domain")
 	state, volumeStates, nicStates, err := r.reconcileDomain(ctx, log, machine)
+
 	if err != nil {
+		locErr := r.updateAPIMachineStatus(ctx, machine, state, volumeStates, nicStates)
+		if locErr != nil {
+			log.Error(locErr, "failed to update API machine")
+		}
 		return providerimage.IgnoreImagePulling(err)
 	}
 	log.V(1).Info("Reconciled domain")
 
-	machine.Status.VolumeStatus = volumeStates
-	machine.Status.NetworkInterfaceStatus = nicStates
-	machine.Status.State = state
-
-	if _, err = r.machines.Update(ctx, machine); err != nil {
-		return fmt.Errorf("failed to update image metadate: %w", err)
+	if err = r.updateAPIMachineStatus(ctx, machine, state, volumeStates, nicStates); err != nil {
+		return fmt.Errorf("failed to update API machine: %w", err)
 	}
 
 	return nil
@@ -493,7 +494,7 @@ func (r *MachineReconciler) reconcileDomain(
 		log.V(1).Info("Creating new domain")
 		volumeStates, nicStates, err := r.createDomain(ctx, log, machine)
 		if err != nil {
-			return "", nil, nil, err
+			return "", volumeStates, nil, err
 		}
 
 		log.V(1).Info("Created domain")
@@ -503,7 +504,7 @@ func (r *MachineReconciler) reconcileDomain(
 	log.V(1).Info("Updating existing domain")
 	volumeStates, nicStates, err := r.updateDomain(ctx, log, machine)
 	if err != nil {
-		return "", nil, nil, err
+		return "", volumeStates, nil, err
 	}
 
 	state, err := r.getMachineState(machine.ID)
@@ -529,14 +530,14 @@ func (r *MachineReconciler) updateDomain(
 		return nil, nil, fmt.Errorf("error construction volume attacher: %w", err)
 	}
 
-	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
+	volumeStates, err := r.reconcileVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		return nil, nil, fmt.Errorf("[volumes] %w", err)
+		return volumeStates, nil, fmt.Errorf("[volumes] %w", err)
 	}
 
 	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
-		return nil, nil, fmt.Errorf("[network interfaces] %w", err)
+		return volumeStates, nil, fmt.Errorf("[network interfaces] %w", err)
 	}
 
 	return volumeStates, nicStates, nil
@@ -715,7 +716,7 @@ func (r *MachineReconciler) domainFor(
 		return nil, nil, nil, err
 	}
 
-	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
+	volumeStates, err := r.reconcileVolumes(ctx, log, machine, attacher)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -929,6 +930,33 @@ func (r *MachineReconciler) getDomainDesc(machineID string) (*libvirtxml.Domain,
 		return nil, err
 	}
 	return domainXML, nil
+}
+
+func (r *MachineReconciler) updateAPIMachineStatus(ctx context.Context, machine *api.Machine, state api.MachineState, volumes []api.VolumeStatus, nics []api.NetworkInterfaceStatus) error {
+	// TODO: we can rewrite reconcile function for return whole new status structure.
+	requireUpdate := false
+
+	if state != "" && machine.Status.State != state {
+		requireUpdate = true
+		machine.Status.State = state
+	}
+
+	if volumes != nil {
+		requireUpdate = true
+		machine.Status.VolumeStatus = volumes
+	}
+
+	if nics != nil {
+		requireUpdate = true
+		machine.Status.NetworkInterfaceStatus = nics
+	}
+
+	if requireUpdate {
+		_, err := r.machines.Update(ctx, machine)
+		return err
+	}
+
+	return nil
 }
 
 func machineDomain(machineID string) libvirt.Domain {

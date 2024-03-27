@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 
 	"github.com/digitalocean/go-libvirt"
@@ -83,16 +84,17 @@ func getLastVolumeSize(machine *api.Machine, volumeID string) *int64 {
 	return nil
 }
 
-func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Logger, machine *api.Machine, attacher VolumeAttacher) ([]api.VolumeStatus, error) {
+// reconcileVolumes is doing attaching, detaching, deleting of volumes and it manage status of volumes
+func (r *MachineReconciler) reconcileVolumes(ctx context.Context, log logr.Logger, machine *api.Machine, attacher VolumeAttacher) ([]api.VolumeStatus, error) {
 	mounter := r.machineVolumeMounter(machine)
 	specVolumes := r.listDesiredVolumes(machine)
 
-	currentVolumeNames := sets.New[string]()
+	currentVolumeNames := sets.NewString()
 	if err := attacher.ForEachVolume(func(volume *AttachVolume) bool {
 		currentVolumeNames.Insert(volume.Name)
 		return true
 	}); err != nil {
-		return nil, fmt.Errorf("error iterating attached volumes: %w", err)
+		return nil, fmt.Errorf("error iteratin attached volumes: %w", err)
 	}
 
 	if err := mounter.ForEachVolume(func(volume *MountVolume) bool {
@@ -102,56 +104,95 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 		return nil, fmt.Errorf("error iterating mounted volumes: %w", err)
 	}
 
+	volumeStatus := machine.Status.GetVolumesAsMap()
 	var errs []error
 	for volumeName := range currentVolumeNames {
 		if _, ok := specVolumes[volumeName]; ok {
 			continue
 		}
 
+		status, ok := volumeStatus[volumeName]
+		if !ok {
+			errs = append(errs, fmt.Errorf("[volume %s] error detaching: cannot find in status", volumeName))
+			continue
+		}
+
 		log.V(1).Info("Deleting non-required volume", "volumeName", volumeName)
-		if err := r.deleteVolume(ctx, log, mounter, attacher, volumeName); err != nil {
+		deleted, err := r.deleteVolume(ctx, log, mounter, attacher, volumeName)
+		if err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error detaching: %w", volumeName, err))
+		}
+
+		if deleted {
+			delete(volumeStatus, volumeName)
 		} else {
-			log.V(1).Info("Successfully detached volume", "volumeName", volumeName)
+			status.State = api.VolumeStatePending
 		}
 	}
 
-	var volumeStates []api.VolumeStatus
 	for _, volume := range specVolumes {
 		log.V(1).Info("Reconciling volume", "volumeName", volume.Name)
+		status, ok := volumeStatus[volume.Name]
+		if !ok {
+			status = &api.VolumeStatus{
+				Name:  volume.Name,
+				State: api.VolumeStatePending,
+			}
+			volumeStatus[volume.Name] = status
+		}
+
 		volumeID, volumeSize, err := r.applyVolume(ctx, log, machine, volume, mounter, attacher)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error reconciling: %w", volume.Name, err))
 			continue
 		}
 
+		status.State = api.VolumeStateAttached
+		status.Handle = volumeID
+		status.Size = volumeSize
+
 		log.V(1).Info("Successfully reconciled volume", "volumeName", volume.Name, "volumeID", volumeID)
-		volumeStates = append(volumeStates, api.VolumeStatus{
-			Name:   volume.Name,
-			Handle: volumeID,
-			State:  api.VolumeStateAttached,
-			Size:   volumeSize,
-		})
 	}
+
+	newVolumeStatus := convertVolumesMapToListAndNormalize(volumeStatus)
 
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("attach/detach error(s): %v", errs)
+		return newVolumeStatus, fmt.Errorf("volume reconciliation error(s): %v", errs)
 	}
-	return volumeStates, nil
+	return newVolumeStatus, nil
 }
 
-func (r *MachineReconciler) deleteVolume(ctx context.Context, log logr.Logger, mounter VolumeMounter, attacher VolumeAttacher, volumeName string) error {
+func (r *MachineReconciler) deleteVolume(ctx context.Context, log logr.Logger, mounter VolumeMounter, attacher VolumeAttacher, volumeName string) (bool, error) {
+	deleted := false
 	log.V(1).Info("Detaching volume if attached")
-	if err := attacher.DetachVolume(volumeName); err != nil && !errors.Is(err, ErrAttachedVolumeNotFound) {
-		return fmt.Errorf("error detaching volume: %w", err)
+	if err := attacher.DetachVolume(volumeName); err != nil {
+		if !errors.Is(err, ErrAttachedVolumeNotFound) {
+			return deleted, fmt.Errorf("error detaching volume: %w", err)
+		}
+
+		log.V(1).Info("Successfully detached volume", "volumeName", volumeName)
+		log.V(1).Info("Unmounting volume if mounted")
+		if err := mounter.DeleteVolume(ctx, volumeName); err != nil && !errors.Is(err, ErrMountedVolumeNotFound) {
+			return deleted, fmt.Errorf("error unmounting volume: %w", err)
+		}
+		deleted = true
 	}
 
-	log.V(1).Info("Unmounting volume if mounted")
-	if err := mounter.DeleteVolume(ctx, volumeName); err != nil && !errors.Is(err, ErrMountedVolumeNotFound) {
-		return fmt.Errorf("error unmounting volume: %w", err)
+	return deleted, nil
+}
+
+func convertVolumesMapToListAndNormalize(currentStatus map[string]*api.VolumeStatus) []api.VolumeStatus {
+	newVolumeStatus := make([]api.VolumeStatus, 0, len(currentStatus))
+	for _, status := range currentStatus {
+		newVolumeStatus = append(newVolumeStatus, *status)
 	}
 
-	return nil
+	// sort is required for avoid reconcile loop triggered by different order of volumes.
+	sort.SliceStable(newVolumeStatus, func(i, j int) bool {
+		return newVolumeStatus[i].Name < newVolumeStatus[j].Name
+	})
+
+	return newVolumeStatus
 }
 
 type AttachVolume struct {
