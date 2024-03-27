@@ -94,9 +94,6 @@ type Options struct {
 
 type HTTPServerOptions struct {
 	Addr            string
-	ReadTimeout     time.Duration
-	WriteTimeout    time.Duration
-	IdleTimeout     time.Duration
 	GracefulTimeout time.Duration
 }
 
@@ -129,9 +126,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 		"constructed from the streaming-address")
 
 	fs.StringVar(&o.Servers.Metrics.Addr, "servers-metrics-address", "", "Address to listen on exposing of metrics. If address isn't set, server is disabled.")
-	fs.DurationVar(&o.Servers.Metrics.ReadTimeout, "servers-metrics-readtimeout", 200*time.Millisecond, "Read timeout for metrics server.")
-	fs.DurationVar(&o.Servers.Metrics.WriteTimeout, "servers-metrics-writetimeout", 200*time.Millisecond, "Write timeout for metrics server.")
-	fs.DurationVar(&o.Servers.Metrics.IdleTimeout, "servers-metrics-idletimeout", 1*time.Second, "Idle timeout for connections to metrics server.")
 	fs.DurationVar(&o.Servers.Metrics.GracefulTimeout, "servers-metrics-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown metrics server. Ideally set it little longer as idletimeout.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
@@ -492,11 +486,8 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 	mux.Handle("/metrics", promhttp.Handler())
 
 	srv := http.Server{
-		Addr:         opts.Addr,
-		Handler:      mux,
-		ReadTimeout:  opts.ReadTimeout,
-		WriteTimeout: opts.WriteTimeout,
-		IdleTimeout:  opts.IdleTimeout,
+		Addr:    opts.Addr,
+		Handler: mux,
 	}
 
 	var wg sync.WaitGroup
