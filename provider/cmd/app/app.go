@@ -36,6 +36,7 @@ import (
 	providerhost "github.com/ironcore-dev/libvirt-provider/pkg/providerhost"
 	"github.com/ironcore-dev/libvirt-provider/pkg/qcow2"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/manager"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -90,6 +91,8 @@ type Options struct {
 
 	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
+
+	ResourceManagerSources []string
 }
 
 type HTTPServerOptions struct {
@@ -144,6 +147,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.DurationVar(&o.GCVMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
 	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
+
+	fs.StringSliceVar(&o.ResourceManagerSources, "resource-manager-sources", []string{"cpu", "memory"}, fmt.Sprintf("Sources for loading resources. Available: %v", manager.GetSourcesAvailable()))
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -291,6 +296,19 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	setupLog.V(1).Info("Loading machine classes", "Path", opts.PathSupportedMachineClasses)
+	classes, err := mcr.LoadMachineClassesFile(opts.PathSupportedMachineClasses)
+	if err != nil {
+		setupLog.Error(err, "failed to load machine classes")
+		return err
+	}
+
+	machineClasses, err := mcr.NewMachineClassRegistry(classes)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize machine class registry")
+		return err
+	}
+
 	setupLog.Info("Configuring machine store", "Directory", providerHost.MachineStoreDir())
 	machineStore, err := host.NewStore(host.Options[*api.Machine]{
 		NewFunc:        func() *api.Machine { return &api.Machine{} },
@@ -309,6 +327,12 @@ func Run(ctx context.Context, opts Options) error {
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize machine events")
+		return err
+	}
+
+	err = initResourceManager(ctx, opts.ResourceManagerSources, machineStore, machineClasses)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize resource manager")
 		return err
 	}
 
@@ -332,19 +356,6 @@ func Run(ctx context.Context, opts Options) error {
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize machine controller")
-		return err
-	}
-
-	setupLog.V(1).Info("Loading machine classes", "Path", opts.PathSupportedMachineClasses)
-	classes, err := mcr.LoadMachineClassesFile(opts.PathSupportedMachineClasses)
-	if err != nil {
-		setupLog.Error(err, "failed to load machine classes")
-		return err
-	}
-
-	machineClasses, err := mcr.NewMachineClassRegistry(classes)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize machine class registry")
 		return err
 	}
 
@@ -516,4 +527,29 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 	wg.Wait()
 
 	return nil
+}
+
+func initResourceManager(ctx context.Context, requiredSources []string, machineStore *host.Store[*api.Machine], classRegistry *mcr.Mcr) error {
+	for _, sourceName := range requiredSources {
+		source, err := manager.GetSource(sourceName)
+		if err != nil {
+			return err
+		}
+		err = manager.AddSource(source)
+		if err != nil {
+			return err
+		}
+	}
+
+	err := manager.SetMachineClasses(classRegistry.List())
+	if err != nil {
+		return err
+	}
+
+	err = manager.SetLogger(ctrl.Log)
+	if err != nil {
+		return err
+	}
+
+	return manager.Initialize(ctx, machineStore.List)
 }

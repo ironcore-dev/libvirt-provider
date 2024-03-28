@@ -10,14 +10,10 @@ import (
 	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/manager"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/provider/apiutils"
 )
-
-func calcResources(class *iri.MachineClass) (int64, int64) {
-	//Todo do some magic
-	return class.Capabilities.CpuMillis, class.Capabilities.MemoryBytes
-}
 
 func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
 	log.V(2).Info("Getting libvirt machine config")
@@ -31,13 +27,11 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		return nil, fmt.Errorf("iri machine metadata is nil")
 	}
 
-	class, found := s.machineClasses.Get(iriMachine.Spec.Class)
+	_, found := s.machineClasses.Get(iriMachine.Spec.Class)
 	if !found {
 		return nil, fmt.Errorf("machine class '%s' not supported", iriMachine.Spec.Class)
 	}
 	log.V(2).Info("Validated class")
-
-	cpu, memory := calcResources(class)
 
 	power, err := s.getPowerStateFromIRI(iriMachine.Spec.Power)
 	if err != nil {
@@ -71,8 +65,6 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		},
 		Spec: api.MachineSpec{
 			Power:             power,
-			CpuMillis:         cpu,
-			MemoryBytes:       memory,
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
@@ -90,8 +82,22 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		machine.Spec.Image = &iriMachine.Spec.Image.Image
 	}
 
+	requiredResources, err := manager.GetMachineClassRequiredResources(iriMachine.Spec.Class)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get class resources: %w", err)
+	}
+
+	err = manager.Allocate(machine, requiredResources)
+	if err != nil {
+		return nil, fmt.Errorf("cannot allocate resources: %w", err)
+	}
+
 	apiMachine, err := s.machineStore.Create(ctx, machine)
 	if err != nil {
+		locErr := manager.Deallocate(machine, machine.Spec.Resources.DeepCopy())
+		if locErr != nil {
+			log.Error(locErr, "failed to deallocate resources")
+		}
 		return nil, fmt.Errorf("failed to create machine: %w", err)
 	}
 

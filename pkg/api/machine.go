@@ -6,6 +6,8 @@ package api
 import (
 	"net"
 	"time"
+
+	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 )
 
 type Machine struct {
@@ -18,8 +20,7 @@ type Machine struct {
 type MachineSpec struct {
 	Power PowerState `json:"power"`
 
-	CpuMillis   int64 `json:"cpuMillis"`
-	MemoryBytes int64 `json:"memoryBytes"`
+	Resources core.ResourceList `json:"resources,omitempty"`
 
 	Image    *string `json:"image"`
 	Ignition []byte  `json:"ignition"`
