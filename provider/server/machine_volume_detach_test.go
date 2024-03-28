@@ -15,20 +15,15 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("DetachVolume", func() {
+var _ = Describe("DetachVolume", Ordered, func() {
 	It("should correctly detach volume from machine", func(ctx SpecContext) {
 		By("creating a machine with two empty disks and single ceph volume")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{

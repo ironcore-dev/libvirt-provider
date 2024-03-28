@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Status", func() {
+var _ = Describe("Status", Ordered, func() {
 	It("should get list of supported machine class with calculated quantity in status", func(ctx SpecContext) {
 		By("getting machine class status")
 		statusResp, err := machineClient.Status(ctx, &iriv1alpha1.StatusRequest{})

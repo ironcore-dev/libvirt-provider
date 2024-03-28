@@ -22,8 +22,7 @@ import (
 	"k8s.io/kubectl/pkg/util/term"
 )
 
-var _ = Describe("Exec", func() {
-
+var _ = Describe("Exec", Ordered, func() {
 	It("should verify an exec-url with a token", func(ctx SpecContext) {
 		By("creating the test machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{

@@ -31,7 +31,7 @@ import (
 const (
 	eventuallyTimeout              = 80 * time.Second
 	pollingInterval                = 50 * time.Millisecond
-	gracefulShutdownTimeout        = 60 * time.Second
+	gracefulShutdownTimeout        = 30 * time.Second
 	resyncGarbageCollectorInterval = 5 * time.Second
 	resyncVolumeSizeInterval       = 1 * time.Minute
 	consistentlyDuration           = 1 * time.Second
@@ -152,6 +152,11 @@ var _ = BeforeSuite(func() {
 	Expect(libvirtConn.Connect()).To(Succeed())
 	Expect(libvirtConn.IsConnected(), BeTrue())
 	DeferCleanup(libvirtConn.ConnectClose)
+})
+
+var _ = AfterSuite(func() {
+	err := os.RemoveAll(tempDir)
+	Expect(err).ToNot(HaveOccurred(), "Error cleanup test folder")
 })
 
 func isSocketAvailable(socketPath string) error {

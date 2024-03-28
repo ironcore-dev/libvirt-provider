@@ -15,32 +15,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("DeleteMachine", func() {
-
+var _ = Describe("DeleteMachine", Ordered, func() {
 	It("should delete a machine with graceful shutdown", func(ctx SpecContext) {
 		By("creating a machine using squashfs os image")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
 						Image: squashfsOSImage,
 					},
 					Class: machineClassx3xlarge,
-					Volumes: []*iri.Volume{
-						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "oda",
-						},
-					},
 				},
 			},
 		})
@@ -123,24 +108,9 @@ var _ = Describe("DeleteMachine", func() {
 		By("creating a machine which may not boot properly")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
 					Class: machineClassx3xlarge,
-					Volumes: []*iri.Volume{
-						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "oda",
-						},
-					},
-					NetworkInterfaces: nil,
 				},
 			},
 		})
