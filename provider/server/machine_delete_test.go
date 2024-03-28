@@ -15,16 +15,13 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("DeleteMachine", func() {
-
+var _ = Describe("DeleteMachine", Ordered, func() {
 	It("should delete a machine with graceful shutdown", func(ctx SpecContext) {
 		By("creating a machine using squashfs os image")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
+					Labels: map[string]string{},
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
@@ -32,13 +29,10 @@ var _ = Describe("DeleteMachine", func() {
 						Image: squashfsOSImage,
 					},
 					Class: machineClassx3xlarge,
-					Volumes: []*iri.Volume{
+					NetworkInterfaces: []*iri.NetworkInterface{
 						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "oda",
+							Name:      "eth0",
+							NetworkId: networkID.Name,
 						},
 					},
 				},
@@ -76,8 +70,9 @@ var _ = Describe("DeleteMachine", func() {
 			return listResp.Machines[0].Status.State
 		}).Should(Equal(iri.MachineState_MACHINE_RUNNING))
 
-		//allow some time for the vm to boot properly
-		time.Sleep(30 * time.Second)
+		Eventually(func(g Gomega) {
+			isDomainVMUpAndRunning(g, libvirtConn, &domain, &networkID)
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 		By("deleting the machine")
 		_, err = machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{
@@ -106,7 +101,7 @@ var _ = Describe("DeleteMachine", func() {
 			})
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(listResp.Machines).To(BeEmpty())
-		}).Within(gracefulShutdownTimeout).ProbeEvery(probeEveryInterval).Should(Succeed()) // ProbeEvery has to be ideally less than or equal to half of ResyncIntervalGarbageCollector
+		}).WithTimeout(gracefulShutdownTimeout).WithPolling(pollingIntervalDeletion).Should(Succeed())
 
 		By("ensuring domain and domain XML is deleted for machine")
 		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
@@ -123,23 +118,11 @@ var _ = Describe("DeleteMachine", func() {
 		By("creating a machine which may not boot properly")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
-					Power: iri.Power_POWER_ON,
-					Class: machineClassx3xlarge,
-					Volumes: []*iri.Volume{
-						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "oda",
-						},
-					},
+					Power:             iri.Power_POWER_ON,
+					Class:             machineClassx3xlarge,
+					Volumes:           nil,
 					NetworkInterfaces: nil,
 				},
 			},
@@ -203,7 +186,8 @@ var _ = Describe("DeleteMachine", func() {
 			})
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(listResp.Machines).Should(HaveLen(1))
-		}).WithTimeout(gracefulShutdownTimeout).WithPolling(probeEveryInterval).Should(Succeed())
+			g.Expect(listResp.Machines[0].Status.State).Should(Equal(iri.MachineState_MACHINE_TERMINATING))
+		}).WithTimeout(gracefulShutdownTimeout).WithPolling(pollingIntervalDeletion).Should(Succeed())
 
 		By("ensuring machine is deleted after gracefulShutdownTimeout")
 		Eventually(func(g Gomega) {
