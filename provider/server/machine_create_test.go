@@ -54,12 +54,11 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
+			Eventually(func() error {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
+				return err
+			}).Should(Succeed())
+			Eventually(func() bool {
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -159,12 +158,11 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
+			Eventually(func() error {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
+				return err
+			}).Should(Succeed())
+			Eventually(func() bool {
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -276,12 +274,11 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
+			Eventually(func() error {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
+				return err
+			}).Should(Succeed())
+			Eventually(func() bool {
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
@@ -407,12 +404,11 @@ var _ = Describe("CreateMachine", func() {
 		))
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
+			Eventually(func() error {
 				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
+				return err
+			}).Should(Succeed())
+			Eventually(func() bool {
 				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
