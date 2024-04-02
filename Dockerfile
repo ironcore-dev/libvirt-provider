@@ -52,7 +52,6 @@ FROM busybox:1.36.1-uclibc as busybox
 FROM distroless-$TARGETARCH  as libvirt-provider
 WORKDIR /
 COPY --from=busybox /bin/sh /bin/sh
-COPY --from=busybox /bin/dd /bin/dd
 COPY --from=busybox /bin/mkdir /bin/mkdir
 COPY --from=builder /lib/${LIB_DIR_PREFIX}-linux-gnu/librados.so.2 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/librbd.so.1 \
