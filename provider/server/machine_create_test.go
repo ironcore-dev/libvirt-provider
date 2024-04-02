@@ -14,11 +14,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	osImage = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
-)
-
-var _ = Describe("CreateMachine", func() {
+var _ = Describe("CreateMachine", Ordered, func() {
 	It("should create a machine without boot image, volume and network interface", func(ctx SpecContext) {
 		By("creating a machine without boot image, volume and network interface")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
@@ -37,6 +33,18 @@ var _ = Describe("CreateMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				g.Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
+
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
@@ -52,18 +60,6 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.Volumes", BeNil()),
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
-
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
-		})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
@@ -125,7 +121,8 @@ var _ = Describe("CreateMachine", func() {
 					},
 					NetworkInterfaces: []*iri.NetworkInterface{
 						{
-							Name: "nic-1",
+							Name:      "nic-1",
+							NetworkId: networkID.Name,
 						},
 					},
 				},
@@ -133,6 +130,18 @@ var _ = Describe("CreateMachine", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
+
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				g.Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
 
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
@@ -149,7 +158,8 @@ var _ = Describe("CreateMachine", func() {
 				Device: "oda",
 			})),
 			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
-				Name: "nic-1",
+				Name:      "nic-1",
+				NetworkId: networkID.Name,
 			})),
 			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
@@ -157,18 +167,6 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.Volumes", BeNil()),
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
-
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
-		})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
@@ -227,7 +225,7 @@ var _ = Describe("CreateMachine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
 					Class:        machineClassx3xlarge,
 					IgnitionData: ignitionData,
@@ -242,7 +240,8 @@ var _ = Describe("CreateMachine", func() {
 					},
 					NetworkInterfaces: []*iri.NetworkInterface{
 						{
-							Name: "nic-1",
+							Name:      "nic-1",
+							NetworkId: networkID.Name,
 						},
 					},
 				},
@@ -250,30 +249,6 @@ var _ = Describe("CreateMachine", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
-
-		By("ensuring the correct creation response")
-		Expect(createResp).Should(SatisfyAll(
-			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
-			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image.Image", Equal(osImage)),
-			HaveField("Machine.Spec.Class", machineClassx3xlarge),
-			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
-			HaveField("Machine.Spec.Volumes", ContainElement(&iri.Volume{
-				Name:   "disk-1",
-				Device: "oda",
-				EmptyDisk: &iri.EmptyDisk{
-					SizeBytes: emptyDiskSize,
-				},
-			})),
-			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
-				Name: "nic-1",
-			})),
-			HaveField("Machine.Status.ObservedGeneration", BeZero()),
-			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
-			HaveField("Machine.Status.ImageRef", BeEmpty()),
-			HaveField("Machine.Status.Volumes", BeNil()),
-			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
-		))
 
 		DeferCleanup(func(ctx SpecContext) {
 			Eventually(func(g Gomega) bool {
@@ -286,6 +261,31 @@ var _ = Describe("CreateMachine", func() {
 				return libvirt.IsNotFound(err)
 			}).Should(BeTrue())
 		})
+
+		By("ensuring the correct creation response")
+		Expect(createResp).Should(SatisfyAll(
+			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
+			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
+			HaveField("Machine.Spec.Image.Image", Equal(squashfsOSImage)),
+			HaveField("Machine.Spec.Class", machineClassx3xlarge),
+			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
+			HaveField("Machine.Spec.Volumes", ContainElement(&iri.Volume{
+				Name:   "disk-1",
+				Device: "oda",
+				EmptyDisk: &iri.EmptyDisk{
+					SizeBytes: emptyDiskSize,
+				},
+			})),
+			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
+				Name:      "nic-1",
+				NetworkId: networkID.Name,
+			})),
+			HaveField("Machine.Status.ObservedGeneration", BeZero()),
+			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
+			HaveField("Machine.Status.ImageRef", BeEmpty()),
+			HaveField("Machine.Status.Volumes", BeNil()),
+			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
+		))
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
@@ -343,7 +343,7 @@ var _ = Describe("CreateMachine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
 					Class:        machineClassx3xlarge,
 					IgnitionData: ignitionData,
@@ -365,7 +365,8 @@ var _ = Describe("CreateMachine", func() {
 					},
 					NetworkInterfaces: []*iri.NetworkInterface{
 						{
-							Name: "nic-1",
+							Name:      "nic-1",
+							NetworkId: networkID.Name,
 						},
 					},
 				},
@@ -374,11 +375,23 @@ var _ = Describe("CreateMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				g.Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
+
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
 			HaveField("Machine.Spec.Power", iri.Power_POWER_ON),
-			HaveField("Machine.Spec.Image.Image", Equal(osImage)),
+			HaveField("Machine.Spec.Image.Image", Equal(squashfsOSImage)),
 			HaveField("Machine.Spec.Class", machineClassx3xlarge),
 			HaveField("Machine.Spec.IgnitionData", Equal(ignitionData)),
 			HaveField("Machine.Spec.Volumes", ContainElements(
@@ -397,7 +410,8 @@ var _ = Describe("CreateMachine", func() {
 					},
 				})),
 			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
-				Name: "nic-1",
+				Name:      "nic-1",
+				NetworkId: networkID.Name,
 			})),
 			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
@@ -405,18 +419,6 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.Volumes", BeNil()),
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
-
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
-		})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain

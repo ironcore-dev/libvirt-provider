@@ -17,38 +17,26 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("DetachNetworkInterface", func() {
+var _ = Describe("DetachNetworkInterface", Ordered, func() {
 	It("should detach a network interface from the machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Class: machineClassx2medium,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
 					NetworkInterfaces: []*iri.NetworkInterface{
 						{
 							Name:      "nic-1",
-							NetworkId: "nid-1",
-							Ips:       []string{"192.168.1.1"},
-							Attributes: map[string]string{
-								"key1": "value1",
-							},
+							NetworkId: networkID.Name,
 						},
 						{
 							Name:      "nic-2",
-							NetworkId: "nid-2",
-							Ips:       []string{"192.168.1.2"},
-							Attributes: map[string]string{
-								"key2": "value2",
-							},
+							NetworkId: networkID.Name,
 						},
 					},
 				},

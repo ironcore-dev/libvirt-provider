@@ -15,22 +15,24 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("DetachVolume", func() {
+var _ = Describe("DetachVolume", Ordered, func() {
 	It("should correctly detach volume from machine", func(ctx SpecContext) {
 		By("creating a machine with two empty disks and single ceph volume")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
-				Metadata: &irimeta.ObjectMetadata{
-					Labels: map[string]string{
-						"foo": "bar",
-					},
-				},
+				Metadata: &irimeta.ObjectMetadata{},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: osImage,
+						Image: squashfsOSImage,
 					},
 					Class: machineClassx3xlarge,
+					NetworkInterfaces: []*iri.NetworkInterface{
+						{
+							Name:      "eth0",
+							NetworkId: networkID.Name,
+						},
+					},
 					Volumes: []*iri.Volume{
 						{
 							Name: "disk-1",
@@ -143,8 +145,9 @@ var _ = Describe("DetachVolume", func() {
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
 		Expect(disks[2].Serial).To(HavePrefix("odc"))
 
-		// wait to complete machine reconciliation
-		time.Sleep(20 * time.Second)
+		Eventually(func(g Gomega) {
+			isDomainVMUpAndRunning(g, libvirtConn, &domain, &networkID)
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 
 		By("detaching empty disk disk-1 from machine")
 		diskDetachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{
@@ -164,9 +167,6 @@ var _ = Describe("DetachVolume", func() {
 			disks = domainXML.Devices.Disks
 			return len(disks)
 		}).Should(Equal(3))
-
-		// wait to complete machine reconciliation
-		time.Sleep(20 * time.Second)
 
 		By("detaching ceph volume  volume-1 from machine")
 		volumeDetachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{

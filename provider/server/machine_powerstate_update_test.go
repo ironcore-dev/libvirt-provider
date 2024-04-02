@@ -13,7 +13,7 @@ import (
 )
 
 // TODO: This test will require update after implementation of: https://github.com/ironcore-dev/libvirt-provider/issues/106
-var _ = Describe("UpdateMachinePower", func() {
+var _ = Describe("UpdateMachinePower", Ordered, func() {
 	It("should update machine power state", func(ctx SpecContext) {
 		ignitionData := []byte("urjhikmnbdjfkknhhdddeee")
 		By("creating a machine")

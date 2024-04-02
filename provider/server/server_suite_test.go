@@ -31,11 +31,11 @@ import (
 const (
 	eventuallyTimeout              = 80 * time.Second
 	pollingInterval                = 50 * time.Millisecond
+	pollingIntervalDeletion        = 2 * time.Second // it can be max half of resyncGarbageCollectorInterval
 	gracefulShutdownTimeout        = 60 * time.Second
 	resyncGarbageCollectorInterval = 5 * time.Second
 	resyncVolumeSizeInterval       = 1 * time.Minute
 	consistentlyDuration           = 1 * time.Second
-	probeEveryInterval             = 2 * time.Second
 	machineClassx3xlarge           = "x3-xlarge"
 	machineClassx2medium           = "x2-medium"
 	squashfsOSImage                = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:squashfs-dev-20240123-v2"
@@ -54,12 +54,14 @@ var (
 	cephImage          = os.Getenv("CEPH_IMAGE")
 	cephUsername       = os.Getenv("CEPH_USERNAME")
 	cephUserkey        = os.Getenv("CEPH_USERKEY")
+	networkID          = libvirt.Network{Name: "integration-test"}
 )
 
 func TestServer(t *testing.T) {
-	SetDefaultConsistentlyPollingInterval(pollingInterval)
 	SetDefaultEventuallyPollingInterval(pollingInterval)
 	SetDefaultEventuallyTimeout(eventuallyTimeout)
+
+	SetDefaultConsistentlyPollingInterval(pollingInterval)
 	SetDefaultConsistentlyDuration(consistentlyDuration)
 
 	RegisterFailHandler(Fail)
@@ -96,7 +98,7 @@ var _ = BeforeSuite(func() {
 	DeferCleanup(os.Remove, machineClassesFile.Name())
 
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
-	pluginOpts.PluginName = "isolated"
+	pluginOpts.PluginName = "providernet"
 
 	tempDir = GinkgoT().TempDir()
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
@@ -151,7 +153,13 @@ var _ = BeforeSuite(func() {
 	libvirtConn = libvirt.NewWithDialer(c)
 	Expect(libvirtConn.Connect()).To(Succeed())
 	Expect(libvirtConn.IsConnected(), BeTrue())
+
+	Expect(createOrGetNetwork(&networkID)).NotTo(HaveOccurred())
+
 	DeferCleanup(libvirtConn.ConnectClose)
+	DeferCleanup(func() {
+		Expect(deleteNetwork(libvirtConn, &networkID)).Should(Succeed())
+	})
 })
 
 func isSocketAvailable(socketPath string) error {
