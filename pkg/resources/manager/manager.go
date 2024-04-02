@@ -42,8 +42,6 @@ var (
 	ErrMachineHasAllocatedResources = errors.New("machine has already allocated resources")
 )
 
-type totalResourcesTuneFunc func(core.ResourceList) error
-
 func init() {
 	mng.reset()
 }
@@ -80,9 +78,6 @@ type resourceManager struct {
 	// operationError optimize execution of allocate and deallocate function
 	// and it serves as protection for calling function before initialization.
 	operationError error
-
-	// totalResourcesTuners tunes the availability of total resources for the vms
-	totalResourcesTuners []totalResourcesTuneFunc
 }
 
 func (r *resourceManager) addSource(source Source) error {
@@ -94,19 +89,6 @@ func (r *resourceManager) addSource(source Source) error {
 	}
 
 	r.sources[source.GetName()] = source
-
-	return nil
-}
-
-func (r *resourceManager) addTotalResourcesTuner(totalResourcesTuneFunc totalResourcesTuneFunc) error {
-	r.mx.Lock()
-	defer r.mx.Unlock()
-
-	if r.initialized {
-		return ErrManagerAlreadyInitialized
-	}
-
-	r.totalResourcesTuners = append(r.totalResourcesTuners, totalResourcesTuneFunc)
 
 	return nil
 }
@@ -151,12 +133,6 @@ func (r *resourceManager) loadTotalResources() error {
 			}
 
 			r.resourcesAvailable[name] = quantity
-		}
-	}
-
-	for _, tune := range r.totalResourcesTuners {
-		if err := tune(r.resourcesAvailable); err != nil {
-			return err
 		}
 	}
 

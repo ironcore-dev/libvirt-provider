@@ -68,13 +68,13 @@ var _ = Describe("Resource Manager", Ordered, func() {
 			mng.reset()
 
 			By("initialize with sources which manage same resources")
-			Expect(AddSource(sources.NewSourceHugepages())).NotTo(HaveOccurred())
-			Expect(AddSource(sources.NewSourceMemory())).NotTo(HaveOccurred())
+			Expect(AddSource(sources.NewSourceHugepages(sources.Options{}))).NotTo(HaveOccurred())
+			Expect(AddSource(sources.NewSourceMemory(sources.Options{}))).NotTo(HaveOccurred())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).To(MatchError(ErrResourceAlreadyRegistered))
 			mng.reset()
 
 			By("initialize without resources")
-			Expect(AddSource(sources.NewSourceDummy(nil))).NotTo(HaveOccurred())
+			Expect(AddSource(sources.NewSourceDummy(nil, sources.Options{}))).NotTo(HaveOccurred())
 			Expect(SetMachineClasses(machineClasses)).NotTo(HaveOccurred())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).Should(MatchError(ErrResourceUnsupported))
 			mng.reset()
@@ -92,14 +92,14 @@ var _ = Describe("Resource Manager", Ordered, func() {
 		It("should initialize", func() {
 			Expect(SetLogger(logger)).Should(Succeed())
 			Expect(SetMachineClasses(machineClasses)).Should(Succeed())
-			Expect(AddSource(sources.NewSourceDummy(totalResources))).Should(Succeed())
+			Expect(AddSource(sources.NewSourceDummy(totalResources, sources.Options{}))).Should(Succeed())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).Should(Succeed())
 		})
 
 		It("shouldn't be possible reinitialized or set parameters again", func() {
 			Expect(SetLogger(logger)).ShouldNot(Succeed())
 			Expect(SetMachineClasses(nil)).ShouldNot(Succeed())
-			Expect(AddSource(sources.NewSourceCPU(1))).ShouldNot(Succeed())
+			Expect(AddSource(sources.NewSourceCPU(sources.Options{OvercommitVCPU: 1.0}))).ShouldNot(Succeed())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).ShouldNot(Succeed())
 		})
 

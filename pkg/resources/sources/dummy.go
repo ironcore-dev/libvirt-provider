@@ -16,7 +16,7 @@ type Dummy struct {
 	totalResources core.ResourceList
 }
 
-func NewSourceDummy(totalResources core.ResourceList) *Dummy {
+func NewSourceDummy(totalResources core.ResourceList, _ Options) *Dummy {
 	return &Dummy{totalResources: totalResources}
 }
 

@@ -38,6 +38,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/qcow2"
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/resources/manager"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
@@ -93,7 +94,7 @@ type Options struct {
 	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 
-	ResourceManageroptions ResourceManageroptions
+	ResourceManageroptions sources.Options
 }
 
 type HTTPServerOptions struct {
@@ -114,11 +115,6 @@ type LibvirtOptions struct {
 	PreferredMachineTypes []string
 
 	Qcow2Type string
-}
-
-type ResourceManageroptions struct {
-	ResourceManagerSources        []string
-	ResourceManagerOvercommitVCPU float64
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
@@ -154,8 +150,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.GCVMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
 	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
 
-	fs.StringSliceVar(&o.ResourceManageroptions.ResourceManagerSources, "resource-manager-sources", []string{"cpu", "memory"}, fmt.Sprintf("Sources for loading resources. Available: %v", manager.GetSourcesAvailable()))
-	fs.Float64Var(&o.ResourceManageroptions.ResourceManagerOvercommitVCPU, "resource-manager-overcommit-vcpu", 1.0, "Sets the overcommit ratio for vCPUs, enabling higher VM density per CPU core.")
+	fs.StringSliceVar(&o.ResourceManageroptions.Sources, "resource-manager-sources", []string{"cpu", "memory"}, fmt.Sprintf("Sources for loading resources. Available: %v", manager.GetSourcesAvailable()))
+	fs.Float64Var(&o.ResourceManageroptions.OvercommitVCPU, "resource-manager-overcommit-vcpu", 1.0, "Sets the overcommit ratio for vCPUs, enabling higher VM density per CPU core.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -536,11 +532,11 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 	return nil
 }
 
-func initResourceManager(ctx context.Context, opts ResourceManageroptions, machineStore *host.Store[*api.Machine], classRegistry *mcr.Mcr) error {
-	for _, sourceName := range opts.ResourceManagerSources {
+func initResourceManager(ctx context.Context, opts sources.Options, machineStore *host.Store[*api.Machine], classRegistry *mcr.Mcr) error {
+	for _, sourceName := range opts.Sources {
 		source, err := manager.GetSource(
 			core.ResourceName(sourceName),
-			opts.ResourceManagerOvercommitVCPU)
+			opts)
 		if err != nil {
 			return err
 		}
@@ -548,14 +544,6 @@ func initResourceManager(ctx context.Context, opts ResourceManageroptions, machi
 		err = manager.AddSource(source)
 		if err != nil {
 			return err
-		}
-
-		switch source.GetName() {
-		case core.ResourceCPU:
-			err = manager.AddTotalResourcesTuner(source.TuneTotalResources)
-			if err != nil {
-				return err
-			}
 		}
 	}
 

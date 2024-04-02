@@ -19,7 +19,7 @@ const (
 
 type Memory struct{}
 
-func NewSourceMemory() *Memory {
+func NewSourceMemory(_ Options) *Memory {
 	return &Memory{}
 }
 
@@ -52,7 +52,7 @@ type Hugepages struct {
 	pageCount uint64
 }
 
-func NewSourceHugepages() *Hugepages {
+func NewSourceHugepages(_ Options) *Hugepages {
 	return &Hugepages{}
 }
 

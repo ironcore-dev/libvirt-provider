@@ -19,10 +19,6 @@ type Source interface {
 	// Example: Machineclasses contains memory size only, but if libvirt provider will use hugepages source.
 	//   Memory size has to be rounded to whole hugepages and it will create additional resource which count of hugepages.
 	Modify(core.ResourceList) error
-
-	// TuneTotalResources tunes the availability of total resources for the vms
-	// from the specific source
-	TuneTotalResources(core.ResourceList) error
 }
 
 type NumaScheduler interface {
