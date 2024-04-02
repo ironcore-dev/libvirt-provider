@@ -19,6 +19,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
+	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	"github.com/ironcore-dev/ironcore/broker/common"
 	commongrpc "github.com/ironcore-dev/ironcore/broker/common/grpc"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
@@ -92,7 +93,7 @@ type Options struct {
 	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 
-	ResourceManagerSources []string
+	ResourceManageroptions ResourceManageroptions
 }
 
 type HTTPServerOptions struct {
@@ -113,6 +114,11 @@ type LibvirtOptions struct {
 	PreferredMachineTypes []string
 
 	Qcow2Type string
+}
+
+type ResourceManageroptions struct {
+	ResourceManagerSources        []string
+	ResourceManagerOvercommitVCPU float64
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
@@ -148,7 +154,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.GCVMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
 	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
 
-	fs.StringSliceVar(&o.ResourceManagerSources, "resource-manager-sources", []string{"cpu", "memory"}, fmt.Sprintf("Sources for loading resources. Available: %v", manager.GetSourcesAvailable()))
+	fs.StringSliceVar(&o.ResourceManageroptions.ResourceManagerSources, "resource-manager-sources", []string{"cpu", "memory"}, fmt.Sprintf("Sources for loading resources. Available: %v", manager.GetSourcesAvailable()))
+	fs.Float64Var(&o.ResourceManageroptions.ResourceManagerOvercommitVCPU, "resource-manager-overcommit-vcpu", 1.0, "Sets the overcommit ratio for vCPUs, enabling higher VM density per CPU core.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -330,7 +337,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	err = initResourceManager(ctx, opts.ResourceManagerSources, machineStore, machineClasses)
+	err = initResourceManager(ctx, opts.ResourceManageroptions, machineStore, machineClasses)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize resource manager")
 		return err
@@ -529,15 +536,23 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 	return nil
 }
 
-func initResourceManager(ctx context.Context, requiredSources []string, machineStore *host.Store[*api.Machine], classRegistry *mcr.Mcr) error {
-	for _, sourceName := range requiredSources {
-		source, err := manager.GetSource(sourceName)
+func initResourceManager(ctx context.Context, opts ResourceManageroptions, machineStore *host.Store[*api.Machine], classRegistry *mcr.Mcr) error {
+	for _, sourceName := range opts.ResourceManagerSources {
+		source, err := manager.GetSource(
+			core.ResourceName(sourceName),
+			opts.ResourceManagerOvercommitVCPU)
 		if err != nil {
 			return err
 		}
+
 		err = manager.AddSource(source)
 		if err != nil {
 			return err
+		}
+
+		switch source.GetName() {
+		case core.ResourceCPU:
+			manager.AddTotalResourcesTuner(source.TuneTotalResources)
 		}
 	}
 

@@ -42,6 +42,8 @@ var (
 	ErrMachineHasAllocatedResources = errors.New("machine has already allocated resources")
 )
 
+type totalResourcesTuneFunc func(core.ResourceList) error
+
 func init() {
 	mng.reset()
 }
@@ -64,7 +66,7 @@ type resourceManager struct {
 	tmpIRIMachineClasses []*iri.MachineClass
 
 	// sources is register of all added sources
-	sources map[string]Source
+	sources map[core.ResourceName]Source
 
 	// resoruceAvailable keep current state of available resources
 	resourcesAvailable core.ResourceList
@@ -78,6 +80,9 @@ type resourceManager struct {
 	// operationError optimize execution of allocate and deallocate function
 	// and it serves as protection for calling function before initialization.
 	operationError error
+
+	// totalResourcesTuners tunes the availability of total resources for the vms
+	totalResourcesTuners []totalResourcesTuneFunc
 }
 
 func (r *resourceManager) addSource(source Source) error {
@@ -89,6 +94,19 @@ func (r *resourceManager) addSource(source Source) error {
 	}
 
 	r.sources[source.GetName()] = source
+
+	return nil
+}
+
+func (r *resourceManager) addTotalResourcesTuner(totalResourcesTuneFunc totalResourcesTuneFunc) error {
+	r.mx.Lock()
+	defer r.mx.Unlock()
+
+	if r.initialized {
+		return ErrManagerAlreadyInitialized
+	}
+
+	r.totalResourcesTuners = append(r.totalResourcesTuners, totalResourcesTuneFunc)
 
 	return nil
 }
@@ -121,7 +139,7 @@ func (r *resourceManager) loadTotalResources() error {
 	}
 
 	for sourceName, source := range r.sources {
-		r.log.V(1).Info("loading total resources from source " + sourceName)
+		r.log.V(1).Info("loading total resources from source " + string(sourceName))
 		resources, err := source.GetTotalResources(r.ctx)
 		if err != nil {
 			return err
@@ -133,6 +151,12 @@ func (r *resourceManager) loadTotalResources() error {
 			}
 
 			r.resourcesAvailable[name] = quantity
+		}
+	}
+
+	for _, tune := range r.totalResourcesTuners {
+		if err := tune(r.resourcesAvailable); err != nil {
+			return err
 		}
 	}
 
@@ -480,7 +504,7 @@ func (r *resourceManager) reset() {
 	r.machineClasses = nil
 	r.numaScheduler = nil
 	r.operationError = ErrManagerNotInitialized
-	r.sources = map[string]Source{}
+	r.sources = map[core.ResourceName]Source{}
 	r.resourcesAvailable = core.ResourceList{}
 	r.tmpIRIMachineClasses = nil
 	r.initialized = false

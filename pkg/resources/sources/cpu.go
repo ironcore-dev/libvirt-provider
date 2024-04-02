@@ -5,6 +5,7 @@ package sources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -13,10 +14,12 @@ import (
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 )
 
-type CPU struct{}
+type CPU struct {
+	OvercommitVCPU float64
+}
 
-func NewSourceCPU() *CPU {
-	return &CPU{}
+func NewSourceCPU(overCommitVCPU float64) *CPU {
+	return &CPU{OvercommitVCPU: overCommitVCPU}
 }
 
 func (c *CPU) GetTotalResources(ctx context.Context) (core.ResourceList, error) {
@@ -36,8 +39,8 @@ func (c *CPU) GetTotalResources(ctx context.Context) (core.ResourceList, error) 
 	return resources, nil
 }
 
-func (c *CPU) GetName() string {
-	return "cpu"
+func (c *CPU) GetName() core.ResourceName {
+	return core.ResourceCPU
 }
 
 // Modify rounding up cpu to total cores
@@ -49,6 +52,28 @@ func (c *CPU) Modify(resources core.ResourceList) error {
 
 	cpu.RoundUp(resource.Kilo)
 	resources[core.ResourceCPU] = cpu
+
+	return nil
+}
+
+func (c *CPU) TuneTotalResources(resources core.ResourceList) error {
+	if c.OvercommitVCPU == 0 || c.OvercommitVCPU < 0 {
+		return errors.New("overcommitVCPU cannot be zero or negative")
+	}
+
+	cpuQuantity, ok := resources[core.ResourceCPU]
+	if !ok {
+		return errors.New("failed to get CPU resource from resource manager")
+	}
+
+	totalCPU, ok := cpuQuantity.AsInt64()
+	if !ok {
+		return errors.New("failed to convert CPU quantity to int64")
+	}
+
+	totalCPUFloat := float64(totalCPU) * c.OvercommitVCPU
+
+	resources[core.ResourceCPU] = *resource.NewQuantity(int64(totalCPUFloat), resource.DecimalSI)
 
 	return nil
 }

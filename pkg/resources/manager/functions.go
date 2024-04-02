@@ -19,6 +19,11 @@ func AddSource(source Source) error {
 	return mng.addSource(source)
 }
 
+// AddTotalResourcesTuner just registers totalResourceTuners into manager
+func AddTotalResourcesTuner(totalResourcesTuneFunc totalResourcesTuneFunc) error {
+	return mng.addTotalResourcesTuner(totalResourcesTuneFunc)
+}
+
 // Allocate reserve resources base on machine class.
 // Allocated resources are saved into machine specification.
 // All resources has to allocated, partially allocation isn't supported.
@@ -81,13 +86,13 @@ func HasMachineAllocatedResources(machine *api.Machine) bool {
 	return len(machine.Spec.Resources) != 0
 }
 
-func GetSource(name string) (Source, error) {
+func GetSource(name core.ResourceName, overCommitVCPU float64) (Source, error) {
 	switch name {
-	case "memory":
+	case core.ResourceMemory:
 		return sources.NewSourceMemory(), nil
-	case "cpu":
-		return sources.NewSourceCPU(), nil
-	case "hugepages":
+	case core.ResourceCPU:
+		return sources.NewSourceCPU(overCommitVCPU), nil
+	case sources.ResourceHugepages:
 		return sources.NewSourceHugepages(), nil
 	default:
 		return nil, fmt.Errorf("unsupported source %s", name)

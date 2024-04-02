@@ -34,12 +34,16 @@ func (m *Memory) GetTotalResources(ctx context.Context) (core.ResourceList, erro
 	return resources, nil
 }
 
-func (m *Memory) GetName() string {
-	return "memory"
+func (m *Memory) GetName() core.ResourceName {
+	return core.ResourceMemory
 }
 
 // Modify is dummy function
 func (m *Memory) Modify(_ core.ResourceList) error {
+	return nil
+}
+
+func (m *Memory) TuneTotalResources(_ core.ResourceList) error {
 	return nil
 }
 
@@ -69,8 +73,8 @@ func (m *Hugepages) GetTotalResources(ctx context.Context) (core.ResourceList, e
 	return resources, nil
 }
 
-func (m *Hugepages) GetName() string {
-	return "hugepages"
+func (m *Hugepages) GetName() core.ResourceName {
+	return ResourceHugepages
 }
 
 // Modify set hugepages for resources and rounded up memory size
@@ -90,5 +94,9 @@ func (m *Hugepages) Modify(resources core.ResourceList) error {
 	// i don't want to do rounding
 	resources[core.ResourceMemory] = *resource.NewQuantity(int64(hugepages)*int64(m.pageSize), resource.DecimalSI)
 
+	return nil
+}
+
+func (m *Hugepages) TuneTotalResources(_ core.ResourceList) error {
 	return nil
 }

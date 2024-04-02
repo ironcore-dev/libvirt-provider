@@ -99,7 +99,7 @@ var _ = Describe("Resource Manager", Ordered, func() {
 		It("shouldn't be possible reinitialized or set parameters again", func() {
 			Expect(SetLogger(logger)).ShouldNot(Succeed())
 			Expect(SetMachineClasses(nil)).ShouldNot(Succeed())
-			Expect(AddSource(sources.NewSourceCPU())).ShouldNot(Succeed())
+			Expect(AddSource(sources.NewSourceCPU(1))).ShouldNot(Succeed())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).ShouldNot(Succeed())
 		})
 
