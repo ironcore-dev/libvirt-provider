@@ -162,17 +162,19 @@ func (h *host) OCIStore() *ocistore.Store {
 	return h.ociStore
 }
 
-const perm = 0777
+const (
+	permFolder = 0750
+)
 
 func PathsAt(rootDir string) (Paths, error) {
 	p := &paths{rootDir}
-	if err := os.MkdirAll(p.RootDir(), perm); err != nil {
+	if err := os.MkdirAll(p.RootDir(), permFolder); err != nil {
 		return nil, fmt.Errorf("error creating root directory: %w", err)
 	}
-	if err := os.MkdirAll(p.ImagesDir(), perm); err != nil {
+	if err := os.MkdirAll(p.ImagesDir(), permFolder); err != nil {
 		return nil, fmt.Errorf("error creating images directory: %w", err)
 	}
-	if err := os.MkdirAll(p.MachinesDir(), perm); err != nil {
+	if err := os.MkdirAll(p.MachinesDir(), permFolder); err != nil {
 		return nil, fmt.Errorf("error creating machines directory: %w", err)
 	}
 	return p, nil
@@ -292,19 +294,19 @@ func ReadMachineNetworkInterfaces(paths Paths, machineUID string) ([]MachineNetw
 }
 
 func MakeMachineDirs(paths Paths, machineUID string) error {
-	if err := os.MkdirAll(paths.MachineDir(machineUID), perm); err != nil {
+	if err := os.MkdirAll(paths.MachineDir(machineUID), permFolder); err != nil {
 		return fmt.Errorf("error creating machine directory: %w", err)
 	}
-	if err := os.MkdirAll(paths.MachineRootFSDir(machineUID), perm); err != nil {
+	if err := os.MkdirAll(paths.MachineRootFSDir(machineUID), permFolder); err != nil {
 		return fmt.Errorf("error creating machine rootfs directory: %w", err)
 	}
-	if err := os.MkdirAll(paths.MachineVolumesDir(machineUID), perm); err != nil {
+	if err := os.MkdirAll(paths.MachineVolumesDir(machineUID), permFolder); err != nil {
 		return fmt.Errorf("error creating machine disks directory: %w", err)
 	}
-	if err := os.MkdirAll(paths.MachineIgnitionsDir(machineUID), perm); err != nil {
+	if err := os.MkdirAll(paths.MachineIgnitionsDir(machineUID), permFolder); err != nil {
 		return fmt.Errorf("error creating machine ignitions directory: %w", err)
 	}
-	if err := os.MkdirAll(paths.MachineNetworkInterfacesDir(machineUID), perm); err != nil {
+	if err := os.MkdirAll(paths.MachineNetworkInterfacesDir(machineUID), permFolder); err != nil {
 		return fmt.Errorf("error creating machine network interfaces directory: %w", err)
 	}
 	return nil
