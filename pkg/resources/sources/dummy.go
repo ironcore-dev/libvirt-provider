@@ -32,7 +32,3 @@ func (d *Dummy) GetName() core.ResourceName {
 func (d *Dummy) Modify(_ core.ResourceList) error {
 	return nil
 }
-
-func (d *Dummy) TuneTotalResources(_ core.ResourceList) error {
-	return nil
-}

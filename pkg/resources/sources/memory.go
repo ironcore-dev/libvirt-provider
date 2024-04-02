@@ -43,10 +43,6 @@ func (m *Memory) Modify(_ core.ResourceList) error {
 	return nil
 }
 
-func (m *Memory) TuneTotalResources(_ core.ResourceList) error {
-	return nil
-}
-
 type Hugepages struct {
 	pageSize  uint64
 	pageCount uint64
@@ -94,9 +90,5 @@ func (m *Hugepages) Modify(resources core.ResourceList) error {
 	// i don't want to do rounding
 	resources[core.ResourceMemory] = *resource.NewQuantity(int64(hugepages)*int64(m.pageSize), resource.DecimalSI)
 
-	return nil
-}
-
-func (m *Hugepages) TuneTotalResources(_ core.ResourceList) error {
 	return nil
 }
