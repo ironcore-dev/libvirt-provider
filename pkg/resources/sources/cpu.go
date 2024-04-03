@@ -14,6 +14,8 @@ import (
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 )
 
+const SourceCPU string = "cpu"
+
 type CPU struct {
 	OvercommitVCPU float64
 }
@@ -23,7 +25,9 @@ func NewSourceCPU(options Options) *CPU {
 }
 
 func (c *CPU) GetTotalResources(ctx context.Context) (core.ResourceList, error) {
-	if c.OvercommitVCPU == 0 || c.OvercommitVCPU < 0 {
+	// To handle the limitations of floating-point arithmetic, where small rounding errors can occur
+	// due to the finite precision of floating-point numbers.
+	if c.OvercommitVCPU < 1e-9 {
 		return nil, errors.New("overcommitVCPU cannot be zero or negative")
 	}
 
@@ -39,14 +43,14 @@ func (c *CPU) GetTotalResources(ctx context.Context) (core.ResourceList, error) 
 
 	cpuQuantity := float64(hostCPUSum) * c.OvercommitVCPU
 	resources := core.ResourceList{
-		core.ResourceCPU: *resource.NewQuantity(int64(cpuQuantity*1000), resource.DecimalSI),
+		core.ResourceCPU: *resource.NewScaledQuantity(int64(cpuQuantity), resource.Kilo),
 	}
 
 	return resources, nil
 }
 
-func (c *CPU) GetName() core.ResourceName {
-	return core.ResourceCPU
+func (c *CPU) GetName() string {
+	return SourceCPU
 }
 
 // Modify rounding up cpu to total cores

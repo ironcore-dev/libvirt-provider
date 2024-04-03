@@ -81,13 +81,13 @@ func HasMachineAllocatedResources(machine *api.Machine) bool {
 	return len(machine.Spec.Resources) != 0
 }
 
-func GetSource(name core.ResourceName, options sources.Options) (Source, error) {
+func GetSource(name string, options sources.Options) (Source, error) {
 	switch name {
-	case core.ResourceMemory:
+	case sources.SourceMemory:
 		return sources.NewSourceMemory(options), nil
-	case core.ResourceCPU:
+	case sources.SourceCPU:
 		return sources.NewSourceCPU(options), nil
-	case sources.ResourceHugepages:
+	case sources.SourceHugepages:
 		return sources.NewSourceHugepages(options), nil
 	default:
 		return nil, fmt.Errorf("unsupported source %s", name)

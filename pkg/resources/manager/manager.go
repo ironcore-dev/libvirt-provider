@@ -64,7 +64,7 @@ type resourceManager struct {
 	tmpIRIMachineClasses []*iri.MachineClass
 
 	// sources is register of all added sources
-	sources map[core.ResourceName]Source
+	sources map[string]Source
 
 	// resoruceAvailable keep current state of available resources
 	resourcesAvailable core.ResourceList
@@ -121,7 +121,7 @@ func (r *resourceManager) loadTotalResources() error {
 	}
 
 	for sourceName, source := range r.sources {
-		r.log.V(1).Info("loading total resources from source " + string(sourceName))
+		r.log.V(1).Info("loading total resources from source " + sourceName)
 		resources, err := source.GetTotalResources(r.ctx)
 		if err != nil {
 			return err
@@ -480,7 +480,7 @@ func (r *resourceManager) reset() {
 	r.machineClasses = nil
 	r.numaScheduler = nil
 	r.operationError = ErrManagerNotInitialized
-	r.sources = map[core.ResourceName]Source{}
+	r.sources = map[string]Source{}
 	r.resourcesAvailable = core.ResourceList{}
 	r.tmpIRIMachineClasses = nil
 	r.initialized = false

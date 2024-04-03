@@ -15,6 +15,8 @@ import (
 
 const (
 	ResourceHugepages core.ResourceName = "hugepages"
+	SourceMemory      string            = "memory"
+	SourceHugepages   string            = "hugepages"
 )
 
 type Memory struct{}
@@ -34,8 +36,8 @@ func (m *Memory) GetTotalResources(ctx context.Context) (core.ResourceList, erro
 	return resources, nil
 }
 
-func (m *Memory) GetName() core.ResourceName {
-	return core.ResourceMemory
+func (m *Memory) GetName() string {
+	return SourceMemory
 }
 
 // Modify is dummy function
@@ -69,8 +71,8 @@ func (m *Hugepages) GetTotalResources(ctx context.Context) (core.ResourceList, e
 	return resources, nil
 }
 
-func (m *Hugepages) GetName() core.ResourceName {
-	return ResourceHugepages
+func (m *Hugepages) GetName() string {
+	return SourceHugepages
 }
 
 // Modify set hugepages for resources and rounded up memory size

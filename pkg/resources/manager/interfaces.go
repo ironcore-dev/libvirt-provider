@@ -12,7 +12,7 @@ import (
 
 type Source interface {
 	// GetName return name of source, ideally it has to be uniq
-	GetName() core.ResourceName
+	GetName() string
 	// GetTotalResource return total count of resources
 	GetTotalResources(context.Context) (core.ResourceList, error)
 	// Modify serves for modification resources base (rounding, create subresource).
