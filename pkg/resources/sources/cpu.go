@@ -41,9 +41,10 @@ func (c *CPU) GetTotalResources(ctx context.Context) (core.ResourceList, error) 
 		hostCPUSum += int64(v.Cores)
 	}
 
-	cpuQuantity := float64(hostCPUSum) * c.OvercommitVCPU
+	// Convert the calculated CPU quantity to an int64 to ensure that it represents a whole number of CPUs.
+	cpuQuantity := int64(float64(hostCPUSum) * c.OvercommitVCPU)
 	resources := core.ResourceList{
-		core.ResourceCPU: *resource.NewScaledQuantity(int64(cpuQuantity), resource.Kilo),
+		core.ResourceCPU: *resource.NewScaledQuantity(cpuQuantity, resource.Kilo),
 	}
 
 	return resources, nil
