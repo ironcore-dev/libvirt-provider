@@ -9,12 +9,17 @@ import (
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 )
 
+const (
+	ResourceDummy core.ResourceName = "dummy"
+	SourceDummy   string            = "dummy"
+)
+
 // Dummy source serves for dynamic change of available memory for unit tests
 type Dummy struct {
 	totalResources core.ResourceList
 }
 
-func NewSourceDummy(totalResources core.ResourceList) *Dummy {
+func NewSourceDummy(totalResources core.ResourceList, _ Options) *Dummy {
 	return &Dummy{totalResources: totalResources}
 }
 
@@ -23,7 +28,7 @@ func (d *Dummy) GetTotalResources(ctx context.Context) (core.ResourceList, error
 }
 
 func (d *Dummy) GetName() string {
-	return "dummy"
+	return SourceDummy
 }
 
 // Modify is dummy function

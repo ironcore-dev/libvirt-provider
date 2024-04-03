@@ -5,6 +5,7 @@ package sources
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -13,13 +14,22 @@ import (
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 )
 
-type CPU struct{}
+const SourceCPU string = "cpu"
 
-func NewSourceCPU() *CPU {
-	return &CPU{}
+type CPU struct {
+	OvercommitVCPU float64
+}
+
+func NewSourceCPU(options Options) *CPU {
+	return &CPU{OvercommitVCPU: options.OvercommitVCPU}
 }
 
 func (c *CPU) GetTotalResources(ctx context.Context) (core.ResourceList, error) {
+	// To handle the limitations of floating-point arithmetic, where small rounding errors can occur
+	// due to the finite precision of floating-point numbers.
+	if c.OvercommitVCPU < 1e-9 {
+		return nil, errors.New("overcommitVCPU cannot be zero or negative")
+	}
 
 	hostCPU, err := cpu.InfoWithContext(ctx)
 	if err != nil {
@@ -31,13 +41,17 @@ func (c *CPU) GetTotalResources(ctx context.Context) (core.ResourceList, error) 
 		hostCPUSum += int64(v.Cores)
 	}
 
-	resources := core.ResourceList{core.ResourceCPU: *resource.NewScaledQuantity(hostCPUSum, resource.Kilo)}
+	// Convert the calculated CPU quantity to an int64 to ensure that it represents a whole number of CPUs.
+	cpuQuantity := int64(float64(hostCPUSum) * c.OvercommitVCPU)
+	resources := core.ResourceList{
+		core.ResourceCPU: *resource.NewScaledQuantity(cpuQuantity, resource.Kilo),
+	}
 
 	return resources, nil
 }
 
 func (c *CPU) GetName() string {
-	return "cpu"
+	return SourceCPU
 }
 
 // Modify rounding up cpu to total cores

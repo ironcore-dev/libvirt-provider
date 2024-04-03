@@ -15,11 +15,13 @@ import (
 
 const (
 	ResourceHugepages core.ResourceName = "hugepages"
+	SourceMemory      string            = "memory"
+	SourceHugepages   string            = "hugepages"
 )
 
 type Memory struct{}
 
-func NewSourceMemory() *Memory {
+func NewSourceMemory(_ Options) *Memory {
 	return &Memory{}
 }
 
@@ -35,7 +37,7 @@ func (m *Memory) GetTotalResources(ctx context.Context) (core.ResourceList, erro
 }
 
 func (m *Memory) GetName() string {
-	return "memory"
+	return SourceMemory
 }
 
 // Modify is dummy function
@@ -48,7 +50,7 @@ type Hugepages struct {
 	pageCount uint64
 }
 
-func NewSourceHugepages() *Hugepages {
+func NewSourceHugepages(_ Options) *Hugepages {
 	return &Hugepages{}
 }
 
@@ -70,7 +72,7 @@ func (m *Hugepages) GetTotalResources(ctx context.Context) (core.ResourceList, e
 }
 
 func (m *Hugepages) GetName() string {
-	return "hugepages"
+	return SourceHugepages
 }
 
 // Modify set hugepages for resources and rounded up memory size
