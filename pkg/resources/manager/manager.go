@@ -225,13 +225,12 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 		sourceResourceList := s.GetAvailableResource()
 		sourceResourceQuantity := sourceResourceList[core.ResourceName(s.GetName())]
 		if sourceResourceQuantity.Sign() == -1 {
-			allocatedRes = nil
 			_ = s.Deallocate(requiredResources)
 			return ErrResourceNotAvailable
-		}
-
-		for k, v := range allocatedRes {
-			totalAllocatedRes[k] = v
+		} else {
+			for k, v := range allocatedRes {
+				totalAllocatedRes[k] = v
+			}
 		}
 	}
 
@@ -273,7 +272,11 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 		}
 	}
 	for _, s := range r.sources {
-		s.Deallocate(deallocateResources)
+		resourceNames := s.Deallocate(deallocateResources)
+
+		for _, resource := range resourceNames {
+			delete(machine.Spec.Resources, resource)
+		}
 	}
 
 	// error cannot occure here
