@@ -114,7 +114,7 @@ func (s *Server) CreateMachine(ctx context.Context, req *iri.CreateMachineReques
 	}
 
 	log.V(1).Info("Converting machine to iri machine")
-	iriMachine, err := s.convertMachineToIRIMachine(ctx, log, machine)
+	iriMachine, err := s.convertMachineToIRIMachine(machine)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert machine: %w", err)
 	}

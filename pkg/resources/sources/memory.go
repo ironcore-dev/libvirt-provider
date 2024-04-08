@@ -19,21 +19,12 @@ const (
 	SourceHugepages   string            = "hugepages"
 )
 
-type Memory struct{}
+type Memory struct {
+	availableMemory *resource.Quantity
+}
 
 func NewSourceMemory(_ Options) *Memory {
 	return &Memory{}
-}
-
-func (m *Memory) GetTotalResources(ctx context.Context) (core.ResourceList, error) {
-	hostMem, err := mem.VirtualMemoryWithContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host memory information: %w", err)
-	}
-
-	resources := core.ResourceList{core.ResourceMemory: *resource.NewQuantity(int64(hostMem.Total), resource.BinarySI)}
-
-	return resources, nil
 }
 
 func (m *Memory) GetName() string {
@@ -45,30 +36,50 @@ func (m *Memory) Modify(_ core.ResourceList) error {
 	return nil
 }
 
+func (m *Memory) Init(ctx context.Context) error {
+	hostMem, err := mem.VirtualMemoryWithContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get host memory information: %w", err)
+	}
+
+	m.availableMemory = resource.NewQuantity(int64(hostMem.Total), resource.BinarySI)
+
+	return nil
+}
+
+func (m *Memory) Allocate(requiredResources core.ResourceList) core.ResourceList {
+	mem, ok := requiredResources[core.ResourceMemory]
+	if !ok {
+		return nil
+	}
+
+	m.availableMemory.Sub(mem)
+	return core.ResourceList{core.ResourceMemory: mem}
+}
+
+func (m *Memory) Deallocate(requiredResources core.ResourceList) []core.ResourceName {
+	mem, ok := requiredResources[core.ResourceMemory]
+	if !ok {
+		return nil
+	}
+
+	m.availableMemory.Add(mem)
+	return []core.ResourceName{core.ResourceMemory}
+}
+
+func (m *Memory) GetAvailableResource() core.ResourceList {
+	return core.ResourceList{core.ResourceMemory: *m.availableMemory}
+}
+
 type Hugepages struct {
-	pageSize  uint64
-	pageCount uint64
+	pageSize           uint64
+	pageCount          uint64
+	availableMemory    *resource.Quantity
+	availableHugePages *resource.Quantity
 }
 
 func NewSourceHugepages(_ Options) *Hugepages {
 	return &Hugepages{}
-}
-
-func (m *Hugepages) GetTotalResources(ctx context.Context) (core.ResourceList, error) {
-	hostMem, err := mem.VirtualMemoryWithContext(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get host memory information: %w", err)
-	}
-
-	m.pageSize = hostMem.HugePageSize
-	m.pageCount = hostMem.HugePagesTotal
-
-	resources := core.ResourceList{
-		core.ResourceMemory: *resource.NewQuantity(int64(m.pageSize*m.pageCount), resource.BinarySI),
-		ResourceHugepages:   *resource.NewQuantity(int64(m.pageCount), resource.DecimalSI),
-	}
-
-	return resources, nil
 }
 
 func (m *Hugepages) GetName() string {
@@ -93,4 +104,59 @@ func (m *Hugepages) Modify(resources core.ResourceList) error {
 	resources[core.ResourceMemory] = *resource.NewQuantity(int64(hugepages)*int64(m.pageSize), resource.DecimalSI)
 
 	return nil
+}
+
+func (m *Hugepages) Init(ctx context.Context) error {
+	hostMem, err := mem.VirtualMemoryWithContext(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get host memory information: %w", err)
+	}
+
+	m.pageSize = hostMem.HugePageSize
+	m.pageCount = hostMem.HugePagesTotal
+
+	m.availableMemory = resource.NewQuantity(int64(m.pageSize*m.pageCount), resource.BinarySI)
+	m.availableHugePages = resource.NewQuantity(int64(m.pageCount), resource.DecimalSI)
+
+	return nil
+}
+
+func (m *Hugepages) Allocate(requiredResources core.ResourceList) core.ResourceList {
+	mem, ok := requiredResources[core.ResourceMemory]
+	if !ok {
+		return nil
+	}
+
+	m.availableMemory.Sub(mem)
+
+	hugepages, ok := requiredResources[ResourceHugepages]
+	if !ok {
+		return core.ResourceList{core.ResourceMemory: mem}
+	}
+
+	m.availableHugePages.Sub(hugepages)
+
+	return core.ResourceList{core.ResourceMemory: mem, ResourceHugepages: hugepages}
+}
+
+func (m *Hugepages) Deallocate(requiredResources core.ResourceList) []core.ResourceName {
+	mem, ok := requiredResources[core.ResourceMemory]
+	if !ok {
+		return nil
+	}
+
+	m.availableMemory.Add(mem)
+
+	hugepages, ok := requiredResources[ResourceHugepages]
+	if !ok {
+		return []core.ResourceName{core.ResourceMemory}
+	}
+
+	m.availableHugePages.Add(hugepages)
+
+	return []core.ResourceName{core.ResourceMemory, ResourceHugepages}
+}
+
+func (m *Hugepages) GetAvailableResource() core.ResourceList {
+	return core.ResourceList{core.ResourceMemory: *m.availableMemory, ResourceHugepages: *m.availableHugePages}
 }

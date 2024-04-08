@@ -13,12 +13,14 @@ import (
 type Source interface {
 	// GetName return name of source, ideally it has to be uniq
 	GetName() string
-	// GetTotalResource return total count of resources
-	GetTotalResources(context.Context) (core.ResourceList, error)
 	// Modify serves for modification resources base (rounding, create subresource).
 	// Example: Machineclasses contains memory size only, but if libvirt provider will use hugepages source.
 	//   Memory size has to be rounded to whole hugepages and it will create additional resource which count of hugepages.
 	Modify(core.ResourceList) error
+	Init(context.Context) error
+	Allocate(core.ResourceList) core.ResourceList
+	Deallocate(core.ResourceList) []core.ResourceName
+	GetAvailableResource() core.ResourceList
 }
 
 type NumaScheduler interface {

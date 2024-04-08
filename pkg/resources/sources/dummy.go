@@ -35,3 +35,19 @@ func (d *Dummy) GetName() string {
 func (d *Dummy) Modify(_ core.ResourceList) error {
 	return nil
 }
+
+func (d *Dummy) Allocate(requiredResources core.ResourceList) core.ResourceList {
+	return nil
+}
+
+func (d *Dummy) Deallocate(requiredResources core.ResourceList) []core.ResourceName {
+	return nil
+}
+
+func (d *Dummy) GetAvailableResource() core.ResourceList {
+	return core.ResourceList{core.ResourceCPU: *d.totalResources.CPU(), core.ResourceMemory: *d.totalResources.Memory()}
+}
+
+func (d *Dummy) Init(ctx context.Context) error {
+	return nil
+}

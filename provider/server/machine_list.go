@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
@@ -35,7 +34,7 @@ func (s *Server) getLibvirtMachine(ctx context.Context, id string) (*api.Machine
 	return machine, nil
 }
 
-func (s *Server) listMachines(ctx context.Context, log logr.Logger) ([]*iri.Machine, error) {
+func (s *Server) listMachines(ctx context.Context) ([]*iri.Machine, error) {
 	machines, err := s.machineStore.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error listing machines: %w", err)
@@ -47,7 +46,7 @@ func (s *Server) listMachines(ctx context.Context, log logr.Logger) ([]*iri.Mach
 			continue
 		}
 
-		iriMachine, err := s.convertMachineToIRIMachine(ctx, log, machine)
+		iriMachine, err := s.convertMachineToIRIMachine(machine)
 		if err != nil {
 			return nil, err
 		}
@@ -76,20 +75,18 @@ func (s *Server) filterMachines(machines []*iri.Machine, filter *iri.MachineFilt
 	return res
 }
 
-func (s *Server) getMachine(ctx context.Context, log logr.Logger, id string) (*iri.Machine, error) {
+func (s *Server) getMachine(ctx context.Context, id string) (*iri.Machine, error) {
 	libvirtMachine, err := s.getLibvirtMachine(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get machine: %w", err)
 	}
 
-	return s.convertMachineToIRIMachine(ctx, log, libvirtMachine)
+	return s.convertMachineToIRIMachine(libvirtMachine)
 }
 
 func (s *Server) ListMachines(ctx context.Context, req *iri.ListMachinesRequest) (*iri.ListMachinesResponse, error) {
-	log := s.loggerFrom(ctx)
-
 	if filter := req.Filter; filter != nil && filter.Id != "" {
-		machine, err := s.getMachine(ctx, log, filter.Id)
+		machine, err := s.getMachine(ctx, filter.Id)
 		if err != nil {
 			if status.Code(err) != codes.NotFound {
 				return nil, err
@@ -104,7 +101,7 @@ func (s *Server) ListMachines(ctx context.Context, req *iri.ListMachinesRequest)
 		}, nil
 	}
 
-	machines, err := s.listMachines(ctx, log)
+	machines, err := s.listMachines(ctx)
 	if err != nil {
 		return nil, err
 	}
