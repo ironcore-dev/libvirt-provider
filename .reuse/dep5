@@ -8,6 +8,10 @@ Source: https://github.com/ironcore-dev/libvirt-provider
 
 Files:
   .github/*
+  config/*
+  go.mod
+  go.sum
+  .dockerignore
   .gitignore
   .golangci.yaml
   CODEOWNERS
@@ -15,10 +19,8 @@ Files:
   CONTRIBUTING.md
   Dockerfile
   Makefile
-  config/*
-  go.mod
-  go.sum
-  hack/*
+  mkdocs.yml
+  hack/*.sh
   mkdocs.yml
 Copyright: 2023 SAP SE or an SAP affiliate company and IronCore contributors
 License: Apache-2.0
