@@ -1,5 +1,5 @@
 # Build the libvirt-provider binary
-FROM --platform=$BUILDPLATFORM golang:1.22.1-bookworm as builder
+FROM --platform=$BUILDPLATFORM golang:1.22.2-bookworm as builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
