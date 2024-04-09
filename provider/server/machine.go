@@ -4,16 +4,14 @@
 package server
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/provider/apiutils"
 )
 
-func (s *Server) convertMachineToIRIMachine(ctx context.Context, log logr.Logger, machine *api.Machine) (*iri.Machine, error) {
+func (s *Server) convertMachineToIRIMachine(machine *api.Machine) (*iri.Machine, error) {
 	metadata, err := apiutils.GetObjectMetadata(machine.Metadata)
 	if err != nil {
 		return nil, fmt.Errorf("error getting iri metadata: %w", err)

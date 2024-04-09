@@ -10,12 +10,14 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -32,14 +34,13 @@ var (
 	ErrResourcesNotInitialized = errors.New("resources aren't initialized")
 	ErrResourcesEmpty          = errors.New("resources cannot be empty")
 
-	ErrResourceNotAvailable      = errors.New("not enough available resources")
-	ErrResourceUnsupported       = errors.New("resource isn't supported")
-	ErrResourceAlreadyRegistered = errors.New("resource is already registered")
-	ErrResourceNegativeQuantity  = errors.New("resource quantity is negative")
+	ErrResourceNotAvailable     = errors.New("not enough available resources")
+	ErrResourceUnsupported      = errors.New("resource isn't supported")
+	ErrResourceNegativeQuantity = errors.New("resource quantity is negative")
 
 	ErrMachineClassMissing = errors.New("machine class is missing")
 
-	ErrMachineHasAllocatedResources = errors.New("machine has already allocated resources")
+	ErrCommonResources = errors.New("common resources managed by different sources")
 )
 
 func init() {
@@ -65,9 +66,6 @@ type resourceManager struct {
 
 	// sources is register of all added sources
 	sources map[string]Source
-
-	// resoruceAvailable keep current state of available resources
-	resourcesAvailable core.ResourceList
 
 	// mx allow change internal state only one gouroutines
 	mx sync.Mutex
@@ -115,45 +113,6 @@ func (r *resourceManager) setMachineClasses(classes []*iri.MachineClass) error {
 	return nil
 }
 
-func (r *resourceManager) loadTotalResources() error {
-	if len(r.sources) == 0 {
-		return ErrManagerSourcesMissing
-	}
-
-	for sourceName, source := range r.sources {
-		r.log.V(1).Info("loading total resources from source " + sourceName)
-		resources, err := source.GetTotalResources(r.ctx)
-		if err != nil {
-			return err
-		}
-		for name, quantity := range resources {
-			_, locErr := getResource(name, r.resourcesAvailable)
-			if locErr == nil {
-				return fmt.Errorf("resource %s cannot be register: %w", name, ErrResourceAlreadyRegistered)
-			}
-
-			r.resourcesAvailable[name] = quantity
-		}
-	}
-
-	r.log.Info("Host total resources: " + r.convertResourcesToString(r.resourcesAvailable))
-
-	return nil
-}
-
-func (r *resourceManager) calculateAvailableResources(machines []*api.Machine) error {
-	for _, machine := range machines {
-		newAvailableResources, err := r.preallocateAvailableResources(machine.Spec.Resources)
-		if err != nil {
-			return err
-		}
-
-		r.resourcesAvailable = newAvailableResources
-	}
-
-	return nil
-}
-
 func (r *resourceManager) createMachineClasses() error {
 	r.machineClasses = make([]*machineclass, len(r.tmpIRIMachineClasses))
 	for index, class := range r.tmpIRIMachineClasses {
@@ -193,6 +152,10 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 	r.mx.Lock()
 	defer r.mx.Unlock()
 
+	if len(r.sources) == 0 {
+		return ErrManagerSourcesMissing
+	}
+
 	if r.initialized {
 		return ErrManagerAlreadyInitialized
 	}
@@ -202,24 +165,49 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 	r.ctx = ctx
 
-	err := r.loadTotalResources()
+	// Initialize all sources and check for common resources
+	var initializedResources sets.Set[core.ResourceName]
+	for _, s := range r.sources {
+		resources, err := s.Init(r.ctx)
+		if err != nil {
+			return err
+		}
+
+		if initializedResources == nil {
+			initializedResources = resources
+			continue
+		}
+		// Check for common resources with previously initialized sources
+		commonResources := initializedResources.Intersection(resources)
+		if commonResources.Len() > 0 {
+			return fmt.Errorf("%w: source '%s' has resource(s): '%s', that are already initialized", ErrCommonResources, s.GetName(), getElementsFromSet(commonResources))
+		}
+
+		initializedResources = initializedResources.Union(resources)
+	}
+
+	r.log.Info("Initialized resources: " + r.convertResourcesToString(r.getAvailableResources()))
+
+	// Allocating resources for pre-existing machines in store
+	for _, machine := range machines {
+		for _, s := range r.sources {
+			s.Allocate(machine.Spec.Resources.DeepCopy())
+
+			sourceResourceList := s.GetAvailableResource()
+			sourceResourceQuantity := sourceResourceList[core.ResourceName(s.GetName())]
+			if sourceResourceQuantity.Sign() == -1 {
+				_ = s.Deallocate(machine.Spec.Resources.DeepCopy())
+				return ErrResourceNotAvailable
+			}
+		}
+	}
+
+	err := r.createMachineClasses()
 	if err != nil {
 		return err
 	}
 
-	//TODO implement "limiters"
-
-	err = r.calculateAvailableResources(machines)
-	if err != nil {
-		return err
-	}
-
-	err = r.createMachineClasses()
-	if err != nil {
-		return err
-	}
-
-	r.log.Info("Available resources: " + r.convertResourcesToString(r.resourcesAvailable))
+	r.log.Info("Available resources: " + r.convertResourcesToString(r.getAvailableResources()))
 	r.log.Info("Machine classes availibility: " + r.getMachineClassAvailibilityAsString())
 	r.operationError = nil
 
@@ -239,10 +227,20 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 		return err
 	}
 
-	newAvailableResources, err := r.preallocateAvailableResources(requiredResources)
-	if err != nil {
-		return err
+	totalAllocatedRes := core.ResourceList{}
+	for _, s := range r.sources {
+		allocatedRes := s.Allocate(requiredResources)
+
+		sourceResourceList := s.GetAvailableResource()
+		sourceResourceQuantity := sourceResourceList[core.ResourceName(s.GetName())]
+		if sourceResourceQuantity.Sign() == -1 {
+			_ = s.Deallocate(requiredResources)
+			return ErrResourceNotAvailable
+		}
+		mergeResourceLists(totalAllocatedRes, allocatedRes)
 	}
+
+	machine.Spec.Resources = totalAllocatedRes
 
 	if r.numaScheduler != nil {
 		cpuQuantity := requiredResources[core.ResourceCPU]
@@ -252,35 +250,12 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 		}
 	}
 
-	assignResourcesIntoMachine(&machine.Spec, requiredResources)
-
-	r.resourcesAvailable = newAvailableResources
-
 	// error cannot ocurre here
 	_ = r.updateMachineClassAvailable()
 
 	r.printAvailableResources("allocation")
 
 	return nil
-}
-
-// preallocateAvailableResources will recalculate available resources and return new state
-func (r *resourceManager) preallocateAvailableResources(resources core.ResourceList) (core.ResourceList, error) {
-	newAvailableResources := r.resourcesAvailable.DeepCopy()
-	for key, resource := range resources {
-		available, err := getResource(key, newAvailableResources)
-		if err != nil {
-			return nil, err
-		}
-
-		available.Sub(resource)
-		if available.Sign() == -1 {
-			return nil, ErrResourceNotAvailable
-		}
-		newAvailableResources[key] = *available
-	}
-
-	return newAvailableResources, nil
 }
 
 func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources core.ResourceList) error {
@@ -296,30 +271,19 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 		return err
 	}
 
-	newResources := r.resourcesAvailable
-	for key, resource := range deallocateResources {
-		available, err := getResource(key, newResources)
-		if err != nil {
-			return err
-		}
-
-		available.Add(resource)
-		newResources[key] = *available
-	}
-
 	if r.numaScheduler != nil {
 		err = r.numaScheduler.Unpin(machine)
 		if err != nil {
 			return err
 		}
 	}
+	for _, s := range r.sources {
+		resourceNames := s.Deallocate(deallocateResources)
 
-	err = deassignResourcesFromMachine(&machine.Spec, deallocateResources)
-	if err != nil {
-		return err
+		for _, resource := range resourceNames {
+			delete(machine.Spec.Resources, resource)
+		}
 	}
-
-	r.resourcesAvailable = newResources
 
 	// error cannot occure here
 	_ = r.updateMachineClassAvailable()
@@ -365,8 +329,9 @@ func (r *resourceManager) getAvailableMachineClasses() []*iri.MachineClassStatus
 
 func (r *resourceManager) calculateMachineClassQuantity(class *machineclass) error {
 	var count int64 = math.MaxInt64
+
 	for key, classQuantity := range class.resources {
-		available, err := getResource(key, r.resourcesAvailable)
+		available, err := getResource(key, r.getAvailableResources())
 		if err != nil {
 			return err
 		}
@@ -435,7 +400,7 @@ func (r *resourceManager) printAvailableResources(operation string) {
 		return
 	}
 
-	r.log.V(traceLevel).Info("Available resources after " + operation + ": " + r.convertResourcesToString(r.resourcesAvailable))
+	r.log.V(traceLevel).Info("Available resources after " + operation + ": " + r.convertResourcesToString(r.getAvailableResources()))
 	r.log.V(traceLevel).Info("Machineclasses availibility: " + r.getMachineClassAvailibilityAsString())
 }
 
@@ -472,6 +437,31 @@ func (r *resourceManager) getMachineClassAvailibilityAsString() string {
 	return removeSeparatorFromEnd(result)
 }
 
+func (r *resourceManager) getAvailableResources() core.ResourceList {
+	resourceList := make(core.ResourceList)
+
+	for _, s := range r.sources {
+		list := s.GetAvailableResource()
+		mergeResourceLists(resourceList, list)
+	}
+	return resourceList
+}
+
+func mergeResourceLists(dst, src core.ResourceList) {
+	for k, v := range src {
+		dst[k] = v
+	}
+}
+
+// getElementsFromSet returns a string representation of the set's contents
+func getElementsFromSet(s sets.Set[core.ResourceName]) string {
+	elements := make([]string, 0, s.Len())
+	for _, elem := range s.UnsortedList() {
+		elements = append(elements, string(elem))
+	}
+	return strings.Join(elements, ", ")
+}
+
 // reset internal state of manager and allow reinit
 // Use it for unit test only.
 func (r *resourceManager) reset() {
@@ -481,7 +471,6 @@ func (r *resourceManager) reset() {
 	r.numaScheduler = nil
 	r.operationError = ErrManagerNotInitialized
 	r.sources = map[string]Source{}
-	r.resourcesAvailable = core.ResourceList{}
 	r.tmpIRIMachineClasses = nil
 	r.initialized = false
 }
@@ -492,57 +481,4 @@ func removeSeparatorFromEnd(in string) string {
 	}
 
 	return in[:len(in)-len(sep)]
-}
-
-func assignResourcesIntoMachine(machineSpec *api.MachineSpec, requiredResources core.ResourceList) {
-	if len(machineSpec.Resources) == 0 {
-		machineSpec.Resources = requiredResources.DeepCopy()
-		return
-	}
-
-	for key, resource := range requiredResources {
-		quantity, ok := machineSpec.Resources[key]
-		if !ok {
-			machineSpec.Resources[key] = resource
-			continue
-		}
-
-		// quantity use add function for support resources which can be extend during run (storage, network card)
-		// WARN: this logic can be problemtic in future, if machine can change machineclass during running
-		quantity.Add(resource)
-		machineSpec.Resources[key] = quantity
-	}
-}
-
-func deassignResourcesFromMachine(machineSpec *api.MachineSpec, deallocatedResources core.ResourceList) error {
-	if len(machineSpec.Resources) == 0 {
-		return ErrResourcesNotInitialized
-	}
-
-	machineResources := machineSpec.Resources.DeepCopy()
-	for key, resource := range deallocatedResources {
-		quantity, err := getResource(key, machineResources)
-		if err != nil {
-			return fmt.Errorf("failed to deassign resource %s: %w", key, err)
-		}
-
-		if quantity.Sign() == -1 {
-			return fmt.Errorf("failed to deassign resource %s: %w", key, ErrResourceNegativeQuantity)
-		}
-
-		quantity.Sub(resource)
-		if quantity.IsZero() {
-			delete(machineResources, key)
-		} else {
-			machineResources[key] = *quantity
-		}
-	}
-
-	if len(machineResources) == 0 {
-		machineResources = nil
-	}
-
-	machineSpec.Resources = machineResources
-
-	return nil
 }

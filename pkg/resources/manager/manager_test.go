@@ -70,13 +70,7 @@ var _ = Describe("Resource Manager", Ordered, func() {
 			By("initialize with sources which manage same resources")
 			Expect(AddSource(sources.NewSourceHugepages(sources.Options{}))).NotTo(HaveOccurred())
 			Expect(AddSource(sources.NewSourceMemory(sources.Options{}))).NotTo(HaveOccurred())
-			Expect(Initialize(context.TODO(), returnEmptyMachineList)).To(MatchError(ErrResourceAlreadyRegistered))
-			mng.reset()
-
-			By("initialize without resources")
-			Expect(AddSource(sources.NewSourceDummy(nil, sources.Options{}))).NotTo(HaveOccurred())
-			Expect(SetMachineClasses(machineClasses)).NotTo(HaveOccurred())
-			Expect(Initialize(context.TODO(), returnEmptyMachineList)).Should(MatchError(ErrResourceUnsupported))
+			Expect(Initialize(context.TODO(), returnEmptyMachineList)).To(MatchError(ErrCommonResources))
 			mng.reset()
 		})
 	})
@@ -86,7 +80,7 @@ var _ = Describe("Resource Manager", Ordered, func() {
 			core.ResourceCPU:    *resource.NewQuantity(8000, resource.DecimalSI),
 			core.ResourceMemory: *resource.NewQuantity(19327352832, resource.BinarySI),
 		}
-		machine := api.Machine{}
+
 		BeforeAll(func() { mng.reset() })
 
 		It("should initialize", func() {
@@ -101,18 +95,6 @@ var _ = Describe("Resource Manager", Ordered, func() {
 			Expect(SetMachineClasses(nil)).ShouldNot(Succeed())
 			Expect(AddSource(sources.NewSourceCPU(sources.Options{OvercommitVCPU: 1.0}))).ShouldNot(Succeed())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).ShouldNot(Succeed())
-		})
-
-		It("should allocate one machine", func() {
-			requiredResource, err := GetMachineClassRequiredResources(machineClasses[0].GetName())
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(requiredResource).NotTo(BeEmpty())
-			Expect(Allocate(&machine, requiredResource)).NotTo(HaveOccurred())
-			Expect(machine.Spec.Resources).Should(HaveLen(2))
-			Expect(mng.resourcesAvailable).Should(Equal(core.ResourceList{
-				core.ResourceCPU:    *resource.NewQuantity(4000, resource.DecimalSI),
-				core.ResourceMemory: *resource.NewQuantity(10737418240, resource.BinarySI),
-			}))
 		})
 	})
 })

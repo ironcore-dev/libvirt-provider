@@ -7,6 +7,7 @@ import (
 	"context"
 
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -34,4 +35,20 @@ func (d *Dummy) GetName() string {
 // Modify is dummy function
 func (d *Dummy) Modify(_ core.ResourceList) error {
 	return nil
+}
+
+func (d *Dummy) Allocate(requiredResources core.ResourceList) core.ResourceList {
+	return nil
+}
+
+func (d *Dummy) Deallocate(requiredResources core.ResourceList) []core.ResourceName {
+	return nil
+}
+
+func (d *Dummy) GetAvailableResource() core.ResourceList {
+	return core.ResourceList{core.ResourceCPU: *d.totalResources.CPU(), core.ResourceMemory: *d.totalResources.Memory()}.DeepCopy()
+}
+
+func (d *Dummy) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
+	return nil, nil
 }
