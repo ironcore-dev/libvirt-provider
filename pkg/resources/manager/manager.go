@@ -178,9 +178,9 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 			continue
 		}
 		// Check for common resources with previously initialized sources
-		commonSources := initializedResources.Intersection(resources)
-		if commonSources.Len() > 0 {
-			return fmt.Errorf("%w: source '%s' has resource(s): '%s', that are already initialized", ErrCommonResources, s.GetName(), getElementsFromSet(commonSources))
+		commonResources := initializedResources.Intersection(resources)
+		if commonResources.Len() > 0 {
+			return fmt.Errorf("%w: source '%s' has resource(s): '%s', that are already initialized", ErrCommonResources, s.GetName(), getElementsFromSet(commonResources))
 		}
 
 		initializedResources = initializedResources.Union(resources)
