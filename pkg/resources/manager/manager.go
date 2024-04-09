@@ -10,6 +10,7 @@ import (
 	"math"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/golang-collections/collections/set"
@@ -177,7 +178,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 		} else {
 			// Check for common resources with previously initialized sources
 			if initializedResources.Intersection(resources).Len() > 0 {
-				return ErrCommonResources
+				return fmt.Errorf("%w: source `%s` has resource(s): `%s`, common with previously initialized resources: `%s`", ErrCommonResources, s.GetName(), getElementsFromSet(resources), getElementsFromSet(initializedResources))
 			}
 
 			initializedResources = initializedResources.Union(resources)
@@ -186,6 +187,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 	r.log.Info("Initialized resources: " + r.convertResourcesToString(r.getAvailableResources()))
 
+	// Allocating resources for pre-existing machines in store
 	for _, machine := range machines {
 		for _, s := range r.sources {
 			s.Allocate(machine.Spec.Resources.DeepCopy())
@@ -234,9 +236,7 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 			_ = s.Deallocate(requiredResources)
 			return ErrResourceNotAvailable
 		}
-		for k, v := range allocatedRes {
-			totalAllocatedRes[k] = v
-		}
+		mergeResourceLists(totalAllocatedRes, allocatedRes)
 	}
 
 	machine.Spec.Resources = totalAllocatedRes
@@ -440,12 +440,25 @@ func (r *resourceManager) getAvailableResources() core.ResourceList {
 	resourceList := make(core.ResourceList)
 
 	for _, s := range r.sources {
-		list := s.GetAvailableResource().DeepCopy()
-		for k, v := range list {
-			resourceList[k] = v
-		}
+		list := s.GetAvailableResource()
+		mergeResourceLists(resourceList, list)
 	}
 	return resourceList
+}
+
+func mergeResourceLists(dst, src core.ResourceList) {
+	for k, v := range src {
+		dst[k] = v
+	}
+}
+
+// getElementsFromSet returns a string representation of the set's contents
+func getElementsFromSet(s *set.Set) string {
+	var elements []string
+	s.Do(func(elem interface{}) {
+		elements = append(elements, fmt.Sprintf("%v", elem))
+	})
+	return strings.Join(elements, ", ")
 }
 
 // reset internal state of manager and allow reinit

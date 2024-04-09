@@ -91,5 +91,5 @@ func (c *CPU) Deallocate(requiredResources core.ResourceList) []core.ResourceNam
 }
 
 func (c *CPU) GetAvailableResource() core.ResourceList {
-	return core.ResourceList{core.ResourceCPU: *c.availableCPU}
+	return core.ResourceList{core.ResourceCPU: *c.availableCPU}.DeepCopy()
 }

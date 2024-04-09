@@ -72,7 +72,7 @@ func (m *Memory) Deallocate(requiredResources core.ResourceList) []core.Resource
 }
 
 func (m *Memory) GetAvailableResource() core.ResourceList {
-	return core.ResourceList{core.ResourceMemory: *m.availableMemory}
+	return core.ResourceList{core.ResourceMemory: *m.availableMemory}.DeepCopy()
 }
 
 type Hugepages struct {
@@ -166,5 +166,5 @@ func (m *Hugepages) Deallocate(requiredResources core.ResourceList) []core.Resou
 }
 
 func (m *Hugepages) GetAvailableResource() core.ResourceList {
-	return core.ResourceList{core.ResourceMemory: *m.availableMemory, ResourceHugepages: *m.availableHugePages}
+	return core.ResourceList{core.ResourceMemory: *m.availableMemory, ResourceHugepages: *m.availableHugePages}.DeepCopy()
 }

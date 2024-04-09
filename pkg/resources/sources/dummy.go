@@ -46,7 +46,7 @@ func (d *Dummy) Deallocate(requiredResources core.ResourceList) []core.ResourceN
 }
 
 func (d *Dummy) GetAvailableResource() core.ResourceList {
-	return core.ResourceList{core.ResourceCPU: *d.totalResources.CPU(), core.ResourceMemory: *d.totalResources.Memory()}
+	return core.ResourceList{core.ResourceCPU: *d.totalResources.CPU(), core.ResourceMemory: *d.totalResources.Memory()}.DeepCopy()
 }
 
 func (d *Dummy) Init(ctx context.Context) (*set.Set, error) {
