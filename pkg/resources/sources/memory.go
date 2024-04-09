@@ -8,10 +8,10 @@ import (
 	"fmt"
 	"math"
 
-	"github.com/golang-collections/collections/set"
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	"github.com/shirou/gopsutil/v3/mem"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -37,7 +37,7 @@ func (m *Memory) Modify(_ core.ResourceList) error {
 	return nil
 }
 
-func (m *Memory) Init(ctx context.Context) (*set.Set, error) {
+func (m *Memory) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
 	hostMem, err := mem.VirtualMemoryWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host memory information: %w", err)
@@ -45,10 +45,7 @@ func (m *Memory) Init(ctx context.Context) (*set.Set, error) {
 
 	m.availableMemory = resource.NewQuantity(int64(hostMem.Total), resource.BinarySI)
 
-	resources := set.New()
-	resources.Insert(core.ResourceMemory)
-
-	return resources, nil
+	return sets.New(core.ResourceMemory), nil
 }
 
 func (m *Memory) Allocate(requiredResources core.ResourceList) core.ResourceList {
@@ -110,7 +107,7 @@ func (m *Hugepages) Modify(resources core.ResourceList) error {
 	return nil
 }
 
-func (m *Hugepages) Init(ctx context.Context) (*set.Set, error) {
+func (m *Hugepages) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
 	hostMem, err := mem.VirtualMemoryWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host memory information: %w", err)
@@ -122,11 +119,7 @@ func (m *Hugepages) Init(ctx context.Context) (*set.Set, error) {
 	m.availableMemory = resource.NewQuantity(int64(m.pageSize*m.pageCount), resource.BinarySI)
 	m.availableHugePages = resource.NewQuantity(int64(m.pageCount), resource.DecimalSI)
 
-	resources := set.New()
-	resources.Insert(core.ResourceMemory)
-	resources.Insert(ResourceHugepages)
-
-	return resources, nil
+	return sets.New(core.ResourceMemory, ResourceHugepages), nil
 }
 
 func (m *Hugepages) Allocate(requiredResources core.ResourceList) core.ResourceList {

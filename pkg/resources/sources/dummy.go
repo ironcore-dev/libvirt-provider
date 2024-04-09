@@ -6,8 +6,8 @@ package sources
 import (
 	"context"
 
-	"github.com/golang-collections/collections/set"
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/sets"
 )
 
 const (
@@ -49,6 +49,6 @@ func (d *Dummy) GetAvailableResource() core.ResourceList {
 	return core.ResourceList{core.ResourceCPU: *d.totalResources.CPU(), core.ResourceMemory: *d.totalResources.Memory()}.DeepCopy()
 }
 
-func (d *Dummy) Init(ctx context.Context) (*set.Set, error) {
+func (d *Dummy) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
 	return nil, nil
 }

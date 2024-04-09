@@ -33,7 +33,6 @@ require (
 
 require (
 	github.com/creack/pty v1.1.21 // indirect
-	github.com/golang-collections/collections v0.0.0-20130729185459-604e922904d3 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	k8s.io/cli-runtime v0.29.3 // indirect

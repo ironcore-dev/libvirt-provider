@@ -13,11 +13,11 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/golang-collections/collections/set"
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"k8s.io/apimachinery/pkg/api/resource"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -166,7 +166,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 	r.ctx = ctx
 
 	// Initialize all sources and check for common resources
-	var initializedResources *set.Set
+	var initializedResources sets.Set[core.ResourceName]
 	for _, s := range r.sources {
 		resources, err := s.Init(r.ctx)
 		if err != nil {
@@ -175,14 +175,15 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 		if initializedResources == nil {
 			initializedResources = resources
-		} else {
-			// Check for common resources with previously initialized sources
-			if initializedResources.Intersection(resources).Len() > 0 {
-				return fmt.Errorf("%w: source `%s` has resource(s): `%s`, common with previously initialized resources: `%s`", ErrCommonResources, s.GetName(), getElementsFromSet(resources), getElementsFromSet(initializedResources))
-			}
-
-			initializedResources = initializedResources.Union(resources)
+			continue
 		}
+		// Check for common resources with previously initialized sources
+		commonSources := initializedResources.Intersection(resources)
+		if commonSources.Len() > 0 {
+			return fmt.Errorf("%w: source '%s' has resource(s): '%s', that are already initialized", ErrCommonResources, s.GetName(), getElementsFromSet(commonSources))
+		}
+
+		initializedResources = initializedResources.Union(resources)
 	}
 
 	r.log.Info("Initialized resources: " + r.convertResourcesToString(r.getAvailableResources()))
@@ -453,11 +454,11 @@ func mergeResourceLists(dst, src core.ResourceList) {
 }
 
 // getElementsFromSet returns a string representation of the set's contents
-func getElementsFromSet(s *set.Set) string {
-	var elements []string
-	s.Do(func(elem interface{}) {
-		elements = append(elements, fmt.Sprintf("%v", elem))
-	})
+func getElementsFromSet(s sets.Set[core.ResourceName]) string {
+	elements := make([]string, 0, s.Len())
+	for _, elem := range s.UnsortedList() {
+		elements = append(elements, string(elem))
+	}
 	return strings.Join(elements, ", ")
 }
 
