@@ -12,10 +12,10 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/golang-collections/collections/set"
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
-	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/go-logr/logr"
@@ -39,7 +39,7 @@ var (
 
 	ErrMachineClassMissing = errors.New("machine class is missing")
 
-	ErrIncompatibleSources = errors.New("sources can not contain both memory and hugepages")
+	ErrCommonResources = errors.New("common resources managed by different sources")
 )
 
 func init() {
@@ -155,13 +155,6 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 		return ErrManagerSourcesMissing
 	}
 
-	// Check if both "memory" and "hugepages" sources are present
-	if _, ok := r.sources[string(core.ResourceMemory)]; ok {
-		if _, ok := r.sources[sources.SourceHugepages]; ok {
-			return ErrIncompatibleSources
-		}
-	}
-
 	if r.initialized {
 		return ErrManagerAlreadyInitialized
 	}
@@ -171,14 +164,27 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 	r.ctx = ctx
 
+	// Initialize all sources and check for common resources
+	var initializedResources *set.Set
 	for _, s := range r.sources {
-		err := s.Init(r.ctx)
+		resources, err := s.Init(r.ctx)
 		if err != nil {
 			return err
 		}
+
+		if initializedResources == nil {
+			initializedResources = resources
+		} else {
+			// Check for common resources with previously initialized sources
+			if initializedResources.Intersection(resources).Len() > 0 {
+				return ErrCommonResources
+			}
+
+			initializedResources = initializedResources.Union(resources)
+		}
 	}
 
-	r.log.Info("Total resources: " + r.convertResourcesToString(r.getResourceList()))
+	r.log.Info("Initialized resources: " + r.convertResourcesToString(r.getAvailableResources()))
 
 	for _, machine := range machines {
 		for _, s := range r.sources {
@@ -198,7 +204,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 		return err
 	}
 
-	r.log.Info("Available resources: " + r.convertResourcesToString(r.getResourceList()))
+	r.log.Info("Available resources: " + r.convertResourcesToString(r.getAvailableResources()))
 	r.log.Info("Machine classes availibility: " + r.getMachineClassAvailibilityAsString())
 	r.operationError = nil
 
@@ -227,10 +233,9 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 		if sourceResourceQuantity.Sign() == -1 {
 			_ = s.Deallocate(requiredResources)
 			return ErrResourceNotAvailable
-		} else {
-			for k, v := range allocatedRes {
-				totalAllocatedRes[k] = v
-			}
+		}
+		for k, v := range allocatedRes {
+			totalAllocatedRes[k] = v
 		}
 	}
 
@@ -325,7 +330,7 @@ func (r *resourceManager) calculateMachineClassQuantity(class *machineclass) err
 	var count int64 = math.MaxInt64
 
 	for key, classQuantity := range class.resources {
-		available, err := getResource(key, r.getResourceList())
+		available, err := getResource(key, r.getAvailableResources())
 		if err != nil {
 			return err
 		}
@@ -394,7 +399,7 @@ func (r *resourceManager) printAvailableResources(operation string) {
 		return
 	}
 
-	r.log.V(traceLevel).Info("Available resources after " + operation + ": " + r.convertResourcesToString(r.getResourceList()))
+	r.log.V(traceLevel).Info("Available resources after " + operation + ": " + r.convertResourcesToString(r.getAvailableResources()))
 	r.log.V(traceLevel).Info("Machineclasses availibility: " + r.getMachineClassAvailibilityAsString())
 }
 
@@ -431,7 +436,7 @@ func (r *resourceManager) getMachineClassAvailibilityAsString() string {
 	return removeSeparatorFromEnd(result)
 }
 
-func (r *resourceManager) getResourceList() core.ResourceList {
+func (r *resourceManager) getAvailableResources() core.ResourceList {
 	resourceList := make(core.ResourceList)
 
 	for _, s := range r.sources {

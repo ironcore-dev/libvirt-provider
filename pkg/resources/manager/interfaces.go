@@ -6,6 +6,7 @@ package manager
 import (
 	"context"
 
+	"github.com/golang-collections/collections/set"
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 )
@@ -18,7 +19,7 @@ type Source interface {
 	//   Memory size has to be rounded to whole hugepages and it will create additional resource which count of hugepages.
 	Modify(core.ResourceList) error
 	// Init ititializes total resources in the source
-	Init(context.Context) error
+	Init(context.Context) (*set.Set, error)
 	// Allocate allocates the resources in the source
 	Allocate(core.ResourceList) core.ResourceList
 	// Deallocate deallocates the resources from the source

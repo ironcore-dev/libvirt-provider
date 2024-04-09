@@ -6,6 +6,7 @@ package sources
 import (
 	"context"
 
+	"github.com/golang-collections/collections/set"
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 )
 
@@ -48,6 +49,6 @@ func (d *Dummy) GetAvailableResource() core.ResourceList {
 	return core.ResourceList{core.ResourceCPU: *d.totalResources.CPU(), core.ResourceMemory: *d.totalResources.Memory()}
 }
 
-func (d *Dummy) Init(ctx context.Context) error {
-	return nil
+func (d *Dummy) Init(ctx context.Context) (*set.Set, error) {
+	return nil, nil
 }

@@ -70,7 +70,7 @@ var _ = Describe("Resource Manager", Ordered, func() {
 			By("initialize with sources which manage same resources")
 			Expect(AddSource(sources.NewSourceHugepages(sources.Options{}))).NotTo(HaveOccurred())
 			Expect(AddSource(sources.NewSourceMemory(sources.Options{}))).NotTo(HaveOccurred())
-			Expect(Initialize(context.TODO(), returnEmptyMachineList)).To(MatchError(ErrIncompatibleSources))
+			Expect(Initialize(context.TODO(), returnEmptyMachineList)).To(MatchError(ErrCommonResources))
 			mng.reset()
 		})
 	})
