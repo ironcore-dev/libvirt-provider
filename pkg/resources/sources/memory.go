@@ -21,11 +21,12 @@ const (
 )
 
 type Memory struct {
-	availableMemory *resource.Quantity
+	availableMemory    *resource.Quantity
+	reservedMemorySize MemorySize
 }
 
-func NewSourceMemory(_ Options) *Memory {
-	return &Memory{}
+func NewSourceMemory(options Options) *Memory {
+	return &Memory{reservedMemorySize: options.ReservedMemorySize}
 }
 
 func (m *Memory) GetName() string {
@@ -43,7 +44,11 @@ func (m *Memory) Init(ctx context.Context) (sets.Set[core.ResourceName], error) 
 		return nil, fmt.Errorf("failed to get host memory information: %w", err)
 	}
 
-	m.availableMemory = resource.NewQuantity(int64(hostMem.Total), resource.BinarySI)
+	availableMemory, err := calculateAvailableMemory(MemorySize(hostMem.Total), m.reservedMemorySize)
+	if err != nil {
+		return nil, err
+	}
+	m.availableMemory = availableMemory
 
 	return sets.New(core.ResourceMemory), nil
 }
@@ -77,10 +82,12 @@ type Hugepages struct {
 	pageCount          uint64
 	availableMemory    *resource.Quantity
 	availableHugePages *resource.Quantity
+	blockedCount       uint64
+	reservedMemorySize MemorySize
 }
 
-func NewSourceHugepages(_ Options) *Hugepages {
-	return &Hugepages{}
+func NewSourceHugepages(options Options) *Hugepages {
+	return &Hugepages{blockedCount: options.BlockedHugepages, reservedMemorySize: options.ReservedMemorySize}
 }
 
 func (m *Hugepages) GetName() string {
@@ -116,8 +123,17 @@ func (m *Hugepages) Init(ctx context.Context) (sets.Set[core.ResourceName], erro
 	m.pageSize = hostMem.HugePageSize
 	m.pageCount = hostMem.HugePagesTotal
 
-	m.availableMemory = resource.NewQuantity(int64(m.pageSize*m.pageCount), resource.BinarySI)
-	m.availableHugePages = resource.NewQuantity(int64(m.pageCount), resource.DecimalSI)
+	availableMemory, err := calculateAvailableMemory(MemorySize(m.pageSize*m.pageCount), m.reservedMemorySize)
+	if err != nil {
+		return nil, err
+	}
+	m.availableMemory = availableMemory
+
+	availableHugepages, err := calculateAvailableHugepages(m.pageCount, m.blockedCount)
+	if err != nil {
+		return nil, err
+	}
+	m.availableHugePages = availableHugepages
 
 	return sets.New(core.ResourceMemory, ResourceHugepages), nil
 }
@@ -160,4 +176,22 @@ func (m *Hugepages) Deallocate(requiredResources core.ResourceList) []core.Resou
 
 func (m *Hugepages) GetAvailableResource() core.ResourceList {
 	return core.ResourceList{core.ResourceMemory: *m.availableMemory, ResourceHugepages: *m.availableHugePages}.DeepCopy()
+}
+
+func calculateAvailableMemory(totalMemory, reservedMemory MemorySize) (*resource.Quantity, error) {
+	if reservedMemory >= totalMemory {
+		return nil, fmt.Errorf("reservedMemorySize cannot be greater than equal to totalMemory: %v", resource.NewQuantity(int64(totalMemory), resource.BinarySI))
+	}
+	availableMemoryUint := MemorySize(totalMemory) - reservedMemory
+
+	return resource.NewQuantity(int64(availableMemoryUint), resource.BinarySI), nil
+}
+
+func calculateAvailableHugepages(totalHugepages, blockedHugepages uint64) (*resource.Quantity, error) {
+	if blockedHugepages >= totalHugepages {
+		return nil, fmt.Errorf("blockedHugepages cannot be greater than equal to totalPage count: %d", totalHugepages)
+	}
+	availableHugepagesUint := totalHugepages - blockedHugepages
+
+	return resource.NewQuantity(int64(availableHugepagesUint), resource.DecimalSI), nil
 }
