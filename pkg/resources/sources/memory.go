@@ -179,8 +179,8 @@ func (m *Hugepages) GetAvailableResource() core.ResourceList {
 }
 
 func calculateAvailableMemory(totalMemory, reservedMemory MemorySize) (*resource.Quantity, error) {
-	if reservedMemory >= totalMemory {
-		return nil, fmt.Errorf("reservedMemorySize cannot be greater than equal to totalMemory: %v", resource.NewQuantity(int64(totalMemory), resource.BinarySI))
+	if reservedMemory > totalMemory {
+		return nil, fmt.Errorf("reservedMemorySize cannot be greater than totalMemory: %v", resource.NewQuantity(int64(totalMemory), resource.BinarySI))
 	}
 	availableMemoryUint := MemorySize(totalMemory) - reservedMemory
 
@@ -188,8 +188,8 @@ func calculateAvailableMemory(totalMemory, reservedMemory MemorySize) (*resource
 }
 
 func calculateAvailableHugepages(totalHugepages, blockedHugepages uint64) (*resource.Quantity, error) {
-	if blockedHugepages >= totalHugepages {
-		return nil, fmt.Errorf("blockedHugepages cannot be greater than equal to totalPage count: %d", totalHugepages)
+	if blockedHugepages > totalHugepages {
+		return nil, fmt.Errorf("blockedHugepages cannot be greater than totalPage count: %d", totalHugepages)
 	}
 	availableHugepagesUint := totalHugepages - blockedHugepages
 
