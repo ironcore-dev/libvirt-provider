@@ -5,6 +5,7 @@ package manager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/go-logr/logr"
@@ -95,7 +96,7 @@ func GetSource(name string, options sources.Options) (Source, error) {
 }
 
 func GetSourcesAvailable() []string {
-	return []string{"memory", "cpu", "hugepages"}
+	return []string{sources.SourceCPU, sources.SourceMemory, sources.SourceHugepages}
 }
 
 func GetMachineClassRequiredResources(name string) (core.ResourceList, error) {
@@ -105,4 +106,32 @@ func GetMachineClassRequiredResources(name string) (core.ResourceList, error) {
 	}
 
 	return class.resources.DeepCopy(), nil
+}
+
+func ValidateOptions(options sources.Options) error {
+	// To handle the limitations of floating-point arithmetic, where small rounding errors can occur
+	// due to the finite precision of floating-point numbers.
+	if options.OvercommitVCPU < 1e-9 {
+		return errors.New("overcommitVCPU cannot be zero or negative")
+	}
+
+	var hasMemory, hasHugepages bool
+	for _, source := range options.Sources {
+		if source == sources.SourceMemory {
+			hasMemory = true
+		}
+		if source == sources.SourceHugepages {
+			hasHugepages = true
+		}
+	}
+
+	if options.ReservedMemorySize != 0 && !hasMemory {
+		return fmt.Errorf("reserved memory size can only be set with %s source", sources.SourceMemory)
+	}
+
+	if options.BlockedHugepages != 0 && !hasHugepages {
+		return fmt.Errorf("blocked hugepages can only be set with %s source", sources.SourceHugepages)
+	}
+
+	return nil
 }
