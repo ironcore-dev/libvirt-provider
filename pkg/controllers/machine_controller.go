@@ -31,6 +31,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/raw"
 	"github.com/ironcore-dev/libvirt-provider/pkg/resources/manager"
 	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
+	"github.com/ironcore-dev/libvirt-provider/pkg/sgx"
 	"github.com/ironcore-dev/libvirt-provider/pkg/store"
 	"github.com/ironcore-dev/libvirt-provider/pkg/utils"
 	machinev1alpha1 "github.com/ironcore-dev/libvirt-provider/provider/api/v1alpha1"
@@ -704,6 +705,8 @@ func (r *MachineReconciler) domainFor(
 	if err := r.setTCMallocPath(domainDesc); err != nil {
 		return nil, nil, nil, err
 	}
+
+	sgx.EnableSGXInDomain(&machine.Spec, domainDesc)
 
 	if machine.Spec.GuestAgent != api.GuestAgentNone {
 		r.setGuestAgent(machine, domainDesc)

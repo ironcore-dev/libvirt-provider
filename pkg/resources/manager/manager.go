@@ -7,7 +7,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -16,8 +18,10 @@ import (
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
+	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/sets"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/go-logr/logr"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -34,9 +38,7 @@ var (
 	ErrResourcesNotInitialized = errors.New("resources aren't initialized")
 	ErrResourcesEmpty          = errors.New("resources cannot be empty")
 
-	ErrResourceNotAvailable     = errors.New("not enough available resources")
-	ErrResourceUnsupported      = errors.New("resource isn't supported")
-	ErrResourceNegativeQuantity = errors.New("resource quantity is negative")
+	ErrResourceUnsupported = errors.New("resource isn't supported")
 
 	ErrMachineClassMissing = errors.New("machine class is missing")
 
@@ -60,14 +62,14 @@ type resourceManager struct {
 	// numaScheduler serves for planning pinning numa zones/cpu
 	numaScheduler NumaScheduler
 	// internal implementation of machineclasses with quantity/availibility
-	machineClasses []*machineclass
+	machineClasses []*MachineClass
 
-	// it will replaced with machineClasses and
-	// it is temporary storage for compatibility with build pattern
-	tmpIRIMachineClasses []*iri.MachineClass
+	machineclassesFile string
 
 	// sources is register of all added sources
 	sources map[string]Source
+
+	registredResources map[core.ResourceName]Source
 
 	// mx allow change internal state only one gouroutines
 	mx sync.Mutex
@@ -111,12 +113,12 @@ func (r *resourceManager) setLogger(logger logr.Logger) error {
 	return nil
 }
 
-func (r *resourceManager) setMachineClasses(classes []*iri.MachineClass) error {
+func (r *resourceManager) setMachineClassesFilename(filename string) error {
 	if r.initialized {
 		return ErrManagerAlreadyInitialized
 	}
 
-	r.tmpIRIMachineClasses = classes
+	r.machineclassesFile = filename
 
 	return nil
 }
@@ -131,38 +133,60 @@ func (r *resourceManager) setVMLimit(maxVMsLimit uint64) error {
 	return nil
 }
 
-func (r *resourceManager) createMachineClasses() error {
-	r.machineClasses = make([]*machineclass, len(r.tmpIRIMachineClasses))
-	for index, class := range r.tmpIRIMachineClasses {
-		resourceManagerClass := &machineclass{
-			// break reference
-			name:         class.GetName(),
-			capabilities: iri.MachineClassCapabilities{CpuMillis: class.Capabilities.CpuMillis, MemoryBytes: class.Capabilities.MemoryBytes},
-			resources: core.ResourceList{
-				core.ResourceCPU:    *resource.NewQuantity(class.Capabilities.CpuMillis, resource.DecimalSI),
-				core.ResourceMemory: *resource.NewQuantity(class.Capabilities.MemoryBytes, resource.BinarySI),
+func (r *resourceManager) initMachineClasses() error {
+	classes, err := loadMachineClassesFile(r.machineclassesFile)
+	if err != nil {
+		return err
+	}
+
+MAIN:
+	for _, class := range classes {
+		cpu, ok := class.Capabilities[core.ResourceCPU]
+		if !ok {
+			return fmt.Errorf("required resource %s is missing in machine class file", core.ResourceCPU)
+		}
+
+		mem, ok := class.Capabilities[core.ResourceMemory]
+		if !ok {
+			return fmt.Errorf("required resource %s is missing in machine class file", core.ResourceMemory)
+		}
+
+		// it is for minimize creation operations in status call
+		class.iriClass = &iri.MachineClass{
+			Name: class.Name,
+			Capabilities: &iri.MachineClassCapabilities{
+				CpuMillis:   cpu.MilliValue(),
+				MemoryBytes: mem.Value(),
 			},
 		}
 
+		for key := range class.Capabilities {
+			_, ok := r.registredResources[key]
+			if !ok {
+				r.log.Error(fmt.Errorf("missing source for resource %s: %w", key, ErrResourceUnsupported), fmt.Sprintf("machine class %s will be ignore", class.Name))
+				continue MAIN
+			}
+		}
+
+		r.machineClasses = append(r.machineClasses, class)
+
 		// rounding base on provider configuration
-		err := r.modifyResources(resourceManagerClass.resources)
+		err := r.modifyResources(class.Capabilities)
 		if err != nil {
 			return err
 		}
 
-		err = r.calculateMachineClassQuantity(resourceManagerClass)
+		// TODO: do we need still this?
+		err = r.calculateMachineClassQuantity(class)
 		if err != nil {
 			return err
 		}
-
-		r.machineClasses[index] = resourceManagerClass
 	}
 
 	sort.Slice(r.machineClasses, func(i, j int) bool {
-		return r.machineClasses[i].name < r.machineClasses[j].name
+		return r.machineClasses[i].Name < r.machineClasses[j].Name
 	})
 
-	r.tmpIRIMachineClasses = nil
 	return nil
 }
 
@@ -197,6 +221,10 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 			return err
 		}
 
+		for _, value := range resources.UnsortedList() {
+			r.registredResources[value] = s
+		}
+
 		if initializedResources == nil {
 			initializedResources = resources
 			continue
@@ -215,18 +243,14 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 	// Allocating resources for pre-existing machines in store
 	for _, machine := range machines {
 		for _, s := range r.sources {
-			s.Allocate(machine.Spec.Resources.DeepCopy())
-
-			sourceResourceList := s.GetAvailableResource()
-			sourceResourceQuantity := sourceResourceList[core.ResourceName(s.GetName())]
-			if sourceResourceQuantity.Sign() == -1 {
-				_ = s.Deallocate(machine.Spec.Resources.DeepCopy())
-				return ErrResourceNotAvailable
+			_, err := s.Allocate(machine.Spec.Resources.DeepCopy())
+			if err != nil {
+				return err
 			}
 		}
 	}
 
-	err := r.createMachineClasses()
+	err := r.initMachineClasses()
 	if err != nil {
 		return err
 	}
@@ -257,16 +281,24 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 	}
 
 	totalAllocatedRes := core.ResourceList{}
-	for _, s := range r.sources {
-		allocatedRes := s.Allocate(requiredResources)
-
-		sourceResourceList := s.GetAvailableResource()
-		sourceResourceQuantity := sourceResourceList[core.ResourceName(s.GetName())]
-		if sourceResourceQuantity.Sign() == -1 {
-			_ = s.Deallocate(requiredResources)
-			return ErrResourceNotAvailable
+	var allocatedRes core.ResourceList
+	for key := range requiredResources {
+		s, ok := r.registredResources[key]
+		if !ok {
+			return fmt.Errorf("failed to find source for resource %s: %w", key, ErrResourceUnsupported)
 		}
+
+		allocatedRes, err = s.Allocate(requiredResources)
+		if err != nil {
+			break
+		}
+
 		mergeResourceLists(totalAllocatedRes, allocatedRes)
+	}
+
+	if err != nil {
+		r.deallocateUnassignResources(totalAllocatedRes)
+		return err
 	}
 
 	machine.Spec.Resources = totalAllocatedRes
@@ -308,10 +340,13 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 			return err
 		}
 	}
-	for _, s := range r.sources {
+	for key := range deallocateResources {
+		s := r.registredResources[key]
 		resourceNames := s.Deallocate(deallocateResources)
 
 		for _, resource := range resourceNames {
+			// TODO: we have to optimize this
+			delete(deallocateResources, key)
 			delete(machine.Spec.Resources, resource)
 		}
 	}
@@ -324,6 +359,12 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 	r.printAvailableResources("deallocation")
 
 	return nil
+}
+
+func (r *resourceManager) deallocateUnassignResources(resources core.ResourceList) {
+	for _, s := range r.sources {
+		_ = s.Deallocate(resources)
+	}
 }
 
 // updateMachineClassAvailable is updating count of available machines for all machine classes
@@ -345,13 +386,10 @@ func (r *resourceManager) getAvailableMachineClasses() []*iri.MachineClassStatus
 	status := make([]*iri.MachineClassStatus, len(r.machineClasses))
 	for index, class := range r.machineClasses {
 		// break references between components
-		cap := class.capabilities
+		i := *class.iriClass
 		classStatus := &iri.MachineClassStatus{
-			MachineClass: &iri.MachineClass{
-				Name:         class.name,
-				Capabilities: &cap,
-			},
-			Quantity: class.available,
+			MachineClass: &i,
+			Quantity:     class.available,
 		}
 
 		status[index] = classStatus
@@ -360,18 +398,22 @@ func (r *resourceManager) getAvailableMachineClasses() []*iri.MachineClassStatus
 	return status
 }
 
-func (r *resourceManager) calculateMachineClassQuantity(class *machineclass) error {
+func (r *resourceManager) calculateMachineClassQuantity(class *MachineClass) error {
 	var count int64 = math.MaxInt64
 
-	for key, classQuantity := range class.resources {
-		available, err := getResource(key, r.getAvailableResources())
-		if err != nil {
-			return err
+	for _, s := range r.sources {
+		sourceCount := s.CalculateMachineClassQuantity(class.Capabilities.DeepCopy())
+		if sourceCount == 0 {
+			count = 0
+			break
 		}
 
-		newCount := int64(math.Floor(float64(available.Value()) / float64(classQuantity.Value())))
-		if newCount < count {
-			count = newCount
+		if sourceCount == sources.QuantityCountIgnore {
+			continue
+		}
+
+		if count > sourceCount {
+			count = sourceCount
 		}
 	}
 
@@ -411,18 +453,9 @@ func (r *resourceManager) checkContext() error {
 	return err
 }
 
-func getResource(name core.ResourceName, resources core.ResourceList) (*resource.Quantity, error) {
-	quantity, ok := resources[name]
-	if !ok {
-		return nil, fmt.Errorf("failed to get %s resource: %w", name, ErrResourceUnsupported)
-	}
-
-	return &quantity, nil
-}
-
-func (r *resourceManager) getMachineClass(name string) (*machineclass, error) {
+func (r *resourceManager) getMachineClass(name string) (*MachineClass, error) {
 	for _, class := range r.machineClasses {
-		if class.name == name {
+		if class.Name == name {
 			return class, nil
 		}
 	}
@@ -469,7 +502,7 @@ func (r *resourceManager) convertResourcesToString(resources core.ResourceList) 
 func (r *resourceManager) getMachineClassAvailibilityAsString() string {
 	var result string
 	for _, class := range r.machineClasses {
-		result += class.name + ": " + strconv.FormatInt(class.available, 10) + sep
+		result += class.Name + ": " + strconv.FormatInt(class.available, 10) + sep
 	}
 
 	return removeSeparatorFromEnd(result)
@@ -489,10 +522,19 @@ func (r *resourceManager) getAvailableResources() core.ResourceList {
 	resourceList := make(core.ResourceList)
 
 	for _, s := range r.sources {
-		list := s.GetAvailableResource()
+		list := s.GetAvailableResources()
 		mergeResourceLists(resourceList, list)
 	}
 	return resourceList
+}
+
+func (r *resourceManager) getIRIMachineClasses() []iri.MachineClass {
+	iriClasses := make([]iri.MachineClass, 0, len(r.machineClasses))
+	for _, class := range r.machineClasses {
+		iriClasses = append(iriClasses, *class.iriClass)
+	}
+
+	return iriClasses
 }
 
 func mergeResourceLists(dst, src core.ResourceList) {
@@ -516,11 +558,11 @@ func (r *resourceManager) reset() {
 	r.ctx = nil
 	r.log = ctrl.Log
 	r.machineClasses = nil
-	r.numaScheduler = nil
 	r.operationError = ErrManagerNotInitialized
 	r.sources = map[string]Source{}
-	r.tmpIRIMachineClasses = nil
+	r.machineclassesFile = ""
 	r.initialized = false
+	r.registredResources = map[core.ResourceName]Source{}
 }
 
 func removeSeparatorFromEnd(in string) string {
@@ -529,4 +571,22 @@ func removeSeparatorFromEnd(in string) string {
 	}
 
 	return in[:len(in)-len(sep)]
+}
+
+func loadMachineClasses(reader io.Reader) ([]*MachineClass, error) {
+	var classList []*MachineClass
+	if err := yaml.NewYAMLOrJSONDecoder(reader, 4096).Decode(&classList); err != nil {
+		return nil, fmt.Errorf("unable to unmarshal machine classes: %w", err)
+	}
+
+	return classList, nil
+}
+
+func loadMachineClassesFile(filename string) ([]*MachineClass, error) {
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open machine class file (%s): %w", filename, err)
+	}
+
+	return loadMachineClasses(file)
 }

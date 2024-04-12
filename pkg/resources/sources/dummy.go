@@ -37,18 +37,22 @@ func (d *Dummy) Modify(_ core.ResourceList) error {
 	return nil
 }
 
-func (d *Dummy) Allocate(requiredResources core.ResourceList) core.ResourceList {
-	return nil
+func (d *Dummy) Allocate(requiredResources core.ResourceList) (core.ResourceList, error) {
+	return nil, nil
 }
 
 func (d *Dummy) Deallocate(requiredResources core.ResourceList) []core.ResourceName {
 	return nil
 }
 
-func (d *Dummy) GetAvailableResource() core.ResourceList {
+func (d *Dummy) GetAvailableResources() core.ResourceList {
 	return core.ResourceList{core.ResourceCPU: *d.totalResources.CPU(), core.ResourceMemory: *d.totalResources.Memory()}.DeepCopy()
 }
 
 func (d *Dummy) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
 	return nil, nil
+}
+
+func (d *Dummy) CalculateMachineClassQuantity(requiredResources core.ResourceList) int64 {
+	return 0
 }

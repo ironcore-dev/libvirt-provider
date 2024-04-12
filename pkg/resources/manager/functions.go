@@ -13,6 +13,7 @@ import (
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
+	"github.com/ironcore-dev/libvirt-provider/pkg/sgx"
 )
 
 // AddSource just registers source into manager
@@ -51,9 +52,14 @@ func SetLogger(logger logr.Logger) error {
 	return mng.setLogger(logger)
 }
 
-// SetMachineClasses just registers supported machineclasses
-func SetMachineClasses(classes []*iri.MachineClass) error {
-	return mng.setMachineClasses(classes)
+// SetMachineClasses just registers filename with machineclasses which are load during initializating
+func SetMachineClassesFilename(filename string) error {
+	return mng.setMachineClassesFilename(filename)
+}
+
+// GetIRIMAchineClasses will return machineClasses of resource manager as IRI Machine Classes
+func GetIRIMachineClasses() []iri.MachineClass {
+	return mng.getIRIMachineClasses()
 }
 
 // SetVMLimit just registers maximum limit for VMs
@@ -96,13 +102,15 @@ func GetSource(name string, options sources.Options) (Source, error) {
 		return sources.NewSourceCPU(options), nil
 	case sources.SourceHugepages:
 		return sources.NewSourceHugepages(options), nil
+	case sgx.SourceSGX:
+		return sgx.NewSourceSGX(options), nil
 	default:
 		return nil, fmt.Errorf("unsupported source %s", name)
 	}
 }
 
 func GetSourcesAvailable() []string {
-	return []string{sources.SourceCPU, sources.SourceMemory, sources.SourceHugepages}
+	return []string{sources.SourceCPU, sources.SourceMemory, sources.SourceHugepages, sgx.SourceSGX}
 }
 
 func GetMachineClassRequiredResources(name string) (core.ResourceList, error) {
@@ -111,7 +119,7 @@ func GetMachineClassRequiredResources(name string) (core.ResourceList, error) {
 		return nil, err
 	}
 
-	return class.resources.DeepCopy(), nil
+	return class.Capabilities.DeepCopy(), nil
 }
 
 func ValidateOptions(options sources.Options) error {

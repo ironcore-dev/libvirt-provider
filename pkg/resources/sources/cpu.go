@@ -6,6 +6,7 @@ package sources
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/shirou/gopsutil/v3/cpu"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -42,6 +43,16 @@ func (c *CPU) Modify(resources core.ResourceList) error {
 	return nil
 }
 
+func (c *CPU) CalculateMachineClassQuantity(requiredResources core.ResourceList) int64 {
+	cpu, ok := requiredResources[core.ResourceCPU]
+	if !ok {
+		// this code cannot be call ever
+		return 0
+	}
+
+	return int64(math.Ceil(float64(c.availableCPU.Value()) / float64(cpu.Value())))
+}
+
 func (c *CPU) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
 	hostCPU, err := cpu.InfoWithContext(ctx)
 	if err != nil {
@@ -60,14 +71,20 @@ func (c *CPU) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
 	return sets.New(core.ResourceCPU), nil
 }
 
-func (c *CPU) Allocate(requiredResources core.ResourceList) core.ResourceList {
+func (c *CPU) Allocate(requiredResources core.ResourceList) (core.ResourceList, error) {
 	cpu, ok := requiredResources[core.ResourceCPU]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
-	c.availableCPU.Sub(cpu)
-	return core.ResourceList{core.ResourceCPU: cpu}
+	newCPU := *c.availableCPU
+	newCPU.Sub(cpu)
+	if newCPU.Sign() == -1 {
+		return nil, fmt.Errorf("failed to allocate %s: %w", core.ResourceCPU, ErrResourceNotAvailable)
+	}
+
+	c.availableCPU = &newCPU
+	return core.ResourceList{core.ResourceCPU: cpu}, nil
 }
 
 func (c *CPU) Deallocate(requiredResources core.ResourceList) []core.ResourceName {
@@ -80,6 +97,6 @@ func (c *CPU) Deallocate(requiredResources core.ResourceList) []core.ResourceNam
 	return []core.ResourceName{core.ResourceCPU}
 }
 
-func (c *CPU) GetAvailableResource() core.ResourceList {
-	return core.ResourceList{core.ResourceCPU: *c.availableCPU}.DeepCopy()
+func (c *CPU) GetAvailableResources() core.ResourceList {
+	return core.ResourceList{core.ResourceCPU: *c.availableCPU}
 }

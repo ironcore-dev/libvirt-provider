@@ -2,21 +2,22 @@
   {
     "name": "libvirt-provider-dev-extra-huge",
     "capabilities": {
-      "cpu_millis": 2000,
+      "cpu": 2000,
       "memory_bytes": 16106127361
     }
   },
   {
     "name": "libvirt-provider-dev-t3-small",
     "capabilities": {
-      "cpu_millis": 2000,
-      "memory_bytes": 2147483648
+      "cpu": 2000,
+      "memory_bytes": 2147483648,
+      "memory.epc.sgx": 2147483648
     }
   },
   {
     "name": "libvirt-provider-dev-x3-xlarge",
     "capabilities": {
-      "cpu_millis": 4000,
+      "cpu": 4000,
       "memory_bytes": 8589934592
     }
   }

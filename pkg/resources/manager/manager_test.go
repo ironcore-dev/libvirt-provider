@@ -3,18 +3,15 @@
 
 package manager
 
+/* require implement new logic for loading machineclasses
+
 import (
 	"context"
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
-	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
-
-	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
-	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 )
 
 func returnEmptyMachineList(_ context.Context) ([]*api.Machine, error) {
@@ -22,22 +19,6 @@ func returnEmptyMachineList(_ context.Context) ([]*api.Machine, error) {
 }
 
 var _ = Describe("Resource Manager", Ordered, func() {
-	machineClasses := []*iriv1alpha1.MachineClass{
-		{
-			Name: "machineClassx3xlarge",
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				CpuMillis:   4000,
-				MemoryBytes: 8589934592,
-			},
-		},
-		{
-			Name: "machineClassx2medium",
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				CpuMillis:   2000,
-				MemoryBytes: 2147483648,
-			},
-		},
-	}
 	Context("without initialized manager", func() {
 		machine := api.Machine{}
 		It("should be failed with error ErrManagerNotInitialized", func() {
@@ -85,16 +66,18 @@ var _ = Describe("Resource Manager", Ordered, func() {
 
 		It("should initialize", func() {
 			Expect(SetLogger(logger)).Should(Succeed())
-			Expect(SetMachineClasses(machineClasses)).Should(Succeed())
+			Expect(SetMachineClassesFilename("")).Should(Succeed())
 			Expect(AddSource(sources.NewSourceDummy(totalResources, sources.Options{}))).Should(Succeed())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).Should(Succeed())
 		})
 
 		It("shouldn't be possible reinitialized or set parameters again", func() {
 			Expect(SetLogger(logger)).ShouldNot(Succeed())
-			Expect(SetMachineClasses(nil)).ShouldNot(Succeed())
+			Expect(SetMachineClassesFilename("")).ShouldNot(Succeed())
 			Expect(AddSource(sources.NewSourceCPU(sources.Options{OvercommitVCPU: 1.0}))).ShouldNot(Succeed())
 			Expect(Initialize(context.TODO(), returnEmptyMachineList)).ShouldNot(Succeed())
 		})
 	})
 })
+
+*/

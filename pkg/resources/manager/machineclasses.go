@@ -8,9 +8,9 @@ import (
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 )
 
-type machineclass struct {
-	name         string
-	capabilities iri.MachineClassCapabilities
-	resources    core.ResourceList
+type MachineClass struct {
+	Name         string            `json:"name"`
+	Capabilities core.ResourceList `json:"capabilities"`
 	available    int64
+	iriClass     *iri.MachineClass
 }

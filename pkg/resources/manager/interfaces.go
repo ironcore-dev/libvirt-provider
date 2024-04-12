@@ -21,11 +21,13 @@ type Source interface {
 	// Init ititializes total resources in the source
 	Init(context.Context) (sets.Set[core.ResourceName], error)
 	// Allocate allocates the resources in the source
-	Allocate(core.ResourceList) core.ResourceList
+	Allocate(core.ResourceList) (core.ResourceList, error)
 	// Deallocate deallocates the resources from the source
 	Deallocate(core.ResourceList) []core.ResourceName
 	// GetAvailableResource provides the available resourcelist in the source
-	GetAvailableResource() core.ResourceList
+	GetAvailableResources() core.ResourceList
+	// Calculate allocatable quantity of machines classes based on class resources
+	CalculateMachineClassQuantity(core.ResourceList) int64
 }
 
 type NumaScheduler interface {

@@ -55,6 +55,16 @@ func (m *Hugepages) Modify(resources core.ResourceList) error {
 	return nil
 }
 
+func (m *Hugepages) CalculateMachineClassQuantity(requiredResources core.ResourceList) int64 {
+	mem, ok := requiredResources[core.ResourceMemory]
+	if !ok {
+		// this code cannot be call ever
+		return 0
+	}
+
+	return int64(math.Ceil(float64(m.availableMemory.Value()) / float64(mem.Value())))
+}
+
 func (m *Hugepages) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
 	hostMem, err := mem.VirtualMemoryWithContext(ctx)
 	if err != nil {
@@ -74,22 +84,33 @@ func (m *Hugepages) Init(ctx context.Context) (sets.Set[core.ResourceName], erro
 	return sets.New(core.ResourceMemory, ResourceHugepages), nil
 }
 
-func (m *Hugepages) Allocate(requiredResources core.ResourceList) core.ResourceList {
+func (m *Hugepages) Allocate(requiredResources core.ResourceList) (core.ResourceList, error) {
 	mem, ok := requiredResources[core.ResourceMemory]
 	if !ok {
-		return nil
+		return nil, nil
 	}
 
-	m.availableMemory.Sub(mem)
+	newMem := *m.availableMemory
+	newMem.Sub(mem)
+	if newMem.Sign() == -1 {
+		return nil, fmt.Errorf("failed to allocate resource %s: %w", core.ResourceMemory, ErrResourceNotAvailable)
+	}
 
 	hugepages, ok := requiredResources[ResourceHugepages]
 	if !ok {
-		return core.ResourceList{core.ResourceMemory: mem}
+		return nil, fmt.Errorf("failed to allocate resource %s: %w", ResourceHugepages, ErrResourceMissing)
 	}
 
-	m.availableHugePages.Sub(hugepages)
+	newHugepages := *m.availableHugePages
+	newHugepages.Sub(hugepages)
+	if newHugepages.Sign() == -1 {
+		return nil, fmt.Errorf("failed to allocate resource %s: %w", ResourceHugepages, ErrResourceNotAvailable)
+	}
 
-	return core.ResourceList{core.ResourceMemory: mem, ResourceHugepages: hugepages}
+	m.availableMemory = &newMem
+	m.availableHugePages = &newHugepages
+
+	return core.ResourceList{core.ResourceMemory: mem, ResourceHugepages: hugepages}, nil
 }
 
 func (m *Hugepages) Deallocate(requiredResources core.ResourceList) []core.ResourceName {
@@ -110,8 +131,8 @@ func (m *Hugepages) Deallocate(requiredResources core.ResourceList) []core.Resou
 	return []core.ResourceName{core.ResourceMemory, ResourceHugepages}
 }
 
-func (m *Hugepages) GetAvailableResource() core.ResourceList {
-	return core.ResourceList{core.ResourceMemory: *m.availableMemory, ResourceHugepages: *m.availableHugePages}.DeepCopy()
+func (m *Hugepages) GetAvailableResources() core.ResourceList {
+	return core.ResourceList{core.ResourceMemory: *m.availableMemory, ResourceHugepages: *m.availableHugePages}
 }
 
 func calculateAvailableHugepages(totalHugepages, blockedHugepages uint64) (uint64, error) {
