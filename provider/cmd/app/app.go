@@ -152,7 +152,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.StringSliceVar(&o.ResourceManagerOptions.Sources, "resource-manager-sources", []string{"cpu", "memory"}, fmt.Sprintf("Sources for loading resources. Available: %v", manager.GetSourcesAvailable()))
 	fs.Float64Var(&o.ResourceManagerOptions.OvercommitVCPU, "resource-manager-overcommit-vcpu", 1.0, "Sets the overcommit ratio for vCPUs, enabling higher VM density per CPU core.")
 	fs.Uint64Var(&o.ResourceManagerOptions.BlockedHugepages, "resource-manager-blocked-hugepages", 0, "Count of hugepages which aren't use for vms. Effective only if hugepages source is set")
-	fs.Var(&o.ResourceManagerOptions.ReservedMemorySize, "resource-manager-reserved-memory-size", fmt.Sprintf("Size of memory which aren't use for vms in human-readable format. Available Units: %v", sources.GetmemorySizeUnitsAvailable()))
+	fs.Var(&o.ResourceManagerOptions.ReservedMemorySize, "resource-manager-reserved-memory-size", "Size of memory which aren't use for vms in human-readable format. Effective only if memory source is set")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -534,6 +534,11 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 }
 
 func initResourceManager(ctx context.Context, opts sources.Options, machineStore *host.Store[*api.Machine], classRegistry *mcr.Mcr) error {
+	err := manager.ValidateOptions(opts)
+	if err != nil {
+		return err
+	}
+
 	for _, sourceName := range opts.Sources {
 		source, err := manager.GetSource(sourceName, opts)
 		if err != nil {
@@ -546,7 +551,7 @@ func initResourceManager(ctx context.Context, opts sources.Options, machineStore
 		}
 	}
 
-	err := manager.SetMachineClasses(classRegistry.List())
+	err = manager.SetMachineClasses(classRegistry.List())
 	if err != nil {
 		return err
 	}

@@ -5,7 +5,6 @@ package sources
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/shirou/gopsutil/v3/cpu"
@@ -44,12 +43,6 @@ func (c *CPU) Modify(resources core.ResourceList) error {
 }
 
 func (c *CPU) Init(ctx context.Context) (sets.Set[core.ResourceName], error) {
-	// To handle the limitations of floating-point arithmetic, where small rounding errors can occur
-	// due to the finite precision of floating-point numbers.
-	if c.overcommitVCPU < 1e-9 {
-		return nil, errors.New("overcommitVCPU cannot be zero or negative")
-	}
-
 	hostCPU, err := cpu.InfoWithContext(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host cpu information: %w", err)
