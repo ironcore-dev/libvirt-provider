@@ -42,7 +42,7 @@ var (
 
 	ErrCommonResources = errors.New("common resources managed by different sources")
 
-	ErrVMLimitReached = errors.New("vm limit has already reached")
+	ErrVMLimitReached = errors.New("vm limit is already reached")
 )
 
 func init() {
@@ -183,7 +183,11 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 	r.ctx = ctx
 
-	r.vmCount = len(machines)
+	totalExistingVMCount := len(machines)
+	if r.vmCountLimit != 0 && totalExistingVMCount >= r.vmCountLimit {
+		r.log.Info("VM limit is already reached", "Limit", r.vmCountLimit, "Existing count", totalExistingVMCount)
+	}
+	r.vmCount = totalExistingVMCount
 
 	// Initialize all sources and check for common resources
 	var initializedResources sets.Set[core.ResourceName]
