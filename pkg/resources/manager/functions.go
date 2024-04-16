@@ -27,6 +27,11 @@ func Allocate(machine *api.Machine, requiredResources core.ResourceList) error {
 	if len(requiredResources) == 0 {
 		return ErrResourcesEmpty
 	}
+
+	if mng.vmCountLimit != 0 && mng.vmCount >= mng.vmCountLimit {
+		return ErrVMLimitReached
+	}
+
 	return mng.allocate(machine, requiredResources)
 }
 
@@ -53,6 +58,11 @@ func SetLogger(logger logr.Logger) error {
 // SetMachineClasses just registers supported machineclasses
 func SetMachineClasses(classes []*iri.MachineClass) error {
 	return mng.setMachineClasses(classes)
+}
+
+// SetVMLimit just registers maximum limit for VMs
+func SetVMLimit(vmCountLimit int) error {
+	return mng.setVMLimit(vmCountLimit)
 }
 
 // GetMachineClassStatus return status of machineclasses with current quantity

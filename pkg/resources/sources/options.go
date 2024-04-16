@@ -12,6 +12,7 @@ type Options struct {
 	OvercommitVCPU     float64
 	ReservedMemorySize MemorySize
 	BlockedHugepages   uint64
+	VMLimit            uint64
 }
 
 // // MemorySize is a custom type to handle memory sizes in human-readable format.

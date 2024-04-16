@@ -41,6 +41,8 @@ var (
 	ErrMachineClassMissing = errors.New("machine class is missing")
 
 	ErrCommonResources = errors.New("common resources managed by different sources")
+
+	ErrVMLimitReached = errors.New("vm limit has already reached")
 )
 
 func init() {
@@ -76,6 +78,12 @@ type resourceManager struct {
 	// operationError optimize execution of allocate and deallocate function
 	// and it serves as protection for calling function before initialization.
 	operationError error
+
+	// current number of VMs on host
+	vmCount int
+
+	// maximum number of VMs allowed on host
+	vmCountLimit int
 }
 
 func (r *resourceManager) addSource(source Source) error {
@@ -109,6 +117,16 @@ func (r *resourceManager) setMachineClasses(classes []*iri.MachineClass) error {
 	}
 
 	r.tmpIRIMachineClasses = classes
+
+	return nil
+}
+
+func (r *resourceManager) setVMLimit(vmCountLimit int) error {
+	if r.initialized {
+		return ErrManagerAlreadyInitialized
+	}
+
+	r.vmCountLimit = vmCountLimit
 
 	return nil
 }
@@ -164,6 +182,8 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 	r.initialized = true
 
 	r.ctx = ctx
+
+	r.vmCount = len(machines)
 
 	// Initialize all sources and check for common resources
 	var initializedResources sets.Set[core.ResourceName]
@@ -254,6 +274,7 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 	_ = r.updateMachineClassAvailable()
 
 	r.printAvailableResources("allocation")
+	r.vmCount += 1
 
 	return nil
 }
@@ -289,6 +310,7 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 	_ = r.updateMachineClassAvailable()
 
 	r.printAvailableResources("deallocation")
+	r.vmCount -= 1
 
 	return nil
 }
