@@ -41,6 +41,8 @@ var (
 	ErrMachineClassMissing = errors.New("machine class is missing")
 
 	ErrCommonResources = errors.New("common resources managed by different sources")
+
+	ErrVMLimitReached = errors.New("vm limit is already reached")
 )
 
 func init() {
@@ -76,6 +78,12 @@ type resourceManager struct {
 	// operationError optimize execution of allocate and deallocate function
 	// and it serves as protection for calling function before initialization.
 	operationError error
+
+	// availableVMSlots signifies the number of VMs that can still be created on the host
+	availableVMSlots int64
+
+	// maxVMsLimit signifies maximum number of VMs allowed on host
+	maxVMsLimit uint64
 }
 
 func (r *resourceManager) addSource(source Source) error {
@@ -109,6 +117,16 @@ func (r *resourceManager) setMachineClasses(classes []*iri.MachineClass) error {
 	}
 
 	r.tmpIRIMachineClasses = classes
+
+	return nil
+}
+
+func (r *resourceManager) setVMLimit(maxVMsLimit uint64) error {
+	if r.initialized {
+		return ErrManagerAlreadyInitialized
+	}
+
+	r.maxVMsLimit = maxVMsLimit
 
 	return nil
 }
@@ -165,6 +183,12 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 
 	r.ctx = ctx
 
+	totalExistingVMCount := uint64(len(machines))
+	if r.maxVMsLimit != 0 && totalExistingVMCount >= r.maxVMsLimit {
+		r.log.Info("VM limit is already reached", "Limit", r.maxVMsLimit, "Existing count", totalExistingVMCount)
+	}
+	r.availableVMSlots = int64(r.maxVMsLimit - totalExistingVMCount)
+
 	// Initialize all sources and check for common resources
 	var initializedResources sets.Set[core.ResourceName]
 	for _, s := range r.sources {
@@ -207,6 +231,7 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 		return err
 	}
 
+	r.log.Info("Available VM slots:" + r.getAvailableVMSlotsAsString())
 	r.log.Info("Available resources: " + r.convertResourcesToString(r.getAvailableResources()))
 	r.log.Info("Machine classes availibility: " + r.getMachineClassAvailibilityAsString())
 	r.operationError = nil
@@ -225,6 +250,10 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 	err := r.checkContext()
 	if err != nil {
 		return err
+	}
+
+	if r.maxVMsLimit != 0 && r.availableVMSlots <= 0 {
+		return ErrVMLimitReached
 	}
 
 	totalAllocatedRes := core.ResourceList{}
@@ -249,6 +278,8 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 			return err
 		}
 	}
+
+	r.availableVMSlots -= 1
 
 	// error cannot ocurre here
 	_ = r.updateMachineClassAvailable()
@@ -284,6 +315,8 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 			delete(machine.Spec.Resources, resource)
 		}
 	}
+
+	r.availableVMSlots += 1
 
 	// error cannot occure here
 	_ = r.updateMachineClassAvailable()
@@ -340,6 +373,10 @@ func (r *resourceManager) calculateMachineClassQuantity(class *machineclass) err
 		if newCount < count {
 			count = newCount
 		}
+	}
+
+	if count > r.availableVMSlots {
+		count = r.availableVMSlots
 	}
 
 	if count < 0 {
@@ -400,6 +437,7 @@ func (r *resourceManager) printAvailableResources(operation string) {
 		return
 	}
 
+	r.log.V(traceLevel).Info("Available VM slots after " + operation + ": " + r.getAvailableVMSlotsAsString())
 	r.log.V(traceLevel).Info("Available resources after " + operation + ": " + r.convertResourcesToString(r.getAvailableResources()))
 	r.log.V(traceLevel).Info("Machineclasses availibility: " + r.getMachineClassAvailibilityAsString())
 }
@@ -435,6 +473,16 @@ func (r *resourceManager) getMachineClassAvailibilityAsString() string {
 	}
 
 	return removeSeparatorFromEnd(result)
+}
+
+func (r *resourceManager) getAvailableVMSlotsAsString() string {
+	count := r.availableVMSlots
+
+	if count < 0 {
+		count = 0
+	}
+
+	return strconv.FormatInt(count, 10)
 }
 
 func (r *resourceManager) getAvailableResources() core.ResourceList {

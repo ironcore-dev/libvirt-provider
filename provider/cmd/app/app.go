@@ -153,6 +153,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.Float64Var(&o.ResourceManagerOptions.OvercommitVCPU, "resource-manager-overcommit-vcpu", 1.0, "Sets the overcommit ratio for vCPUs, enabling higher VM density per CPU core.")
 	fs.Uint64Var(&o.ResourceManagerOptions.BlockedHugepages, "resource-manager-blocked-hugepages", 0, "Count of hugepages which aren't use for vms. Effective only if hugepages source is set")
 	fs.Var(&o.ResourceManagerOptions.ReservedMemorySize, "resource-manager-reserved-memory-size", "Size of memory which aren't use for vms in human-readable format. Effective only if memory source is set")
+	fs.Uint64Var(&o.ResourceManagerOptions.VMLimit, "resource-manager-vm-limit", 0, "Maximum number of the VMs to be created on the host")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -552,6 +553,11 @@ func initResourceManager(ctx context.Context, opts sources.Options, machineStore
 	}
 
 	err = manager.SetMachineClasses(classRegistry.List())
+	if err != nil {
+		return err
+	}
+
+	err = manager.SetVMLimit(opts.VMLimit)
 	if err != nil {
 		return err
 	}
