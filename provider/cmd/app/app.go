@@ -557,7 +557,7 @@ func initResourceManager(ctx context.Context, opts sources.Options, machineStore
 		return err
 	}
 
-	err = manager.SetVMLimit(int(opts.VMLimit))
+	err = manager.SetVMLimit(opts.VMLimit)
 	if err != nil {
 		return err
 	}
