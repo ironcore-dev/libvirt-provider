@@ -19,6 +19,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/cmd/libvirt-provider/app"
 	"github.com/ironcore-dev/libvirt-provider/internal/event/machineevent"
+	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -29,24 +30,21 @@ import (
 )
 
 const (
-	eventuallyTimeout              = 80 * time.Second
-	pollingInterval                = 50 * time.Millisecond
-	gracefulShutdownTimeout        = 60 * time.Second
+	eventuallyTimeout    = 80 * time.Second
+	pollingInterval      = 50 * time.Millisecond
+	consistentlyDuration = 1 * time.Second
+	probeEveryInterval   = 2 * time.Second
+
+	//Test graceful shutdown will be tested separately
 	resyncGarbageCollectorInterval = 5 * time.Second
 	resyncVolumeSizeInterval       = 1 * time.Minute
-	consistentlyDuration           = 1 * time.Second
-	probeEveryInterval             = 2 * time.Second
-	machineClassx3xlarge           = "x3-xlarge"
-	machineClassx2medium           = "x2-medium"
-	squashfsOSImage                = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:squashfs-dev-20240123-v2"
-	emptyDiskSize                  = 1024 * 1024 * 1024
 	baseURL                        = "http://localhost:20251"
 	streamingAddress               = "127.0.0.1:20251"
 	healthCheckAddress             = "127.0.0.1:20252"
 	metricsAddress                 = "" // disable metrics server for integration tests
-	machineEventMaxEvents          = 10
-	machineEventTTL                = 10 * time.Second
-	machineEventResyncInterval     = 2 * time.Second
+
+	machineClassx3xlarge = "x3-xlarge"
+	machineClassx2medium = "x2-medium"
 )
 
 var (
@@ -54,10 +52,6 @@ var (
 	libvirtConn        *libvirt.Libvirt
 	machineClassesFile *os.File
 	tempDir            string
-	cephMonitors       = os.Getenv("CEPH_MONITORS")
-	cephImage          = os.Getenv("CEPH_IMAGE")
-	cephUsername       = os.Getenv("CEPH_USERNAME")
-	cephUserkey        = os.Getenv("CEPH_USERKEY")
 )
 
 func TestServer(t *testing.T) {
@@ -102,6 +96,7 @@ var _ = BeforeSuite(func() {
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
 
+	// tempDir = "/home/pcmil/libvirt-provider/temptest"
 	tempDir = GinkgoT().TempDir()
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
@@ -126,15 +121,15 @@ var _ = BeforeSuite(func() {
 			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx"},
 			Qcow2Type:             "exec",
 		},
-		NicPlugin:                      pluginOpts,
-		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
+		NicPlugin: pluginOpts,
+		// GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
 		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
 		MachineEventStore: machineevent.EventStoreOptions{
-			MachineEventMaxEvents:      machineEventMaxEvents,
-			MachineEventTTL:            machineEventTTL,
-			MachineEventResyncInterval: machineEventResyncInterval,
+			MachineEventMaxEvents:      5,
+			MachineEventTTL:            10 * time.Second,
+			MachineEventResyncInterval: 10 * time.Second,
 		},
 	}
 
@@ -175,4 +170,28 @@ func isSocketAvailable(socketPath string) error {
 		return nil
 	}
 	return fmt.Errorf("socket %s is not available", socketPath)
+}
+
+func assertMachineIsRunning(machineID string) libvirt.Domain {
+	GinkgoHelper()
+	By("ensuring domain and domain XML is created for machine")
+	var domain libvirt.Domain
+
+	Eventually(func() (err error) {
+		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
+		return err
+	}).Should(Succeed())
+
+	domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(domainXMLData).NotTo(BeEmpty())
+
+	By("ensuring domain for machine is in running state")
+	Eventually(func(g Gomega) libvirt.DomainState {
+		domainState, _, err := libvirtConn.DomainGetState(domain, 0)
+		g.Expect(err).NotTo(HaveOccurred())
+		return libvirt.DomainState(domainState)
+	}).Should(Equal(libvirt.DomainRunning))
+
+	return domain
 }

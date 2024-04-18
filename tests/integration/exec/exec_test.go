@@ -38,33 +38,15 @@ var _ = Describe("Exec", func() {
 		Expect(createResp).NotTo(BeNil())
 
 		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
+			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+			Expect(err).To(SatisfyAny(
+				BeNil(),
+				MatchError(ContainSubstring("NotFound")),
+			))
 		})
 
-		By("ensuring domain and domain XML is created for machine")
-		var domain libvirt.Domain
-		Eventually(func() error {
-			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-			return err
-		}).Should(Succeed())
-		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(domainXMLData).NotTo(BeEmpty())
-
-		By("ensuring domain for machine is in running state")
-		Eventually(func(g Gomega) libvirt.DomainState {
-			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			g.Expect(err).NotTo(HaveOccurred())
-			return libvirt.DomainState(domainState)
-		}).Should(Equal(libvirt.DomainRunning))
+		By("ensuring domain and domain XML is created and machine is running")
+		assertMachineIsRunning(createResp.Machine.Metadata.Id)
 
 		By("getting exec-url for the test machine")
 		execResp, err := machineClient.Exec(ctx, &iri.ExecRequest{MachineId: createResp.Machine.Metadata.Id})
