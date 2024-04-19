@@ -375,7 +375,7 @@ func (r *resourceManager) calculateMachineClassQuantity(class *machineclass) err
 		}
 	}
 
-	if count > r.availableVMSlots {
+	if r.maxVMsLimit != 0 && count > r.availableVMSlots {
 		count = r.availableVMSlots
 	}
 
