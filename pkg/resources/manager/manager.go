@@ -12,7 +12,6 @@ import (
 	"os"
 	"sort"
 	"strconv"
-	"strings"
 	"sync"
 
 	core "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
@@ -20,7 +19,6 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/pkg/api"
 	"github.com/ironcore-dev/libvirt-provider/pkg/resources/sources"
 	"k8s.io/apimachinery/pkg/api/resource"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/go-logr/logr"
@@ -213,8 +211,6 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 	}
 	r.availableVMSlots = int64(r.maxVMsLimit - totalExistingVMCount)
 
-	// Initialize all sources and check for common resources
-	var initializedResources sets.Set[core.ResourceName]
 	for _, s := range r.sources {
 		resources, err := s.Init(r.ctx)
 		if err != nil {
@@ -222,20 +218,13 @@ func (r *resourceManager) initialize(ctx context.Context, machines []*api.Machin
 		}
 
 		for _, value := range resources.UnsortedList() {
+			conflictedSource, ok := r.registredResources[value]
+			if ok {
+				return fmt.Errorf("%w: sources %s and %s mnaged same resource %s", ErrCommonResources, s.GetName(), conflictedSource.GetName(), value)
+			}
+
 			r.registredResources[value] = s
 		}
-
-		if initializedResources == nil {
-			initializedResources = resources
-			continue
-		}
-		// Check for common resources with previously initialized sources
-		commonResources := initializedResources.Intersection(resources)
-		if commonResources.Len() > 0 {
-			return fmt.Errorf("%w: source '%s' has resource(s): '%s', that are already initialized", ErrCommonResources, s.GetName(), getElementsFromSet(commonResources))
-		}
-
-		initializedResources = initializedResources.Union(resources)
 	}
 
 	r.log.Info("Initialized resources: " + r.convertResourcesToString(r.getAvailableResources()))
@@ -290,15 +279,11 @@ func (r *resourceManager) allocate(machine *api.Machine, requiredResources core.
 
 		allocatedRes, err = s.Allocate(requiredResources)
 		if err != nil {
-			break
+			r.deallocateUnassignResources(totalAllocatedRes)
+			return err
 		}
 
 		mergeResourceLists(totalAllocatedRes, allocatedRes)
-	}
-
-	if err != nil {
-		r.deallocateUnassignResources(totalAllocatedRes)
-		return err
 	}
 
 	machine.Spec.Resources = totalAllocatedRes
@@ -362,7 +347,9 @@ func (r *resourceManager) deallocate(machine *api.Machine, deallocateResources c
 }
 
 func (r *resourceManager) deallocateUnassignResources(resources core.ResourceList) {
-	for _, s := range r.sources {
+	for key := range resources {
+		// if resource is allocated, source has to exist
+		s := r.registredResources[key]
 		_ = s.Deallocate(resources)
 	}
 }
@@ -401,8 +388,13 @@ func (r *resourceManager) getAvailableMachineClasses() []*iri.MachineClassStatus
 func (r *resourceManager) calculateMachineClassQuantity(class *MachineClass) error {
 	var count int64 = math.MaxInt64
 
-	for _, s := range r.sources {
-		sourceCount := s.CalculateMachineClassQuantity(class.Capabilities.DeepCopy())
+	classResources := class.Capabilities.DeepCopy()
+	for key := range classResources {
+		s, ok := r.registredResources[key]
+		if !ok {
+			return fmt.Errorf("failed to find source for resource %s: %w", key, ErrManagerSourcesMissing)
+		}
+		sourceCount := s.CalculateMachineClassQuantity(classResources)
 		if sourceCount == 0 {
 			count = 0
 			break
@@ -541,15 +533,6 @@ func mergeResourceLists(dst, src core.ResourceList) {
 	for k, v := range src {
 		dst[k] = v
 	}
-}
-
-// getElementsFromSet returns a string representation of the set's contents
-func getElementsFromSet(s sets.Set[core.ResourceName]) string {
-	elements := make([]string, 0, s.Len())
-	for _, elem := range s.UnsortedList() {
-		elements = append(elements, string(elem))
-	}
-	return strings.Join(elements, ", ")
 }
 
 // reset internal state of manager and allow reinit
