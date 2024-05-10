@@ -16,7 +16,7 @@ jobs:
           go-version-file: 'go.mod'
       - run: sudo apt update  && sudo apt install -y libcephfs-dev librbd-dev librados-dev
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v5
+        uses: golangci/golangci-lint-action@v6
         with:
           version: v1.57.2
           skip-pkg-cache: true
