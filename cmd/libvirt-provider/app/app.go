@@ -26,6 +26,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/console"
 	"github.com/ironcore-dev/libvirt-provider/internal/controllers"
 	"github.com/ironcore-dev/libvirt-provider/internal/event"
+	"github.com/ironcore-dev/libvirt-provider/internal/healthcheck"
 	"github.com/ironcore-dev/libvirt-provider/internal/host"
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
@@ -96,7 +97,8 @@ type HTTPServerOptions struct {
 }
 
 type ServersOptions struct {
-	Metrics HTTPServerOptions
+	Metrics        HTTPServerOptions
+	LibvirtConnect HTTPServerOptions
 }
 
 type LibvirtOptions struct {
@@ -124,7 +126,10 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 		"constructed from the streaming-address")
 
 	fs.StringVar(&o.Servers.Metrics.Addr, "servers-metrics-address", "", "Address to listen on exposing of metrics. If address isn't set, server is disabled.")
-	fs.DurationVar(&o.Servers.Metrics.GracefulTimeout, "servers-metrics-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown metrics server. Ideally set it little longer as idletimeout.")
+	fs.DurationVar(&o.Servers.Metrics.GracefulTimeout, "servers-metrics-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown metrics server.")
+
+	fs.StringVar(&o.Servers.LibvirtConnect.Addr, "servers-libvirt-connect-address", "127.0.0.1:8080", "Address to listen on health check liveness.")
+	fs.DurationVar(&o.Servers.LibvirtConnect.GracefulTimeout, "servers-libvirt-connect-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown health check server.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
 	fs.Var(&o.GuestAgent, "guest-agent-type", fmt.Sprintf("Guest agent implementation to use. Available: %v", guestAgentOptionAvailable()))
@@ -361,6 +366,11 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	healthCheck := healthcheck.HealthCheck{
+		Libvirt: libvirt,
+		Log:     log.WithName("health-check"),
+	}
+
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
@@ -407,6 +417,15 @@ func Run(ctx context.Context, opts Options) error {
 		setupLog.Info("Starting streaming server")
 		if err := runStreamingServer(ctx, setupLog, log, srv, opts); err != nil {
 			setupLog.Error(err, "failed to start streaming server")
+			return err
+		}
+		return nil
+	})
+
+	g.Go(func() error {
+		setupLog.Info("Starting health check server")
+		if err := runHealthCheckServer(ctx, setupLog, healthCheck, opts.Servers.LibvirtConnect); err != nil {
+			setupLog.Error(err, "failed to start health check server")
 			return err
 		}
 		return nil
@@ -510,6 +529,41 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 	}
 
 	setupLog.Info("Metrics server stopped serve new connections")
+
+	wg.Wait()
+
+	return nil
+}
+
+func runHealthCheckServer(ctx context.Context, setupLog logr.Logger, healthCheck healthcheck.HealthCheck, opts HTTPServerOptions) error {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", healthCheck.HealthCheckHandler)
+
+	srv := http.Server{
+		Addr:    opts.Addr,
+		Handler: mux,
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		<-ctx.Done()
+		setupLog.Info("Shutting down health check server")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), opts.GracefulTimeout)
+		defer cancel()
+		locErr := srv.Shutdown(shutdownCtx)
+		if locErr != nil {
+			setupLog.Error(locErr, "health checkserver wasn't shutdown properly")
+		} else {
+			setupLog.Info("Health check server is shutdown")
+		}
+	}()
+
+	setupLog.V(1).Info("Starting health check server", "Address", opts.Addr)
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return fmt.Errorf("error listening / serving health check server: %w", err)
+	}
 
 	wg.Wait()
 
