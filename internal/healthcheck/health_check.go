@@ -17,11 +17,10 @@ type HealthCheck struct {
 }
 
 func (h HealthCheck) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	err := libvirtutils.IsConnected(h.Libvirt)
-	if err == nil {
+	if err := libvirtutils.IsConnected(h.Libvirt); err == nil {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		h.Log.Error(err, "failed to get active connection to libvirtd")
-		w.WriteHeader(http.StatusInternalServerError)
+		w.WriteHeader(http.StatusServiceUnavailable)
 	}
 }
