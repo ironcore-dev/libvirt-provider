@@ -21,7 +21,7 @@ func (h HealthCheck) HealthCheckHandler(w http.ResponseWriter, r *http.Request) 
 	if err == nil {
 		w.WriteHeader(http.StatusOK)
 	} else {
-		h.Log.V(1).Error(err, "Failed to get active connection to libvirtd")
+		h.Log.Error(err, "failed to get active connection to libvirtd")
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 }
