@@ -554,7 +554,7 @@ func runHealthCheckServer(ctx context.Context, setupLog logr.Logger, healthCheck
 		defer cancel()
 		locErr := srv.Shutdown(shutdownCtx)
 		if locErr != nil {
-			setupLog.Error(locErr, "health checkserver wasn't shutdown properly")
+			setupLog.Error(locErr, "health check server wasn't shutdown properly")
 		} else {
 			setupLog.Info("Health check server is shutdown")
 		}
