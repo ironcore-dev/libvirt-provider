@@ -177,3 +177,11 @@ func ApplySecret(lv *libvirt.Libvirt, secret *libvirtxml.Secret, value []byte) e
 
 	return nil
 }
+
+func IsConnected(clnt *libvirt.Libvirt) error {
+	if !clnt.IsConnected() {
+		return errors.New("no active libvirt connection")
+	}
+
+	return nil
+}
