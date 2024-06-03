@@ -13,7 +13,7 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.9.3
-	github.com/ironcore-dev/ironcore v0.1.2-0.20240514120326-51392fa00b86
+	github.com/ironcore-dev/ironcore v0.1.2
 	github.com/ironcore-dev/ironcore-image v0.2.1
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20240527195124-d8dab694049f
 	github.com/moby/term v0.5.0
