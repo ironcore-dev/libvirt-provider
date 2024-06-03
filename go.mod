@@ -1,6 +1,8 @@
 module github.com/ironcore-dev/libvirt-provider
 
-go 1.22.1
+go 1.22.2
+
+toolchain go1.22.3
 
 require (
 	github.com/blang/semver/v4 v4.0.0
@@ -11,9 +13,9 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.9.3
-	github.com/ironcore-dev/ironcore v0.1.2-0.20240207230304-c34d268af578
+	github.com/ironcore-dev/ironcore v0.1.2-0.20240514120326-51392fa00b86
 	github.com/ironcore-dev/ironcore-image v0.2.1
-	github.com/ironcore-dev/ironcore-net v0.1.1-0.20231127161134-cf5b10137532
+	github.com/ironcore-dev/ironcore-net v0.1.1-0.20240527195124-d8dab694049f
 	github.com/moby/term v0.5.0
 	github.com/onsi/ginkgo/v2 v2.19.0
 	github.com/onsi/gomega v1.33.1

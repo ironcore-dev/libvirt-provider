@@ -427,7 +427,6 @@ func networkInterfaceAlias(name string) string {
 func providerNetworkInterfaceToLibvirt(name string, nic *providernetworkinterface.NetworkInterface) (*libvirtNetworkInterface, error) {
 	switch {
 	case nic.HostDevice != nil:
-		var zero uint
 		return &libvirtNetworkInterface{
 			hostDev: &libvirtxml.DomainHostdev{
 				Alias: &libvirtxml.DomainAlias{
@@ -448,8 +447,8 @@ func providerNetworkInterfaceToLibvirt(name string, nic *providernetworkinterfac
 					PCI: &libvirtxml.DomainAddressPCI{
 						Domain:   &nic.HostDevice.Domain,
 						Bus:      &nic.HostDevice.Bus,
-						Slot:     &zero,
-						Function: &zero,
+						Slot:     &nic.HostDevice.Slot,
+						Function: &nic.HostDevice.Function,
 					},
 				},
 			},
