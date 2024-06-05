@@ -121,14 +121,14 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
-	fs.StringVar(&o.StreamingAddress, "streaming-address", "127.0.0.1:20251", "Address to run the streaming server on")
+	fs.StringVar(&o.StreamingAddress, "streaming-address", ":20251", "Address to run the streaming server on")
 	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
 		"constructed from the streaming-address")
 
 	fs.StringVar(&o.Servers.Metrics.Addr, "servers-metrics-address", "", "Address to listen on exposing of metrics. If address isn't set, server is disabled.")
 	fs.DurationVar(&o.Servers.Metrics.GracefulTimeout, "servers-metrics-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown metrics server.")
 
-	fs.StringVar(&o.Servers.HealthCheck.Addr, "servers-health-check-address", "127.0.0.1:8181", "Address to listen on health check liveness.")
+	fs.StringVar(&o.Servers.HealthCheck.Addr, "servers-health-check-address", ":8181", "Address to listen on health check liveness.")
 	fs.DurationVar(&o.Servers.HealthCheck.GracefulTimeout, "servers-health-check-gracefultimeout", 2*time.Second, "Graceful timeout for shutdown health check server.")
 
 	fs.BoolVar(&o.EnableHugepages, "enable-hugepages", false, "Enable using Hugepages.")
@@ -537,7 +537,7 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 
 func runHealthCheckServer(ctx context.Context, setupLog logr.Logger, healthCheck healthcheck.HealthCheck, opts HTTPServerOptions) error {
 	mux := http.NewServeMux()
-	mux.HandleFunc("/health", healthCheck.HealthCheckHandler)
+	mux.HandleFunc("/healthz", healthCheck.HealthCheckHandler)
 
 	srv := http.Server{
 		Addr:    opts.Addr,

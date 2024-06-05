@@ -110,7 +110,7 @@ spec:
             privileged: true
           livenessProbe:
             httpGet:
-              path: /health
+              path: /healthz
               port: 8181
             initialDelaySeconds: 15
             periodSeconds: 20
