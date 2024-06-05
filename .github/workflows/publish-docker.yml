@@ -57,6 +57,7 @@ jobs:
           version: latest
           endpoint: builders
       - name: Login to GHCR
+        if: true
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
