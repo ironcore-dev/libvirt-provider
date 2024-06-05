@@ -443,6 +443,10 @@ func providerNetworkInterfaceToLibvirt(name string, nic *providernetworkinterfac
 						},
 					},
 				},
+				Address: &libvirtxml.DomainAddress{
+					//if not defined, not conflicting pci address will be selected
+					PCI: &libvirtxml.DomainAddressPCI{},
+				},
 			},
 		}, nil
 	case nic.Isolated != nil:
