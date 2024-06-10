@@ -7,7 +7,7 @@ toolchain go1.22.3
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.27.0
-	github.com/containerd/containerd v1.7.17
+	github.com/containerd/containerd v1.7.18
 	github.com/digitalocean/go-libvirt v0.0.0-20221205150000-2939327a8519
 	github.com/go-chi/chi/v5 v5.0.12
 	github.com/go-logr/logr v1.4.2
@@ -34,6 +34,7 @@ require (
 )
 
 require (
+	github.com/containerd/errdefs v0.1.0 // indirect
 	github.com/creack/pty v1.1.21 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
