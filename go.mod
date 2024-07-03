@@ -7,7 +7,7 @@ toolchain go1.22.3
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.28.0
-	github.com/containerd/containerd v1.7.18
+	github.com/containerd/containerd v1.7.19
 	github.com/digitalocean/go-libvirt v0.0.0-20221205150000-2939327a8519
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-logr/logr v1.4.2
@@ -35,6 +35,7 @@ require (
 
 require (
 	github.com/containerd/errdefs v0.1.0 // indirect
+	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/creack/pty v1.1.21 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
@@ -45,12 +46,11 @@ require (
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
 	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
-	github.com/Microsoft/hcsshim v0.11.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/distribution/reference v0.5.0 // indirect
+	github.com/distribution/reference v0.6.0 // indirect
 	github.com/docker/cli v25.0.1+incompatible // indirect
 	github.com/docker/distribution v2.8.3+incompatible // indirect
 	github.com/docker/docker v25.0.5+incompatible // indirect
@@ -80,7 +80,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.16.0 // indirect
+	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/lufia/plan9stats v0.0.0-20211012122336-39d0f177ccd0 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/moby/locker v1.0.1 // indirect
