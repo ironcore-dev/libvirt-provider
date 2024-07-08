@@ -43,6 +43,7 @@ const (
 	resyncVolumeSizeInterval       = 1 * time.Minute
 	baseURL                        = "http://localhost:20251"
 	streamingAddress               = "127.0.0.1:20251"
+	healthCheckAddress             = "127.0.0.1:20252"
 	metricsAddress                 = "" // disable metrics server for integration tests
 
 	machineClassx3xlarge = "x3-xlarge"
@@ -115,6 +116,9 @@ var _ = BeforeSuite(func() {
 		Servers: app.ServersOptions{
 			Metrics: app.HTTPServerOptions{
 				Addr: metricsAddress,
+			},
+			HealthCheck: app.HTTPServerOptions{
+				Addr: healthCheckAddress,
 			},
 		},
 		Libvirt: app.LibvirtOptions{
