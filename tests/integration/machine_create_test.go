@@ -4,10 +4,8 @@
 package server_test
 
 import (
-	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
-	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -15,27 +13,6 @@ import (
 const (
 	osImage = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
 )
-
-func assertMachineIsRunning(machineID string) {
-	GinkgoHelper()
-	By("ensuring domain and domain XML is created for machine")
-	var domain libvirt.Domain
-
-	Eventually(func() (err error) {
-		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
-		return err
-	}).Should(Succeed())
-	domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(domainXMLData).NotTo(BeEmpty())
-
-	By("ensuring domain for machine is in running state")
-	Eventually(func(g Gomega) libvirt.DomainState {
-		domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-		g.Expect(err).NotTo(HaveOccurred())
-		return libvirt.DomainState(domainState)
-	}).Should(Equal(libvirt.DomainRunning))
-}
 
 var _ = Describe("CreateMachine", func() {
 	It("should create a machine simple machine", func(ctx SpecContext) {

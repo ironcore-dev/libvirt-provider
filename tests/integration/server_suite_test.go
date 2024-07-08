@@ -18,6 +18,7 @@ import (
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/cmd/libvirt-provider/app"
+	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -66,7 +67,7 @@ func TestServer(t *testing.T) {
 	SetDefaultConsistentlyDuration(consistentlyDuration)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Server Suite", Label("integration"))
+	RunSpecs(t, "GRPC Server Suite", Label("integration-pcmil"))
 }
 
 var _ = BeforeSuite(func() {
@@ -101,7 +102,7 @@ var _ = BeforeSuite(func() {
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
 
-	tempDir = GinkgoT().TempDir()
+	tempDir = "/home/pcmil/libvirt-provider/temptest"
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
@@ -166,4 +167,28 @@ func isSocketAvailable(socketPath string) error {
 		return nil
 	}
 	return fmt.Errorf("socket %s is not available", socketPath)
+}
+
+func assertMachineIsRunning(machineID string) libvirt.Domain {
+	GinkgoHelper()
+	By("ensuring domain and domain XML is created for machine")
+	var domain libvirt.Domain
+
+	Eventually(func() (err error) {
+		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
+		return err
+	}).Should(Succeed())
+
+	domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(domainXMLData).NotTo(BeEmpty())
+
+	By("ensuring domain for machine is in running state")
+	Eventually(func(g Gomega) libvirt.DomainState {
+		domainState, _, err := libvirtConn.DomainGetState(domain, 0)
+		g.Expect(err).NotTo(HaveOccurred())
+		return libvirt.DomainState(domainState)
+	}).Should(Equal(libvirt.DomainRunning))
+
+	return domain
 }
