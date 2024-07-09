@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-License-Identifier: Apache-2.0
+
 package server_test
 
 import (
@@ -20,7 +23,7 @@ var _ = Describe("DeleteMachine", func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
 					Labels: map[string]string{
-						"foo": "bar",
+						"foo": "delete_machine",
 					},
 				},
 				Spec: &iri.MachineSpec{
