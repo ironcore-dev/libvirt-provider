@@ -28,7 +28,7 @@ spec:
           image: ubuntu
           securityContext:
             privileged: true
-          command: [ 'sh', '-c' ]
+          command: [ '/bin/bash', '-c' ]
           env:
             - name: USER
               value: "libvirt-provider"
