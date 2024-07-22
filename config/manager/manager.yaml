@@ -28,7 +28,7 @@ spec:
           image: ubuntu
           securityContext:
             privileged: true
-          command: [ 'sh', '-c' ]
+          command: [ '/bin/bash', '-c' ]
           env:
             - name: USER
               value: "libvirt-provider"
@@ -42,8 +42,17 @@ spec:
               value: "/var/lib/libvirt-provider"
             - name: LIBVIR_GROUP
               value: "libvirt"
+            - name: DEPENDENCIES
+              value: "ceph-common libvirt-clients"
           args:
             - |
+              IFS=' ' read -r -a dependencies <<< "$DEPENDENCIES"
+              for dependency in "${dependencies[@]}"; do
+                if ! dpkg --root=/host-root --get-selections | grep -E "^${dependency}\s+install$" > /dev/null; then
+                  echo "Error: $dependency is not installed."
+                  exit 1
+                fi
+              done
               if ! getent group $(LIBVIR_GROUP); then
                    echo "Error: $(LIBVIR_GROUP) group does not exist."
                    exit 1
@@ -61,6 +70,9 @@ spec:
               mountPath: /etc
             - name: libvirt-provider
               mountPath: /var/lib/libvirt-provider
+            - name: host-root
+              mountPath: /host-root
+              readOnly: true
       containers:
         - command:
             - /machinepoollet
@@ -165,4 +177,8 @@ spec:
         - name: etc
           hostPath:
             path: /etc
+            type: Directory
+        - name: host-root
+          hostPath:
+            path: /
             type: Directory
