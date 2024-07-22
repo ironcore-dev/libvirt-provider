@@ -7,7 +7,7 @@ toolchain go1.22.3
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.28.0
-	github.com/containerd/containerd v1.7.19
+	github.com/containerd/containerd v1.7.20
 	github.com/digitalocean/go-libvirt v0.0.0-20221205150000-2939327a8519
 	github.com/go-chi/chi/v5 v5.1.0
 	github.com/go-logr/logr v1.4.2
@@ -25,11 +25,11 @@ require (
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/sync v0.7.0
 	google.golang.org/grpc v1.65.0
-	k8s.io/api v0.30.2
-	k8s.io/apimachinery v0.30.2
-	k8s.io/client-go v0.30.2
+	k8s.io/api v0.30.3
+	k8s.io/apimachinery v0.30.3
+	k8s.io/client-go v0.30.3
 	k8s.io/utils v0.0.0-20240102154912-e7106e64919e
-	libvirt.org/go/libvirtxml v1.10002.0
+	libvirt.org/go/libvirtxml v1.10005.0
 	sigs.k8s.io/controller-runtime v0.18.4
 )
 
@@ -40,7 +40,7 @@ require (
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
-	k8s.io/cli-runtime v0.30.2 // indirect
+	k8s.io/cli-runtime v0.30.3 // indirect
 )
 
 require (
@@ -127,7 +127,7 @@ require (
 	k8s.io/apiserver v0.30.1 // indirect
 	k8s.io/klog/v2 v2.120.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20240228011516-70dd3763d340 // indirect
-	k8s.io/kubectl v0.30.2
+	k8s.io/kubectl v0.30.3
 	oras.land/oras-go v1.2.5 // indirect
 	sigs.k8s.io/json v0.0.0-20221116044647-bc3834ca7abd // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.4.1 // indirect
