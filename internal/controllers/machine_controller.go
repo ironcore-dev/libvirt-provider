@@ -24,6 +24,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtmeta "github.com/ironcore-dev/libvirt-provider/internal/libvirt/meta"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
+	"github.com/ironcore-dev/libvirt-provider/internal/metrics"
 	providerimage "github.com/ironcore-dev/libvirt-provider/internal/oci"
 	"github.com/ironcore-dev/libvirt-provider/internal/osutils"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
@@ -31,6 +32,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/store"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
+	"github.com/prometheus/client_golang/prometheus"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -44,6 +46,7 @@ const (
 	rootFSAlias                     = "ua-rootfs"
 	libvirtDomainXMLIgnitionKeyName = "opt/com.coreos/config"
 	networkInterfaceAliasPrefix     = "ua-networkinterface-"
+	MachineReconcilerName           = "machine-reconciler"
 )
 
 var (
@@ -98,24 +101,30 @@ func NewMachineReconciler(
 	}
 
 	return &MachineReconciler{
-		log:                            log,
-		queue:                          workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		libvirt:                        libvirt,
-		machines:                       machines,
-		machineEvents:                  machineEvents,
-		EventRecorder:                  eventRecorder,
-		guestCapabilities:              opts.GuestCapabilities,
-		tcMallocLibPath:                opts.TCMallocLibPath,
-		host:                           opts.Host,
-		imageCache:                     opts.ImageCache,
-		raw:                            opts.Raw,
-		volumePluginManager:            opts.VolumePluginManager,
-		networkInterfacePlugin:         opts.NetworkInterfacePlugin,
-		resyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
-		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
-		enableHugepages:                opts.EnableHugepages,
-		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
-		volumeCachePolicy:              opts.VolumeCachePolicy,
+		log: log,
+		queue: workqueue.NewRateLimitingQueueWithConfig(workqueue.DefaultControllerRateLimiter(), workqueue.RateLimitingQueueConfig{
+			MetricsProvider: metrics.WorkqueueMetricsProvider{},
+			Name:            MachineReconcilerName,
+		}),
+		libvirt:                                 libvirt,
+		machines:                                machines,
+		machineEvents:                           machineEvents,
+		EventRecorder:                           eventRecorder,
+		guestCapabilities:                       opts.GuestCapabilities,
+		tcMallocLibPath:                         opts.TCMallocLibPath,
+		host:                                    opts.Host,
+		imageCache:                              opts.ImageCache,
+		raw:                                     opts.Raw,
+		volumePluginManager:                     opts.VolumePluginManager,
+		networkInterfacePlugin:                  opts.NetworkInterfacePlugin,
+		resyncIntervalVolumeSize:                opts.ResyncIntervalVolumeSize,
+		resyncIntervalGarbageCollector:          opts.ResyncIntervalGarbageCollector,
+		enableHugepages:                         opts.EnableHugepages,
+		gcVMGracefulShutdownTimeout:             opts.GCVMGracefulShutdownTimeout,
+		volumeCachePolicy:                       opts.VolumeCachePolicy,
+		metricsReconcileDuration:                metrics.ControllerRuntimeReconcileDuration.WithLabelValues(MachineReconcilerName),
+		metricsControllerRuntimeActiveWorker:    metrics.ControllerRuntimeActiveWorker.WithLabelValues(MachineReconcilerName),
+		metricsControllerRuntimeReconcileErrors: metrics.ControllerRuntimeReconcileErrors.WithLabelValues(MachineReconcilerName),
 	}, nil
 }
 
@@ -145,6 +154,10 @@ type MachineReconciler struct {
 	resyncIntervalGarbageCollector time.Duration
 
 	volumeCachePolicy string
+
+	metricsReconcileDuration                prometheus.Observer
+	metricsControllerRuntimeActiveWorker    prometheus.Gauge
+	metricsControllerRuntimeReconcileErrors prometheus.Counter
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -152,6 +165,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 	//todo make configurable
 	workerSize := 15
+	metrics.ControllerRuntimeMaxConccurrentReconciles.WithLabelValues("machine-reconciler").Set(float64(workerSize))
 
 	r.imageCache.AddListener(providerimage.ListenerFuncs{
 		HandlePullDoneFunc: func(evt providerimage.PullDoneEvent) {
@@ -187,19 +201,19 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startCheckAndEnqueueVolumeResize(ctx, r.log.WithName("volume-size"))
+		r.startCheckAndEnqueueVolumeResize(ctx, r.log)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startEnqueueMachineByLibvirtEvent(ctx, r.log.WithName("libvirt-event"))
+		r.startEnqueueMachineByLibvirtEvent(ctx, r.log)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startGarbageCollector(ctx, r.log.WithName("garbage-collector"))
+		r.startGarbageCollector(ctx, r.log)
 	}()
 
 	go func() {
@@ -221,9 +235,20 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 }
 
 func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context, log logr.Logger) {
+	const name = "volume-size"
+	log = log.WithName(name)
+	opsDuration := metrics.OperationDuration.WithLabelValues(name)
+	opsErrors := metrics.OperationErrors.WithLabelValues(name)
+
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		startTime := time.Now()
+		defer func() {
+			opsDuration.Observe(float64(time.Since(startTime).Milliseconds()) / 1000)
+		}()
+
 		machines, err := r.machines.List(ctx)
 		if err != nil {
+			opsErrors.Inc()
 			log.Error(err, "failed to list machines")
 			return
 		}
@@ -237,18 +262,21 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 			for _, volume := range machine.Spec.Volumes {
 				plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
 				if err != nil {
+					opsErrors.Inc()
 					log.Error(err, "failed to get volume plugin", "machineID", machine.ID, "volumeName", volume.Name)
 					continue
 				}
 
 				volumeID, err := plugin.GetBackingVolumeID(volume)
 				if err != nil {
+					opsErrors.Inc()
 					log.Error(err, "failed to get volume id", "machineID", machine.ID, "volumeName", volume.Name)
 					continue
 				}
 
 				volumeSize, err := plugin.GetSize(ctx, volume)
 				if err != nil {
+					opsErrors.Inc()
 					log.Error(err, "failed to get volume size", "machineID", machine.ID, "volumeName", volume.Name, "volumeID", volumeID)
 					continue
 				}
@@ -269,8 +297,13 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 }
 
 func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
+	const name = "libvirt-event"
+	log = log.WithName(name)
+	opsErrors := metrics.OperationErrors.WithLabelValues(name)
+
 	lifecycleEvents, err := r.libvirt.LifecycleEvents(ctx)
 	if err != nil {
+		opsErrors.Inc()
 		log.Error(err, "failed to subscribe to libvirt lifecycle events")
 		return
 	}
@@ -291,6 +324,7 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 					log.V(2).Info("Skipped: not managed by libvirt-provider", "machineID", evt.Dom.Name)
 					continue
 				}
+				opsErrors.Inc()
 				log.Error(err, "failed to fetch machine from store")
 				continue
 			}
@@ -305,9 +339,20 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 }
 
 func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.Logger) {
+	const name = "garbage-collector"
+	log = log.WithName(name)
+	opsDuration := metrics.OperationDuration.WithLabelValues(name)
+	opsErrors := metrics.OperationErrors.WithLabelValues(name)
+
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		startTime := time.Now()
+		defer func() {
+			opsDuration.Observe(float64(time.Since(startTime).Milliseconds()) / 1000)
+		}()
+
 		machines, err := r.machines.List(ctx)
 		if err != nil {
+			opsErrors.Inc()
 			log.Error(err, "failed to list machines")
 			return
 		}
@@ -319,6 +364,7 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.
 
 			logger := log.WithValues("machineID", machine.ID)
 			if err := r.processMachineDeletion(ctx, logger, machine); err != nil {
+				opsErrors.Inc()
 				logger.Error(err, "failed to garbage collect machine")
 			}
 		}
@@ -428,14 +474,23 @@ func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Lo
 	if shutdown {
 		return false
 	}
+
+	r.metricsControllerRuntimeActiveWorker.Inc()
 	defer r.queue.Done(item)
+	defer r.metricsControllerRuntimeActiveWorker.Dec()
 
 	id := item.(string)
 	log = log.WithValues("machineID", id)
 	ctx = logr.NewContext(ctx, log)
 
+	startTime := time.Now()
+	defer func() {
+		r.metricsReconcileDuration.Observe(float64(time.Since(startTime).Milliseconds()) / 1000)
+	}()
+
 	if err := r.reconcileMachine(ctx, id); err != nil {
 		log.Error(err, "failed to reconcile machine")
+		r.metricsControllerRuntimeReconcileErrors.Inc()
 		r.queue.AddRateLimited(item)
 		return true
 	}

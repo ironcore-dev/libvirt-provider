@@ -342,7 +342,7 @@ func Run(ctx context.Context, opts Options) error {
 	eventStore := machineevent.NewEventStore(log, opts.MachineEventStore)
 
 	machineReconciler, err := controllers.NewMachineReconciler(
-		log.WithName("machine-reconciler"),
+		log.WithName(controllers.MachineReconcilerName),
 		libvirt,
 		machineStore,
 		machineEvents,
