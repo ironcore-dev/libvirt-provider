@@ -48,7 +48,7 @@ spec:
             - |
               IFS=' ' read -r -a dependencies <<< "$DEPENDENCIES"
               for dependency in "${dependencies[@]}"; do
-                if ! dpkg --root=/host-root --get-selections | grep -E "^${dependency}\s+install$" > /dev/null; then
+                if ! dpkg --root=/host-root --get-selections | grep -E "^${dependency}\s+install$" -q; then
                   echo "Error: $dependency is not installed."
                   exit 1
                 fi
@@ -70,8 +70,8 @@ spec:
               mountPath: /etc
             - name: libvirt-provider
               mountPath: /var/lib/libvirt-provider
-            - name: host-root
-              mountPath: /host-root
+            - name: host-dpkg
+              mountPath: /host-root/var/lib/dpkg
               readOnly: true
       containers:
         - command:
@@ -178,7 +178,7 @@ spec:
           hostPath:
             path: /etc
             type: Directory
-        - name: host-root
+        - name: host-dpkg
           hostPath:
-            path: /
+            path: /var/lib/dpkg
             type: Directory
