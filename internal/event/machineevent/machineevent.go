@@ -98,13 +98,13 @@ func (es *EventStore) RemoveExpiredEvents() {
 }
 
 // Start initializes and starts the event store's TTL expiration check.
-func (es *EventStore) Start(ctx context.Context, setupLog logr.Logger, resyncIntervalMachineEvent time.Duration) {
+func (es *EventStore) Start(ctx context.Context, setupLog logr.Logger, machineEventResyncInterval time.Duration) {
 	defer func() {
 		setupLog.Info("Shutting down machine events garbage collector")
 	}()
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		es.RemoveExpiredEvents()
-	}, resyncIntervalMachineEvent)
+	}, machineEventResyncInterval)
 }
 
 // ListEvents returns a copy of all events currently in the store.

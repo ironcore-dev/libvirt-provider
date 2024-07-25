@@ -91,9 +91,9 @@ type Options struct {
 	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 
-	MaximumMachineEvents       int
+	MachineEventMaxEvents      int
 	MachineEventTTL            time.Duration
-	ResyncIntervalMachineEvent time.Duration
+	MachineEventResyncInterval time.Duration
 }
 
 type HTTPServerOptions struct {
@@ -153,9 +153,9 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.GCVMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
 	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
 
-	fs.IntVar(&o.MaximumMachineEvents, "maximum-machine-events", 100, "Maximum number of machine events that can be stored.")
+	fs.IntVar(&o.MachineEventMaxEvents, "machine-event-max-events", 100, "Maximum number of machine events that can be stored.")
 	fs.DurationVar(&o.MachineEventTTL, "machine-event-ttl", 5*time.Minute, "Time to live for machine events.")
-	fs.DurationVar(&o.ResyncIntervalMachineEvent, "machine-event-resync-interval", 1*time.Minute, "Interval for resynchronizing the machine events.")
+	fs.DurationVar(&o.MachineEventResyncInterval, "machine-event-resync-interval", 1*time.Minute, "Interval for resynchronizing the machine events.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -324,7 +324,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	machineEventStore := machineevent.NewEventStore(log, opts.MaximumMachineEvents, opts.MachineEventTTL)
+	machineEventStore := machineevent.NewEventStore(log, opts.MachineEventMaxEvents, opts.MachineEventTTL)
 
 	machineReconciler, err := controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
@@ -419,7 +419,7 @@ func Run(ctx context.Context, opts Options) error {
 
 	g.Go(func() error {
 		setupLog.Info("Starting machine events garbage collector")
-		machineEventStore.Start(ctx, setupLog, opts.ResyncIntervalMachineEvent)
+		machineEventStore.Start(ctx, setupLog, opts.MachineEventResyncInterval)
 		return nil
 	})
 
