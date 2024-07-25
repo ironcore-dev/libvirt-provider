@@ -26,6 +26,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/console"
 	"github.com/ironcore-dev/libvirt-provider/internal/controllers"
 	"github.com/ironcore-dev/libvirt-provider/internal/event"
+	"github.com/ironcore-dev/libvirt-provider/internal/event/machineevent"
 	"github.com/ironcore-dev/libvirt-provider/internal/healthcheck"
 	"github.com/ironcore-dev/libvirt-provider/internal/host"
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
@@ -89,6 +90,10 @@ type Options struct {
 
 	GCVMGracefulShutdownTimeout    time.Duration
 	ResyncIntervalGarbageCollector time.Duration
+
+	MaximumMachineEvents       int
+	MachineEventTTL            time.Duration
+	ResyncIntervalMachineEvent time.Duration
 }
 
 type HTTPServerOptions struct {
@@ -147,6 +152,10 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.DurationVar(&o.GCVMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
 	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
+
+	fs.IntVar(&o.MaximumMachineEvents, "maximum-machine-events", 100, "Maximum number of machine events that can be stored.")
+	fs.DurationVar(&o.MachineEventTTL, "machine-event-ttl", 5*time.Minute, "Time to live for machine events.")
+	fs.DurationVar(&o.ResyncIntervalMachineEvent, "machine-event-resync-interval", 1*time.Minute, "Interval for resynchronizing the machine events.")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -305,7 +314,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	machineEvents, err := event.NewListWatchSource[*api.Machine](
+	events, err := event.NewListWatchSource[*api.Machine](
 		machineStore.List,
 		machineStore.Watch,
 		event.ListWatchSourceOptions{},
@@ -315,11 +324,14 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	machineEventStore := machineevent.NewEventStore(log, opts.MaximumMachineEvents, opts.MachineEventTTL)
+
 	machineReconciler, err := controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
 		libvirt,
 		machineStore,
-		machineEvents,
+		events,
+		machineEventStore,
 		controllers.MachineReconcilerOptions{
 			GuestCapabilities:              caps,
 			ImageCache:                     imgCache,
@@ -355,6 +367,7 @@ func Run(ctx context.Context, opts Options) error {
 		BaseURL:         baseURL,
 		Libvirt:         libvirt,
 		MachineStore:    machineStore,
+		EventStore:      machineEventStore,
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
@@ -396,11 +409,17 @@ func Run(ctx context.Context, opts Options) error {
 	})
 
 	g.Go(func() error {
-		setupLog.Info("Starting machine events")
-		if err := machineEvents.Start(ctx); err != nil {
-			setupLog.Error(err, "failed to start machine events")
+		setupLog.Info("Starting events")
+		if err := events.Start(ctx); err != nil {
+			setupLog.Error(err, "failed to start events")
 			return err
 		}
+		return nil
+	})
+
+	g.Go(func() error {
+		setupLog.Info("Starting machine events garbage collector")
+		machineEventStore.Start(ctx, setupLog, opts.ResyncIntervalMachineEvent)
 		return nil
 	})
 

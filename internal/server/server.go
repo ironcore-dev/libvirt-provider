@@ -17,6 +17,7 @@ import (
 	"github.com/ironcore-dev/ironcore/broker/common/request"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/libvirt-provider/internal/event/machineevent"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/store"
@@ -32,6 +33,7 @@ type Server struct {
 	idGen idgen.IDGen
 
 	machineStore store.Store[*api.Machine]
+	eventStore   *machineevent.EventStore
 
 	networkInterfacePlugin providernetworkinterface.Plugin
 
@@ -56,6 +58,7 @@ type Options struct {
 	IDGen idgen.IDGen
 
 	MachineStore store.Store[*api.Machine]
+	EventStore   *machineevent.EventStore
 
 	MachineClasses MachineClassRegistry
 
@@ -84,6 +87,7 @@ func New(opts Options) (*Server, error) {
 		idGen:                  opts.IDGen,
 		libvirt:                opts.Libvirt,
 		machineStore:           opts.MachineStore,
+		eventStore:             opts.EventStore,
 		volumePlugins:          opts.VolumePlugins,
 		networkInterfacePlugin: opts.NetworkPlugins,
 		machineClasses:         opts.MachineClasses,
