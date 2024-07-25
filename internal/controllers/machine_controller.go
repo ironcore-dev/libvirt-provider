@@ -159,7 +159,9 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 			for _, machine := range machines {
 				if ptr.Deref(machine.Spec.Image, "") == evt.Ref {
-					r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "PulledImage", fmt.Sprintf("Pulled image %s", *machine.Spec.Image))
+					if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "PulledImage", fmt.Sprintf("Pulled image %s", *machine.Spec.Image)); eventErr != nil {
+						log.Error(eventErr, "failed to add machine event")
+					}
 					log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
 					r.queue.Add(machine.ID)
 				}
@@ -250,7 +252,9 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 				}
 
 				if lastVolumeSize := getLastVolumeSize(machine, GetUniqueVolumeName(plugin.Name(), volumeID)); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-					r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", fmt.Sprintf("Volume size changed %s. lastVolumeSize: %d. volumeSize: %d .", volume.Name, *lastVolumeSize, volumeSize))
+					if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", fmt.Sprintf("Volume size changed %s. lastVolumeSize: %d. volumeSize: %d .", volume.Name, *lastVolumeSize, volumeSize)); eventErr != nil {
+						log.Error(eventErr, "failed to add machine event")
+					}
 					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "volumeID", volumeID, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 					shouldEnqueue = true
 					break
@@ -356,7 +360,9 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
 		return fmt.Errorf("failed to update machine metadata: %w", err)
 	}
-	r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed.")
+	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed."); eventErr != nil {
+		log.Error(eventErr, "failed to add machine event")
+	}
 	log.V(1).Info("Removed Finalizer. Deletion completed")
 
 	return nil
@@ -395,14 +401,18 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine,
 		return fmt.Errorf("failed to initiate forceful shutdown: %w", err)
 	}
 
-	r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed.")
+	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed."); eventErr != nil {
+		log.Error(eventErr, "failed to add machine event")
+	}
 	log.V(1).Info("Destroyed domain")
 	return nil
 }
 
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
-	r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered.")
+	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered."); eventErr != nil {
+		log.Error(eventErr, "failed to add machine event")
+	}
 
 	shutdownMode := libvirt.DomainShutdownAcpiPowerBtn
 	if machine.Spec.GuestAgent == api.GuestAgentQemu {
@@ -540,13 +550,17 @@ func (r *MachineReconciler) updateDomain(
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s .", err))
+		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s .", err)); eventErr != nil {
+			log.Error(eventErr, "failed to add machine event")
+		}
 		return nil, nil, fmt.Errorf("[volumes] %w", err)
 	}
 
 	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
-		r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("NIC attach/detach failed with error: %s .", err))
+		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("NIC attach/detach failed with error: %s .", err)); eventErr != nil {
+			log.Error(eventErr, "failed to add machine event")
+		}
 		return nil, nil, fmt.Errorf("[network interfaces] %w", err)
 	}
 
@@ -710,7 +724,7 @@ func (r *MachineReconciler) domainFor(
 	}
 
 	if machineImgRef := machine.Spec.Image; machineImgRef != nil && ptr.Deref(machineImgRef, "") != "" {
-		if err := r.setDomainImage(ctx, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
+		if err := r.setDomainImage(ctx, log, machine, domainDesc, ptr.Deref(machineImgRef, "")); err != nil {
 			return nil, nil, nil, err
 		}
 	}
@@ -720,7 +734,9 @@ func (r *MachineReconciler) domainFor(
 			return nil, nil, nil, err
 		}
 	} else {
-		r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data")
+		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data"); eventErr != nil {
+			log.Error(eventErr, "failed to add machine event")
+		}
 	}
 
 	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewCreateDomainExecutor(r.libvirt))
@@ -730,17 +746,25 @@ func (r *MachineReconciler) domainFor(
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s .", err))
+		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s .", err)); eventErr != nil {
+			log.Error(eventErr, "failed to add machine event")
+		}
 		return nil, nil, nil, err
 	}
-	r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes.")
+	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes."); eventErr != nil {
+		log.Error(eventErr, "failed to add machine event")
+	}
 
 	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
 	if err != nil {
-		r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("Setting domain network interface failed with error: %s .", err))
+		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("Setting domain network interface failed with error: %s .", err)); eventErr != nil {
+			log.Error(eventErr, "failed to add machine event")
+		}
 		return nil, nil, nil, err
 	}
-	r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces.")
+	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces."); eventErr != nil {
+		log.Error(eventErr, "failed to add machine event")
+	}
 
 	return domainDesc, volumeStates, nicStates, nil
 }
@@ -857,6 +881,7 @@ func (r *MachineReconciler) setGuestAgent(machine *api.Machine, domainDesc *libv
 
 func (r *MachineReconciler) setDomainImage(
 	ctx context.Context,
+	log logr.Logger,
 	machine *api.Machine,
 	domain *libvirtxml.Domain,
 	machineImgRef string,
@@ -867,7 +892,9 @@ func (r *MachineReconciler) setDomainImage(
 			return err
 		}
 
-		r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "PullingImage", fmt.Sprintf("Pulling image %s", machineImgRef))
+		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "PullingImage", fmt.Sprintf("Pulling image %s", machineImgRef)); eventErr != nil {
+			log.Error(eventErr, "failed to add machine event")
+		}
 		return err
 	}
 
