@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	"github.com/gogo/protobuf/proto"
 	irievent "github.com/ironcore-dev/ironcore/iri/apis/event/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -43,6 +44,11 @@ func (es *EventStore) AddEvent(apiMetadata api.Metadata, eventType, reason, mess
 	es.mutex.Lock()
 	defer es.mutex.Unlock()
 
+	metadata, err := api.GetObjectMetadata(apiMetadata)
+	if err != nil {
+		return fmt.Errorf("error getting iri metadata: %w", err)
+	}
+
 	// Calculate the index where the new event will be inserted
 	index := (es.head + es.count) % es.maxEvents
 
@@ -52,11 +58,6 @@ func (es *EventStore) AddEvent(apiMetadata api.Metadata, eventType, reason, mess
 		es.head = (es.head + 1) % es.maxEvents
 	} else {
 		es.count++
-	}
-
-	metadata, err := api.GetObjectMetadata(apiMetadata)
-	if err != nil {
-		return fmt.Errorf("error getting iri metadata: %w", err)
 	}
 
 	event := &irievent.Event{
@@ -115,9 +116,8 @@ func (es *EventStore) ListEvents() []*irievent.Event {
 	result := make([]*irievent.Event, es.count)
 	for i := 0; i < es.count; i++ {
 		index := (es.head + i) % es.maxEvents
-		// Create a copy of the event to break the reference
-		copiedEvent := *es.events[index]
-		result[i] = &copiedEvent
+		// Create a deep copy of the event to break the reference
+		result[i] = proto.Clone(es.events[index]).(*irievent.Event)
 	}
 
 	return result
