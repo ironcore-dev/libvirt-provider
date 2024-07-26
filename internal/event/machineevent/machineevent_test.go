@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package machineevent
+package machineevent_test
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/api"
 
 	"github.com/go-logr/logr/funcr"
+	. "github.com/ironcore-dev/libvirt-provider/internal/event/machineevent"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -46,11 +47,8 @@ var _ = Describe("Machine EventStore", func() {
 	})
 
 	Context("Initialization", func() {
-		It("should initialize events slice with the correct length and nil elements", func() {
-			Expect(es.events).To(HaveLen(maxEvents))
-			for _, event := range es.events {
-				Expect(event).To(BeNil())
-			}
+		It("should initialize events slice with no elements", func() {
+			Expect(es.ListEvents()).To(BeEmpty())
 		})
 	})
 
