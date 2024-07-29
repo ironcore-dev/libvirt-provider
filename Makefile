@@ -105,7 +105,7 @@ test: manifests generate fmt vet envtest ## Run tests. Some test depend on Linux
 
 .PHONY: integration-tests
 integration-tests: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
-	go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="integration-delete-graceful-shutdown, integration-delete-no-graceful-shutdown, integration-exec, integration-machine-create, integration-machine-interface, integration-machine-list, integration-powerstate, integration-annotation, integration-status" -coverprofile cover.out
+	go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="integration-delete-graceful-shutdown, integration-delete-no-graceful-shutdown, integration-exec, integration-machine-create, integration-machine-interface, integration-machine-list, integration-powerstate, integration-annotation, integration-status, integration-volume" -coverprofile cover.out
 
 # .PHONY: integration-tests
 # integration-tests: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
