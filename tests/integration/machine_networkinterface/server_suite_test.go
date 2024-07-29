@@ -47,6 +47,8 @@ const (
 
 	machineClassx3xlarge = "x3-xlarge"
 	machineClassx2medium = "x2-medium"
+
+	osImage = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
 )
 
 var (
@@ -67,7 +69,7 @@ func TestServer(t *testing.T) {
 	SetDefaultConsistentlyDuration(consistentlyDuration)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Server Suite", Label("integration-status"))
+	RunSpecs(t, "GRPC Server Suite", Label("integration-machine-interface"))
 }
 
 var _ = BeforeSuite(func() {

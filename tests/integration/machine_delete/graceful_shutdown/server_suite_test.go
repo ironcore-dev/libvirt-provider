@@ -18,7 +18,6 @@ import (
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/cmd/libvirt-provider/app"
-	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -38,6 +37,7 @@ const (
 	emptyDiskSize   = 1024 * 1024 * 1024
 
 	//Test graceful shutdown will be tested separately
+	gracefulShutdownTimeout        = 60 * time.Second
 	resyncGarbageCollectorInterval = 5 * time.Second
 	resyncVolumeSizeInterval       = 1 * time.Minute
 	baseURL                        = "http://localhost:20251"
@@ -67,7 +67,7 @@ func TestServer(t *testing.T) {
 	SetDefaultConsistentlyDuration(consistentlyDuration)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Server Suite", Label("integration-status"))
+	RunSpecs(t, "GRPC Server Suite", Label("integration-delete-graceful-shutdown"))
 }
 
 var _ = BeforeSuite(func() {
@@ -127,8 +127,8 @@ var _ = BeforeSuite(func() {
 			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx"},
 			Qcow2Type:             "exec",
 		},
-		NicPlugin: pluginOpts,
-		// GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
+		NicPlugin:                      pluginOpts,
+		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
 		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
@@ -171,28 +171,4 @@ func isSocketAvailable(socketPath string) error {
 		return nil
 	}
 	return fmt.Errorf("socket %s is not available", socketPath)
-}
-
-func assertMachineIsRunning(machineID string) libvirt.Domain {
-	GinkgoHelper()
-	By("ensuring domain and domain XML is created for machine")
-	var domain libvirt.Domain
-
-	Eventually(func() (err error) {
-		domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
-		return err
-	}).Should(Succeed())
-
-	domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-	Expect(err).NotTo(HaveOccurred())
-	Expect(domainXMLData).NotTo(BeEmpty())
-
-	By("ensuring domain for machine is in running state")
-	Eventually(func(g Gomega) libvirt.DomainState {
-		domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-		g.Expect(err).NotTo(HaveOccurred())
-		return libvirt.DomainState(domainState)
-	}).Should(Equal(libvirt.DomainRunning))
-
-	return domain
 }
