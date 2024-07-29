@@ -102,8 +102,8 @@ var _ = BeforeSuite(func() {
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
 
-	tempDir = "/home/pcmil/libvirt-provider/temptest"
-	// tempDir = GinkgoT().TempDir()
+	// tempDir = "/home/pcmil/libvirt-provider/temptest"
+	tempDir = GinkgoT().TempDir()
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
 
 	opts := app.Options{
