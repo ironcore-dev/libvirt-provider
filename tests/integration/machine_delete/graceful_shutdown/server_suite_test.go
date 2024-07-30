@@ -37,7 +37,7 @@ const (
 	emptyDiskSize   = 1024 * 1024 * 1024
 
 	//Test graceful shutdown will be tested separately
-	gracefulShutdownTimeout        = 60 * time.Second
+	gracefulShutdownTimeout        = 120 * time.Second
 	resyncGarbageCollectorInterval = 5 * time.Second
 	resyncVolumeSizeInterval       = 1 * time.Minute
 	baseURL                        = "http://localhost:20251"
