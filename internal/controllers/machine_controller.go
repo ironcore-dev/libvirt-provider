@@ -252,7 +252,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 				}
 
 				if lastVolumeSize := getLastVolumeSize(machine, GetUniqueVolumeName(plugin.Name(), volumeID)); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-					if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", fmt.Sprintf("Volume size changed %s. lastVolumeSize: %d. volumeSize: %d", volume.Name, *lastVolumeSize, volumeSize)); eventErr != nil {
+					if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", fmt.Sprintf("Volume size changed %s, lastVolumeSize: %d bytes, volumeSize: %d bytes", volume.Name, *lastVolumeSize, volumeSize)); eventErr != nil {
 						log.Error(eventErr, "failed to add machine event")
 					}
 					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "volumeID", volumeID, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
@@ -550,7 +550,7 @@ func (r *MachineReconciler) updateDomain(
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s .", err)); eventErr != nil {
+		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s", err)); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 		return nil, nil, fmt.Errorf("[volumes] %w", err)

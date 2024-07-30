@@ -113,11 +113,16 @@ func (es *EventStore) ListEvents() []*irievent.Event {
 	es.mutex.Lock()
 	defer es.mutex.Unlock()
 
-	result := make([]*irievent.Event, es.count)
+	result := make([]*irievent.Event, 0, es.count)
 	for i := 0; i < es.count; i++ {
 		index := (es.head + i) % es.maxEvents
 		// Create a deep copy of the event to break the reference
-		result[i] = proto.Clone(es.events[index]).(*irievent.Event)
+		clone, ok := proto.Clone(es.events[index]).(*irievent.Event)
+		if !ok {
+			es.log.Error(fmt.Errorf("failed to clone event: %s", es.events[index]), "assertion error")
+			continue
+		}
+		result = append(result, clone)
 	}
 
 	return result
