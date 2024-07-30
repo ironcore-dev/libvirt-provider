@@ -893,9 +893,6 @@ func (r *MachineReconciler) setDomainImage(
 }
 
 func (r *MachineReconciler) setDomainIgnition(machine *api.Machine, domain *libvirtxml.Domain) error {
-	if machine.Spec.Ignition == nil {
-		return fmt.Errorf("no IgnitionData found in the Machine %s", machine.GetID())
-	}
 	ignitionData := machine.Spec.Ignition
 
 	ignPath := r.host.MachineIgnitionFile(machine.ID)
