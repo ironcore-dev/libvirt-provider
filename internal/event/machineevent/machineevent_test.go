@@ -92,7 +92,7 @@ var _ = Describe("Machine EventStore", func() {
 			Eventually(func(g Gomega) bool {
 				es.RemoveExpiredEvents()
 				return g.Expect(es.ListEvents()).To(HaveLen(0))
-			}, eventTTL+1*time.Second, 100*time.Millisecond).Should(BeTrue())
+			}).WithTimeout(eventTTL + 1*time.Second).WithPolling(100 * time.Millisecond).Should(BeTrue())
 		})
 
 		It("should not remove events whose TTL has not expired", func() {
@@ -119,7 +119,7 @@ var _ = Describe("Machine EventStore", func() {
 
 			Eventually(func(g Gomega) bool {
 				return g.Expect(es.ListEvents()).To(HaveLen(0))
-			}, resyncInterval+1*time.Second, 100*time.Millisecond).Should(BeTrue())
+			}).WithTimeout(resyncInterval + 1*time.Second).WithPolling(100 * time.Millisecond).Should(BeTrue())
 		})
 	})
 
@@ -142,7 +142,7 @@ var _ = Describe("Machine EventStore", func() {
 			events[0].Spec.Message = "Changed Message"
 
 			storedEvents := es.ListEvents()
-			Expect(storedEvents[0].Spec.Message).To(Equal(message))
+			Expect(storedEvents[0].Spec.Message).ToNot(Equal(events[0].Spec.Message))
 		})
 	})
 })

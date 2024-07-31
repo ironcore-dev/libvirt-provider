@@ -41,13 +41,13 @@ func NewEventStore(log logr.Logger, maxEvents int, eventTTL time.Duration) *Even
 
 // AddEvent adds a new Event to the store.
 func (es *EventStore) AddEvent(apiMetadata api.Metadata, eventType, reason, message string) error {
-	es.mutex.Lock()
-	defer es.mutex.Unlock()
-
 	metadata, err := api.GetObjectMetadata(apiMetadata)
 	if err != nil {
 		return fmt.Errorf("error getting iri metadata: %w", err)
 	}
+
+	es.mutex.Lock()
+	defer es.mutex.Unlock()
 
 	// Calculate the index where the new event will be inserted
 	index := (es.head + es.count) % es.maxEvents
