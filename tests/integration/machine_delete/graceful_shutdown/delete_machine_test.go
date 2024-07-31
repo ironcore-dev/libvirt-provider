@@ -23,7 +23,7 @@ var _ = Describe("DeleteMachine", func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
 					Labels: map[string]string{
-						"foo": "bar",
+						"delete": "graceful_shutdown",
 					},
 				},
 				Spec: &iri.MachineSpec{
@@ -32,15 +32,6 @@ var _ = Describe("DeleteMachine", func() {
 						Image: squashfsOSImage,
 					},
 					Class: machineClassx3xlarge,
-					Volumes: []*iri.Volume{
-						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "oda",
-						},
-					},
 				},
 			},
 		})
