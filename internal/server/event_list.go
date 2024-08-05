@@ -37,7 +37,7 @@ func (s *Server) filterEvents(events []*irievent.Event, filter *iri.EventFilter)
 }
 
 func (s *Server) ListEvents(ctx context.Context, req *iri.ListEventsRequest) (*iri.ListEventsResponse, error) {
-	iriEvents := s.filterEvents(s.eventStore.ListEvents(), req.Filter)
+	iriEvents := s.filterEvents(s.eventRecorder.ListEvents(), req.Filter)
 
 	return &iri.ListEventsResponse{
 		Events: iriEvents,

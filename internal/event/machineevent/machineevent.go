@@ -16,31 +16,45 @@ import (
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
-// EventStore represents an in-memory event store with TTL for events.
+type EventRecorder interface {
+	Eventf(apiMetadata api.Metadata, eventType, reason, message string) error
+	ListEvents() []*irievent.Event
+}
+
+// Options to initialize the machine event store
+type EventStoreOptions struct {
+	MachineEventMaxEvents      int
+	MachineEventTTL            time.Duration
+	MachineEventResyncInterval time.Duration
+}
+
+// EventStore implements the EventRecorder interface and represents an in-memory event store with TTL for events.
 type EventStore struct {
-	maxEvents int               // Maximum number of events in the store
-	events    []*irievent.Event // Slice of events
-	mutex     sync.Mutex        // Mutex for thread safety
-	eventTTL  time.Duration     // TTL for events
-	head      int               // Index of the oldest event
-	count     int               // Current number of events in the store
-	log       logr.Logger       // Logger for logging overridden events
+	maxEvents           int               // Maximum number of events in the store
+	events              []*irievent.Event // Slice of events
+	mutex               sync.Mutex        // Mutex for thread safety
+	eventTTL            time.Duration     // TTL for events
+	eventResyncInterval time.Duration     // Resync interval for event store's TTL expiration check
+	head                int               // Index of the oldest event
+	count               int               // Current number of events in the store
+	log                 logr.Logger       // Logger for logging overridden events
 }
 
 // NewEventStore creates a new EventStore with a fixed number of events and set TTL for events.
-func NewEventStore(log logr.Logger, maxEvents int, eventTTL time.Duration) *EventStore {
+func NewEventStore(log logr.Logger, opts EventStoreOptions) *EventStore {
 	return &EventStore{
-		maxEvents: maxEvents,
-		events:    make([]*irievent.Event, maxEvents),
-		eventTTL:  eventTTL,
-		head:      0,
-		count:     0,
-		log:       log,
+		maxEvents:           opts.MachineEventMaxEvents,
+		events:              make([]*irievent.Event, opts.MachineEventMaxEvents),
+		eventTTL:            opts.MachineEventTTL,
+		eventResyncInterval: opts.MachineEventResyncInterval,
+		head:                0,
+		count:               0,
+		log:                 log,
 	}
 }
 
-// AddEvent adds a new Event to the store.
-func (es *EventStore) AddEvent(apiMetadata api.Metadata, eventType, reason, message string) error {
+// Eventf adds a new Event to the store. Implements the EventRecorder interface.
+func (es *EventStore) Eventf(apiMetadata api.Metadata, eventType, reason, message string) error {
 	metadata, err := api.GetObjectMetadata(apiMetadata)
 	if err != nil {
 		return fmt.Errorf("error getting iri metadata: %w", err)
@@ -74,8 +88,8 @@ func (es *EventStore) AddEvent(apiMetadata api.Metadata, eventType, reason, mess
 	return nil
 }
 
-// RemoveExpiredEvents checks and removes events whose TTL has expired.
-func (es *EventStore) RemoveExpiredEvents() {
+// removeExpiredEvents checks and removes events whose TTL has expired.
+func (es *EventStore) removeExpiredEvents() {
 	es.mutex.Lock()
 	defer es.mutex.Unlock()
 
@@ -99,13 +113,10 @@ func (es *EventStore) RemoveExpiredEvents() {
 }
 
 // Start initializes and starts the event store's TTL expiration check.
-func (es *EventStore) Start(ctx context.Context, setupLog logr.Logger, machineEventResyncInterval time.Duration) {
-	defer func() {
-		setupLog.Info("Shutting down machine events garbage collector")
-	}()
+func (es *EventStore) Start(ctx context.Context) {
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		es.RemoveExpiredEvents()
-	}, machineEventResyncInterval)
+		es.removeExpiredEvents()
+	}, es.eventResyncInterval)
 }
 
 // ListEvents returns a copy of all events currently in the store.

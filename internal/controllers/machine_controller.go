@@ -81,7 +81,7 @@ func NewMachineReconciler(
 	libvirt *libvirt.Libvirt,
 	machines store.Store[*api.Machine],
 	machineEvents event.Source[*api.Machine],
-	eventStore *machineEvent.EventStore,
+	eventRecorder machineEvent.EventRecorder,
 	opts MachineReconcilerOptions,
 ) (*MachineReconciler, error) {
 	if libvirt == nil {
@@ -102,7 +102,7 @@ func NewMachineReconciler(
 		libvirt:                        libvirt,
 		machines:                       machines,
 		machineEvents:                  machineEvents,
-		eventStore:                     eventStore,
+		eventRecorder:                  eventRecorder,
 		guestCapabilities:              opts.GuestCapabilities,
 		tcMallocLibPath:                opts.TCMallocLibPath,
 		host:                           opts.Host,
@@ -135,7 +135,7 @@ type MachineReconciler struct {
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
-	eventStore    *machineEvent.EventStore
+	eventRecorder machineEvent.EventRecorder
 
 	resyncIntervalVolumeSize time.Duration
 
@@ -159,7 +159,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 			for _, machine := range machines {
 				if ptr.Deref(machine.Spec.Image, "") == evt.Ref {
-					if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "PulledImage", fmt.Sprintf("Pulled image %s", *machine.Spec.Image)); eventErr != nil {
+					if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "PulledImage", fmt.Sprintf("Pulled image %s", *machine.Spec.Image)); eventErr != nil {
 						log.Error(eventErr, "failed to add machine event")
 					}
 					log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
@@ -252,7 +252,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 				}
 
 				if lastVolumeSize := getLastVolumeSize(machine, GetUniqueVolumeName(plugin.Name(), volumeID)); volumeSize != ptr.Deref(lastVolumeSize, 0) {
-					if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", fmt.Sprintf("Volume size changed %s, lastVolumeSize: %d bytes, volumeSize: %d bytes", volume.Name, *lastVolumeSize, volumeSize)); eventErr != nil {
+					if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", fmt.Sprintf("Volume size changed %s, lastVolumeSize: %d bytes, volumeSize: %d bytes", volume.Name, *lastVolumeSize, volumeSize)); eventErr != nil {
 						log.Error(eventErr, "failed to add machine event")
 					}
 					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "volumeID", volumeID, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
@@ -360,7 +360,7 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
 		return fmt.Errorf("failed to update machine metadata: %w", err)
 	}
-	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed"); eventErr != nil {
+	if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed"); eventErr != nil {
 		log.Error(eventErr, "failed to add machine event")
 	}
 	log.V(1).Info("Removed Finalizer. Deletion completed")
@@ -401,7 +401,7 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine,
 		return fmt.Errorf("failed to initiate forceful shutdown: %w", err)
 	}
 
-	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed"); eventErr != nil {
+	if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed"); eventErr != nil {
 		log.Error(eventErr, "failed to add machine event")
 	}
 	log.V(1).Info("Destroyed domain")
@@ -410,7 +410,7 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine,
 
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
-	if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered"); eventErr != nil {
+	if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered"); eventErr != nil {
 		log.Error(eventErr, "failed to add machine event")
 	}
 
@@ -550,7 +550,7 @@ func (r *MachineReconciler) updateDomain(
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s", err)); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s", err)); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 		return nil, nil, fmt.Errorf("[volumes] %w", err)
@@ -558,7 +558,7 @@ func (r *MachineReconciler) updateDomain(
 
 	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("NIC attach/detach failed with error: %s", err)); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("NIC attach/detach failed with error: %s", err)); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 		return nil, nil, fmt.Errorf("[network interfaces] %w", err)
@@ -734,7 +734,7 @@ func (r *MachineReconciler) domainFor(
 			return nil, nil, nil, err
 		}
 	} else {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data"); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data"); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 	}
@@ -746,26 +746,26 @@ func (r *MachineReconciler) domainFor(
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s", err)); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", fmt.Sprintf("Volume attach/detach failed with error: %s", err)); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 		return nil, nil, nil, err
 	}
 	if machine.Spec.Volumes != nil {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes"); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes"); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 	}
 
 	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
 	if err != nil {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("Setting domain network interface failed with error: %s", err)); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", fmt.Sprintf("Setting domain network interface failed with error: %s", err)); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 		return nil, nil, nil, err
 	}
 	if machine.Spec.NetworkInterfaces != nil {
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces"); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces"); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 	}
@@ -896,7 +896,7 @@ func (r *MachineReconciler) setDomainImage(
 			return err
 		}
 
-		if eventErr := r.eventStore.AddEvent(machine.Metadata, corev1.EventTypeNormal, "PullingImage", fmt.Sprintf("Pulling image %s", machineImgRef)); eventErr != nil {
+		if eventErr := r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "PullingImage", fmt.Sprintf("Pulling image %s", machineImgRef)); eventErr != nil {
 			log.Error(eventErr, "failed to add machine event")
 		}
 		return err
