@@ -23,7 +23,7 @@ type EventRecorder interface {
 }
 
 // Interface for listing events
-type EventLister interface {
+type EventStore interface {
 	ListEvents() []*irievent.Event
 }
 
@@ -34,8 +34,8 @@ type EventStoreOptions struct {
 	MachineEventResyncInterval time.Duration
 }
 
-// EventStore implements the EventRecorder interface and represents an in-memory event store with TTL for events.
-type EventStore struct {
+// eventStore implements the EventRecorder interface and represents an in-memory event store with TTL for events.
+type eventStore struct {
 	maxEvents           int               // Maximum number of events in the store
 	events              []*irievent.Event // Slice of events
 	mutex               sync.Mutex        // Mutex for thread safety
@@ -47,8 +47,8 @@ type EventStore struct {
 }
 
 // NewEventStore creates a new EventStore with a fixed number of events and set TTL for events.
-func NewEventStore(log logr.Logger, opts EventStoreOptions) *EventStore {
-	return &EventStore{
+func NewEventStore(log logr.Logger, opts EventStoreOptions) *eventStore {
+	return &eventStore{
 		maxEvents:           opts.MachineEventMaxEvents,
 		events:              make([]*irievent.Event, opts.MachineEventMaxEvents),
 		eventTTL:            opts.MachineEventTTL,
@@ -61,7 +61,7 @@ func NewEventStore(log logr.Logger, opts EventStoreOptions) *EventStore {
 
 // RecordEvent retrieves metadata from the provided API, logs any errors encountered,
 // and records an event with the obtained metadata if successful.
-func (es *EventStore) RecordEvent(log logr.Logger, apiMetadata api.Metadata, eventType, reason, message string) {
+func (es *eventStore) RecordEvent(log logr.Logger, apiMetadata api.Metadata, eventType, reason, message string) {
 	if metadata, err := api.GetObjectMetadata(apiMetadata); err != nil {
 		log.Error(err, "error getting iri metadata")
 	} else {
@@ -70,7 +70,7 @@ func (es *EventStore) RecordEvent(log logr.Logger, apiMetadata api.Metadata, eve
 }
 
 // recordEvent adds a new Event to the store. Implements the EventRecorder interface.
-func (es *EventStore) recordEvent(metadata *irimeta.ObjectMetadata, eventType, reason, message string) {
+func (es *eventStore) recordEvent(metadata *irimeta.ObjectMetadata, eventType, reason, message string) {
 	es.mutex.Lock()
 	defer es.mutex.Unlock()
 
@@ -99,7 +99,7 @@ func (es *EventStore) recordEvent(metadata *irimeta.ObjectMetadata, eventType, r
 }
 
 // removeExpiredEvents checks and removes events whose TTL has expired.
-func (es *EventStore) removeExpiredEvents() {
+func (es *eventStore) removeExpiredEvents() {
 	es.mutex.Lock()
 	defer es.mutex.Unlock()
 
@@ -123,14 +123,14 @@ func (es *EventStore) removeExpiredEvents() {
 }
 
 // Start initializes and starts the event store's TTL expiration check.
-func (es *EventStore) Start(ctx context.Context) {
+func (es *eventStore) Start(ctx context.Context) {
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		es.removeExpiredEvents()
 	}, es.eventResyncInterval)
 }
 
 // ListEvents returns a copy of all events currently in the store.
-func (es *EventStore) ListEvents() []*irievent.Event {
+func (es *eventStore) ListEvents() []*irievent.Event {
 	es.mutex.Lock()
 	defer es.mutex.Unlock()
 

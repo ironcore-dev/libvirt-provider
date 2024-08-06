@@ -365,7 +365,7 @@ func Run(ctx context.Context, opts Options) error {
 		BaseURL:         baseURL,
 		Libvirt:         libvirt,
 		MachineStore:    machineStore,
-		EventLister:     eventStore,
+		EventStore:      eventStore,
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
