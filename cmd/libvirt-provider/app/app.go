@@ -322,14 +322,14 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	eventRecorder := machineevent.NewEventStore(log, opts.MachineEventStore)
+	eventStore := machineevent.NewEventStore(log, opts.MachineEventStore)
 
 	machineReconciler, err := controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
 		libvirt,
 		machineStore,
 		machineEvents,
-		eventRecorder,
+		eventStore,
 		controllers.MachineReconcilerOptions{
 			GuestCapabilities:              caps,
 			ImageCache:                     imgCache,
@@ -365,7 +365,7 @@ func Run(ctx context.Context, opts Options) error {
 		BaseURL:         baseURL,
 		Libvirt:         libvirt,
 		MachineStore:    machineStore,
-		EventRecorder:   eventRecorder,
+		EventLister:     eventStore,
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
@@ -417,7 +417,7 @@ func Run(ctx context.Context, opts Options) error {
 
 	g.Go(func() error {
 		setupLog.Info("Starting machine events garbage collector")
-		eventRecorder.Start(ctx)
+		eventStore.Start(ctx)
 		return nil
 	})
 

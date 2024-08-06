@@ -32,8 +32,8 @@ type Server struct {
 
 	idGen idgen.IDGen
 
-	machineStore  store.Store[*api.Machine]
-	eventRecorder machineevent.EventRecorder
+	machineStore store.Store[*api.Machine]
+	eventLister  machineevent.EventLister
 
 	networkInterfacePlugin providernetworkinterface.Plugin
 
@@ -57,8 +57,8 @@ type Options struct {
 
 	IDGen idgen.IDGen
 
-	MachineStore  store.Store[*api.Machine]
-	EventRecorder machineevent.EventRecorder
+	MachineStore store.Store[*api.Machine]
+	EventLister  machineevent.EventLister
 
 	MachineClasses MachineClassRegistry
 
@@ -87,7 +87,7 @@ func New(opts Options) (*Server, error) {
 		idGen:                  opts.IDGen,
 		libvirt:                opts.Libvirt,
 		machineStore:           opts.MachineStore,
-		eventRecorder:          opts.EventRecorder,
+		eventLister:            opts.EventLister,
 		volumePlugins:          opts.VolumePlugins,
 		networkInterfacePlugin: opts.NetworkPlugins,
 		machineClasses:         opts.MachineClasses,

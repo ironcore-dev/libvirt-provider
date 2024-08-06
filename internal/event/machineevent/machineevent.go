@@ -12,12 +12,18 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/gogo/protobuf/proto"
 	irievent "github.com/ironcore-dev/ironcore/iri/apis/event/v1alpha1"
+	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
+// Interface for recording events
 type EventRecorder interface {
-	Eventf(apiMetadata api.Metadata, eventType, reason, message string) error
+	RecordEvent(logr.Logger, api.Metadata, string, string, string)
+}
+
+// Interface for listing events
+type EventLister interface {
 	ListEvents() []*irievent.Event
 }
 
@@ -53,13 +59,18 @@ func NewEventStore(log logr.Logger, opts EventStoreOptions) *EventStore {
 	}
 }
 
-// Eventf adds a new Event to the store. Implements the EventRecorder interface.
-func (es *EventStore) Eventf(apiMetadata api.Metadata, eventType, reason, message string) error {
-	metadata, err := api.GetObjectMetadata(apiMetadata)
-	if err != nil {
-		return fmt.Errorf("error getting iri metadata: %w", err)
+// RecordEvent retrieves metadata from the provided API, logs any errors encountered,
+// and records an event with the obtained metadata if successful.
+func (es *EventStore) RecordEvent(log logr.Logger, apiMetadata api.Metadata, eventType, reason, message string) {
+	if metadata, err := api.GetObjectMetadata(apiMetadata); err != nil {
+		log.Error(err, "error getting iri metadata")
+	} else {
+		es.recordEvent(metadata, eventType, reason, message)
 	}
+}
 
+// recordEvent adds a new Event to the store. Implements the EventRecorder interface.
+func (es *EventStore) recordEvent(metadata *irimeta.ObjectMetadata, eventType, reason, message string) {
 	es.mutex.Lock()
 	defer es.mutex.Unlock()
 
@@ -85,7 +96,6 @@ func (es *EventStore) Eventf(apiMetadata api.Metadata, eventType, reason, messag
 	}
 
 	es.events[index] = event
-	return nil
 }
 
 // removeExpiredEvents checks and removes events whose TTL has expired.
