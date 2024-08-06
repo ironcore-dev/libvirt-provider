@@ -19,7 +19,7 @@ import (
 
 // Interface for recording events
 type EventRecorder interface {
-	RecordEvent(logr.Logger, api.Metadata, string, string, string)
+	Eventf(logr.Logger, api.Metadata, string, string, string, ...interface{})
 }
 
 // Interface for listing events
@@ -59,14 +59,18 @@ func NewEventStore(log logr.Logger, opts EventStoreOptions) *eventStore {
 	}
 }
 
-// RecordEvent retrieves metadata from the provided API, logs any errors encountered,
-// and records an event with the obtained metadata if successful.
-func (es *eventStore) RecordEvent(log logr.Logger, apiMetadata api.Metadata, eventType, reason, message string) {
-	if metadata, err := api.GetObjectMetadata(apiMetadata); err != nil {
+// Eventf logs and records an event with formatted reason and message.
+func (es *eventStore) Eventf(log logr.Logger, apiMetadata api.Metadata, eventType, reason, messageFormat string, args ...interface{}) {
+	metadata, err := api.GetObjectMetadata(apiMetadata)
+	if err != nil {
 		log.Error(err, "error getting iri metadata")
-	} else {
-		es.recordEvent(metadata, eventType, reason, message)
+		return
 	}
+
+	// Format the message using the provided format and arguments
+	message := fmt.Sprintf(messageFormat, args...)
+
+	es.recordEvent(metadata, eventType, reason, message)
 }
 
 // recordEvent adds a new Event to the store. Implements the EventRecorder interface.
