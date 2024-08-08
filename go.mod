@@ -14,7 +14,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.9.3
 	github.com/ironcore-dev/ironcore v0.1.3-0.20240717085057-f0a0d85136f4
-	github.com/ironcore-dev/ironcore-image v0.2.1
+	github.com/ironcore-dev/ironcore-image v0.2.2
 	github.com/ironcore-dev/ironcore-net v0.1.1-0.20240527195124-d8dab694049f
 	github.com/moby/term v0.5.0
 	github.com/onsi/ginkgo/v2 v2.19.1
