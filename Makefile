@@ -101,11 +101,19 @@ check: manifests generate fmt check-license lint test ## Generate manifests, cod
 
 .PHONY: test
 test: manifests generate fmt vet envtest ## Run tests. Some test depend on Linux OS
-	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="!integration" -coverprofile cover.out
+	KUBEBUILDER_ASSETS="$(shell $(ENVTEST) use $(ENVTEST_K8S_VERSION) --bin-dir $(LOCALBIN) -p path)" go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="!integration && !integration-pcmil" -coverprofile cover.out
 
 .PHONY: integration-tests
 integration-tests: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
-	go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="integration" -coverprofile cover.out
+	go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="integration-delete-graceful-shutdown, integration-delete-no-graceful-shutdown, integration-exec, integration-machine-create, integration-machine-interface, integration-machine-list, integration-powerstate, integration-annotation, integration-status, integration-volume" -coverprofile cover.out
+
+# .PHONY: integration-tests
+# integration-tests: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
+# 	go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="integration" -coverprofile cover.out
+
+# .PHONY: integration-pcmil
+# integration-pcmil: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
+# 	go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="integration-pcmil" -coverprofile=cover.out
 
 ##@ Documentation
 
