@@ -1,5 +1,5 @@
 # Build the libvirt-provider binary
-FROM --platform=$BUILDPLATFORM golang:1.23rc2-bookworm as builder
+FROM --platform=$BUILDPLATFORM golang:1.23rc2-bookworm AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
@@ -36,21 +36,21 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go install github.com/ironcore-dev/ironcore/irictl-machine/cmd/irictl-machine@main
 
 # Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
-FROM gcr.io/distroless/base-debian11 as distroless-base
+FROM gcr.io/distroless/base-debian11 AS distroless-base
 
 # The distroless amd64 image has a target triplet of x86_64
 FROM distroless-base AS distroless-amd64
-ENV LIB_DIR_PREFIX x86_64
-ENV LIB_DIR_PREFIX_MINUS x86-64
+ENV LIB_DIR_PREFIX=x86_64
+ENV LIB_DIR_PREFIX_MINUS=x86-64
 
 # The distroless arm64 image has a target triplet of aarch64
 FROM distroless-base AS distroless-arm64
-ENV LIB_DIR_PREFIX aarch64
-ENV LIB_DIR_PREFIX_MINUS aarch64
+ENV LIB_DIR_PREFIX=aarch64
+ENV LIB_DIR_PREFIX_MINUS=aarch64
 
 
-FROM busybox:1.36.1-uclibc as busybox
-FROM distroless-$TARGETARCH  as libvirt-provider
+FROM busybox:1.36.1-uclibc AS busybox
+FROM distroless-$TARGETARCH  AS libvirt-provider
 WORKDIR /
 COPY --from=busybox /bin/sh /bin/sh
 COPY --from=busybox /bin/mkdir /bin/mkdir
@@ -83,7 +83,7 @@ COPY --from=builder /lib/${LIB_DIR_PREFIX}-linux-gnu/librados.so.2 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libnl-3.so.200 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libselinux.so.1 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libpthread.so.0 \
-/lib/${LIB_DIR_PREFIX}-linux-gnu/libpcre2-8.so.0 /lib/${LIB_DIR_PREFIX}-linux-gnu
+/lib/${LIB_DIR_PREFIX}-linux-gnu/libpcre2-8.so.0 /lib/${LIB_DIR_PREFIX}-linux-gnu/
 RUN mkdir -p /lib64
 COPY --from=builder /lib64/ld-linux-${LIB_DIR_PREFIX_MINUS}.so.2 /lib64/
 RUN mkdir -p /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/
