@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
+	irievent "github.com/ironcore-dev/ironcore/iri/apis/event/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
 	machinepoolletv1alpha1 "github.com/ironcore-dev/ironcore/poollet/machinepoollet/api/v1alpha1"
@@ -116,5 +117,12 @@ var _ = Describe("ListEvents", func() {
 		Expect(err).NotTo(HaveOccurred())
 
 		Expect(resp.Events).To(BeEmpty())
+
+		By("listing the machine events with expired TTL")
+		Eventually(func(g Gomega) []*irievent.Event {
+			resp, err := machineClient.ListEvents(ctx, &iri.ListEventsRequest{})
+			g.Expect(err).NotTo(HaveOccurred())
+			return resp.Events
+		}).Should(BeEmpty())
 	})
 })

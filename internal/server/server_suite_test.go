@@ -45,8 +45,8 @@ const (
 	healthCheckAddress             = "127.0.0.1:20252"
 	metricsAddress                 = "" // disable metrics server for integration tests
 	machineEventMaxEvents          = 10
-	machineEventTTL                = 100 * time.Second
-	machineEventResyncInterval     = 10 * time.Second
+	machineEventTTL                = 10 * time.Second
+	machineEventResyncInterval     = 2 * time.Second
 )
 
 var (
