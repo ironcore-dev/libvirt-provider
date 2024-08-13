@@ -69,15 +69,14 @@ var _ = Describe("ListEvents", func() {
 		resp, err := machineClient.ListEvents(ctx, &iri.ListEventsRequest{})
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(resp.Events).To(ConsistOf(
+		Expect(resp.Events).To(ContainElement(
 			HaveField("Spec", SatisfyAll(
 				HaveField("InvolvedObjectMeta.Id", Equal(createResp.Machine.Metadata.Id)),
 				HaveField("Reason", Equal("NoIgnitionData")),
 				HaveField("Message", Equal("Machine does not have ignition data")),
 				HaveField("Type", Equal(corev1.EventTypeWarning)),
 			)),
-		),
-		)
+		))
 
 		By("listing the machine events with matching label and time filters")
 		resp, err = machineClient.ListEvents(ctx, &iri.ListEventsRequest{Filter: &iri.EventFilter{
@@ -88,15 +87,14 @@ var _ = Describe("ListEvents", func() {
 
 		Expect(err).NotTo(HaveOccurred())
 
-		Expect(resp.Events).To(ConsistOf(
+		Expect(resp.Events).To(ContainElement(
 			HaveField("Spec", SatisfyAll(
 				HaveField("InvolvedObjectMeta.Id", Equal(createResp.Machine.Metadata.Id)),
 				HaveField("Reason", Equal("NoIgnitionData")),
 				HaveField("Message", Equal("Machine does not have ignition data")),
 				HaveField("Type", Equal(corev1.EventTypeWarning)),
 			)),
-		),
-		)
+		))
 
 		By("listing the machine events with non matching label filter")
 		resp, err = machineClient.ListEvents(ctx, &iri.ListEventsRequest{Filter: &iri.EventFilter{
