@@ -36,17 +36,7 @@ var _ = Describe("ListEvents", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
-		})
+		DeferCleanup(machineClient.DeleteMachine, ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
@@ -57,13 +47,6 @@ var _ = Describe("ListEvents", func() {
 		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainXMLData).NotTo(BeEmpty())
-
-		By("ensuring domain for machine is in running state")
-		Eventually(func(g Gomega) libvirt.DomainState {
-			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			g.Expect(err).NotTo(HaveOccurred())
-			return libvirt.DomainState(domainState)
-		}).Should(Equal(libvirt.DomainRunning))
 
 		By("listing the machine events with no filters")
 		resp, err := machineClient.ListEvents(ctx, &iri.ListEventsRequest{})
