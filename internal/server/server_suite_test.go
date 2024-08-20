@@ -18,6 +18,7 @@ import (
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/cmd/libvirt-provider/app"
+	"github.com/ironcore-dev/libvirt-provider/internal/event/machineevent"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -43,6 +44,9 @@ const (
 	streamingAddress               = "127.0.0.1:20251"
 	healthCheckAddress             = "127.0.0.1:20252"
 	metricsAddress                 = "" // disable metrics server for integration tests
+	machineEventMaxEvents          = 10
+	machineEventTTL                = 10 * time.Second
+	machineEventResyncInterval     = 2 * time.Second
 )
 
 var (
@@ -127,6 +131,11 @@ var _ = BeforeSuite(func() {
 		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
+		MachineEventStore: machineevent.EventStoreOptions{
+			MachineEventMaxEvents:      machineEventMaxEvents,
+			MachineEventTTL:            machineEventTTL,
+			MachineEventResyncInterval: machineEventResyncInterval,
+		},
 	}
 
 	srvCtx, cancel := context.WithCancel(context.Background())
