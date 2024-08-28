@@ -86,7 +86,7 @@ fmt: ## Run go fmt against code.
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	go vet ./...
+	GOOS=$(TARGET_OS) CGO_ENABLED=$(CGO_ENABLED) go vet ./...
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint against code.
@@ -173,7 +173,7 @@ ADDLICENSE ?= $(LOCALBIN)/addlicense-$(ADDLICENSE_VERSION)
 KUSTOMIZE_VERSION ?= v5.3.0
 CONTROLLER_TOOLS_VERSION ?= v0.14.0
 ENVTEST_VERSION ?= release-0.16
-GOLANGCI_LINT_VERSION ?= v1.57.2
+GOLANGCI_LINT_VERSION ?= v1.60.1
 ADDLICENSE_VERSION ?= v1.1.1
 
 .PHONY: kustomize

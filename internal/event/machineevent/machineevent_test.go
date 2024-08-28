@@ -83,7 +83,7 @@ var _ = Describe("Machine EventStore", func() {
 
 		It("should override the oldest event when the store is full", func() {
 			for i := 0; i < maxEvents; i++ {
-				es.Eventf(log, apiMetadata, eventType, reason, fmt.Sprintf("%s %d", message, i))
+				es.Eventf(log, apiMetadata, eventType, reason, "%s %d", message, i)
 				Expect(logOutput.String()).To(BeEmpty())
 				Expect(es.ListEvents()).To(HaveLen(i + 1))
 			}

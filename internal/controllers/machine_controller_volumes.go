@@ -22,7 +22,6 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	providervolume "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"k8s.io/apimachinery/pkg/util/sets"
-	"k8s.io/utils/ptr"
 	utilstrings "k8s.io/utils/strings"
 	"libvirt.org/go/libvirtxml"
 )
@@ -76,11 +75,11 @@ func getVolumeStatus(machine *api.Machine, volumeID string) *api.VolumeStatus {
 	return nil
 }
 
-func getLastVolumeSize(machine *api.Machine, volumeID string) *int64 {
+func getLastVolumeSize(machine *api.Machine, volumeID string) int64 {
 	if status := getVolumeStatus(machine, volumeID); status != nil && status.Size != 0 {
-		return ptr.To(status.Size)
+		return status.Size
 	}
-	return nil
+	return 0
 }
 
 func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Logger, machine *api.Machine, attacher VolumeAttacher) ([]api.VolumeStatus, error) {
@@ -644,7 +643,7 @@ func (r *MachineReconciler) applyVolume(
 	}
 
 	//TODO do epsilon comparison
-	if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != nil && providerVolume.Size != ptr.Deref(lastVolumeSize, 0) {
+	if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != 0 && providerVolume.Size != lastVolumeSize {
 		log.V(1).Info("Resize volume", "volumeID", volumeID, "lastSize", lastVolumeSize, "volumeSize", providerVolume.Size)
 		if err := attacher.ResizeVolume(&AttachVolume{
 			Name:   desiredVolume.Name,
