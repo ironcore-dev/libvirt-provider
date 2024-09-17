@@ -49,6 +49,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -221,19 +222,26 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	// Check if apinetKubeconfig is provided
-	var apinetClient client.Client
+	var apinetCfg *rest.Config
 	if opts.ApinetKubeconfig != "" {
-		apinetCfg, err := clientcmd.BuildConfigFromFlags("", opts.ApinetKubeconfig)
+		apinetCfg, err = clientcmd.BuildConfigFromFlags("", opts.ApinetKubeconfig)
 		if err != nil {
 			setupLog.Error(err, "failed to create config from apinet-kubeconfig")
 			return err
 		}
-
-		apinetClient, err = client.New(apinetCfg, client.Options{Scheme: scheme})
+	} else {
+		// assuming in-cluster config
+		apinetCfg, err = rest.InClusterConfig()
 		if err != nil {
-			setupLog.Error(err, "failed to initialize api-net client")
+			setupLog.Error(err, "failed to create in-cluster-config")
 			return err
 		}
+	}
+
+	apinetClient, err := client.New(apinetCfg, client.Options{Scheme: scheme})
+	if err != nil {
+		setupLog.Error(err, "failed to initialize api-net client")
+		return err
 	}
 
 	providerHost, err := host.NewLibvirtAt(apinetClient, opts.RootDir, libvirt)
