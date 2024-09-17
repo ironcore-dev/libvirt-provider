@@ -222,7 +222,6 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	// Check if apinetKubeconfig is provided
-	var apinetClient client.Client
 	var apinetCfg *rest.Config
 	if opts.ApinetKubeconfig != "" {
 		apinetCfg, err = clientcmd.BuildConfigFromFlags("", opts.ApinetKubeconfig)
