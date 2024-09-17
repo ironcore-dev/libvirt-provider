@@ -239,7 +239,7 @@ func Run(ctx context.Context, opts Options) error {
 		}
 	}
 
-	apinetClient, err = client.New(apinetCfg, client.Options{Scheme: scheme})
+	apinetClient, err := client.New(apinetCfg, client.Options{Scheme: scheme})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize api-net client")
 		return err
