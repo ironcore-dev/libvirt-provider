@@ -252,14 +252,16 @@ func (a *domainExecutor) ResizeDisk(device string, size int64) error {
 }
 
 type libvirtVolumeAttacher struct {
-	domainDesc *libvirtxml.Domain
-	executor   DomainExecutor
+	domainDesc        *libvirtxml.Domain
+	executor          DomainExecutor
+	volumeCachePolicy string
 }
 
-func NewLibvirtVolumeAttacher(domainDesc *libvirtxml.Domain, executor DomainExecutor) (VolumeAttacher, error) {
+func NewLibvirtVolumeAttacher(domainDesc *libvirtxml.Domain, executor DomainExecutor, policy string) (VolumeAttacher, error) {
 	a := &libvirtVolumeAttacher{
-		domainDesc: domainDesc,
-		executor:   executor,
+		domainDesc:        domainDesc,
+		executor:          executor,
+		volumeCachePolicy: policy,
 	}
 	return a, nil
 }
@@ -820,7 +822,7 @@ func (a *libvirtVolumeAttacher) providerVolumeToLibvirt(computeVolumeName string
 			Encryption: diskEncryption,
 		}
 		disk.Driver = &libvirtxml.DomainDiskDriver{
-			Cache: "none",
+			Cache: a.volumeCachePolicy,
 			IO:    "threads",
 		}
 

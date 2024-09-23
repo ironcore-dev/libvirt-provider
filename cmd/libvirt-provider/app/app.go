@@ -93,6 +93,8 @@ type Options struct {
 	ResyncIntervalGarbageCollector time.Duration
 
 	MachineEventStore machineevent.EventStoreOptions
+
+	VolumeCachePolicy string
 }
 
 type HTTPServerOptions struct {
@@ -155,6 +157,8 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.IntVar(&o.MachineEventStore.MachineEventMaxEvents, "machine-event-max-events", 100, "Maximum number of machine events that can be stored.")
 	fs.DurationVar(&o.MachineEventStore.MachineEventTTL, "machine-event-ttl", 5*time.Minute, "Time to live for machine events.")
 	fs.DurationVar(&o.MachineEventStore.MachineEventResyncInterval, "machine-event-resync-interval", 1*time.Minute, "Interval for resynchronizing the machine events.")
+
+	fs.StringVar(&o.VolumeCachePolicy, "volume-cache-policy", "none", "Policy to use when creating a remote disk. Default is none")
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
 	o.NicPlugin.AddFlags(fs)
@@ -349,6 +353,7 @@ func Run(ctx context.Context, opts Options) error {
 			ResyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 			EnableHugepages:                opts.EnableHugepages,
 			GCVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
+			VolumeCachePolicy:              opts.VolumeCachePolicy,
 		},
 	)
 	if err != nil {
