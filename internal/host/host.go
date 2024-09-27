@@ -10,7 +10,6 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	ocistore "github.com/ironcore-dev/ironcore-image/oci/store"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const (
@@ -139,7 +138,6 @@ func (p *paths) MachineIgnitionFile(machineUID string) string {
 
 type Host interface {
 	Paths
-	APINetClient() client.Client
 	OCIStore() *ocistore.Store
 }
 
@@ -150,12 +148,7 @@ type LibvirtHost interface {
 
 type host struct {
 	Paths
-	apinetClient client.Client
-	ociStore     *ocistore.Store
-}
-
-func (h *host) APINetClient() client.Client {
-	return h.apinetClient
+	ociStore *ocistore.Store
 }
 
 func (h *host) OCIStore() *ocistore.Store {
@@ -176,7 +169,7 @@ func PathsAt(rootDir string) (Paths, error) {
 	return p, nil
 }
 
-func NewAt(apinetClient client.Client, rootDir string) (Host, error) {
+func NewAt(rootDir string) (Host, error) {
 	p, err := PathsAt(rootDir)
 	if err != nil {
 		return nil, err
@@ -188,9 +181,8 @@ func NewAt(apinetClient client.Client, rootDir string) (Host, error) {
 	}
 
 	return &host{
-		Paths:        p,
-		apinetClient: apinetClient,
-		ociStore:     ociStore,
+		Paths:    p,
+		ociStore: ociStore,
 	}, nil
 }
 
@@ -203,8 +195,8 @@ func (h *libvirtHost) Libvirt() *libvirt.Libvirt {
 	return h.libvirt
 }
 
-func NewLibvirtAt(apinetClient client.Client, rootDir string, libvirt *libvirt.Libvirt) (LibvirtHost, error) {
-	host, err := NewAt(apinetClient, rootDir)
+func NewLibvirtAt(rootDir string, libvirt *libvirt.Libvirt) (LibvirtHost, error) {
+	host, err := NewAt(rootDir)
 	if err != nil {
 		return nil, err
 	}

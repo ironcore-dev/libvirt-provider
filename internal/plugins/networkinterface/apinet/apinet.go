@@ -41,13 +41,15 @@ const (
 )
 
 type Plugin struct {
-	nodeName string
-	host     providerhost.Host
+	nodeName     string
+	host         providerhost.Host
+	apinetClient client.Client
 }
 
-func NewPlugin(nodeName string) providernetworkinterface.Plugin {
+func NewPlugin(nodeName string, client client.Client) providernetworkinterface.Plugin {
 	return &Plugin{
-		nodeName: nodeName,
+		nodeName:     nodeName,
+		apinetClient: client,
 	}
 }
 
@@ -143,7 +145,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	}
 
 	log.V(1).Info("Applying apinet nic")
-	if err := p.host.APINetClient().Patch(ctx, apinetNic, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
+	if err := p.apinetClient.Patch(ctx, apinetNic, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
 		return nil, fmt.Errorf("error applying apinet network interface: %w", err)
 	}
 
@@ -167,7 +169,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	log.V(1).Info("Waiting for apinet network interface to become ready")
 	apinetNicKey := client.ObjectKeyFromObject(apinetNic)
 	if err := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		if err := p.host.APINetClient().Get(ctx, apinetNicKey, apinetNic); err != nil {
+		if err := p.apinetClient.Get(ctx, apinetNicKey, apinetNic); err != nil {
 			return false, fmt.Errorf("error getting apinet nic %s: %w", apinetNicKey, err)
 		}
 
@@ -181,7 +183,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	}
 
 	// Fetch the updated object to get the ID or any other updated fields
-	if err := p.host.APINetClient().Get(ctx, apinetNicKey, apinetNic); err != nil {
+	if err := p.apinetClient.Get(ctx, apinetNicKey, apinetNic); err != nil {
 		return nil, fmt.Errorf("error fetching updated apinet network interface: %w", err)
 	}
 
@@ -266,7 +268,7 @@ func (p *Plugin) Delete(ctx context.Context, computeNicName string, machineID st
 	}
 	log = log.WithValues("APInetNetworkInterfaceKey", apinetNicKey)
 
-	if err := p.host.APINetClient().Delete(ctx, &apinetv1alpha1.NetworkInterface{
+	if err := p.apinetClient.Delete(ctx, &apinetv1alpha1.NetworkInterface{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: apinetNicKey.Namespace,
 			Name:      apinetNicKey.Name,
@@ -282,7 +284,7 @@ func (p *Plugin) Delete(ctx context.Context, computeNicName string, machineID st
 
 	log.V(1).Info("Waiting until apinet network interface is gone")
 	if err := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		if err := p.host.APINetClient().Get(ctx, apinetNicKey, &apinetv1alpha1.NetworkInterface{}); err != nil {
+		if err := p.apinetClient.Get(ctx, apinetNicKey, &apinetv1alpha1.NetworkInterface{}); err != nil {
 			if !apierrors.IsNotFound(err) {
 				return false, fmt.Errorf("error getting apinet network interface %s: %w", apinetNicKey, err)
 			}
