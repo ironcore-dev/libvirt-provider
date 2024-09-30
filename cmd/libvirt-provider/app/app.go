@@ -32,6 +32,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
+	"github.com/ironcore-dev/libvirt-provider/internal/metrics"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	"github.com/ironcore-dev/libvirt-provider/internal/oci"
 	volumeplugin "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
@@ -162,7 +163,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	// Volume cache policy option
 	fs.StringVar(&o.VolumeCachePolicy, "volume-cache-policy", "none",
 		`Policy to use when creating a remote disk. (one of 'none', 'writeback', 'writethrough', 'directsync', 'unsafe').
-Note: The available options may depend on the hypervisor and libvirt version in use. 
+Note: The available options may depend on the hypervisor and libvirt version in use.
 Please refer to the official documentation for more details: https://libvirt.org/formatdomain.html#hard-drives-floppy-disks-cdroms.`)
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
@@ -348,17 +349,20 @@ func Run(ctx context.Context, opts Options) error {
 		machineEvents,
 		eventStore,
 		controllers.MachineReconcilerOptions{
-			GuestCapabilities:              caps,
-			ImageCache:                     imgCache,
-			Raw:                            rawInst,
-			Host:                           providerHost,
-			VolumePluginManager:            volumePlugins,
-			NetworkInterfacePlugin:         nicPlugin,
-			ResyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
-			ResyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
-			EnableHugepages:                opts.EnableHugepages,
-			GCVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
-			VolumeCachePolicy:              opts.VolumeCachePolicy,
+			GuestCapabilities:                       caps,
+			ImageCache:                              imgCache,
+			Raw:                                     rawInst,
+			Host:                                    providerHost,
+			VolumePluginManager:                     volumePlugins,
+			NetworkInterfacePlugin:                  nicPlugin,
+			ResyncIntervalVolumeSize:                opts.ResyncIntervalVolumeSize,
+			ResyncIntervalGarbageCollector:          opts.ResyncIntervalGarbageCollector,
+			EnableHugepages:                         opts.EnableHugepages,
+			GCVMGracefulShutdownTimeout:             opts.GCVMGracefulShutdownTimeout,
+			VolumeCachePolicy:                       opts.VolumeCachePolicy,
+			MetricsReconcileDuration:                metrics.ControllerRuntimeReconcileDuration.WithLabelValues(controllers.MachineReconcilerName),
+			MetricsControllerRuntimeActiveWorker:    metrics.ControllerRuntimeActiveWorker.WithLabelValues(controllers.MachineReconcilerName),
+			MetricsControllerRuntimeReconcileErrors: metrics.ControllerRuntimeReconcileErrors.WithLabelValues(controllers.MachineReconcilerName),
 		},
 	)
 	if err != nil {

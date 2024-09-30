@@ -41,12 +41,15 @@ import (
 )
 
 const (
-	MachineFinalizer                = "machine"
-	filePerm                        = 0666
-	rootFSAlias                     = "ua-rootfs"
-	libvirtDomainXMLIgnitionKeyName = "opt/com.coreos/config"
-	networkInterfaceAliasPrefix     = "ua-networkinterface-"
-	MachineReconcilerName           = "machine-reconciler"
+	MachineFinalizer                     = "machine"
+	filePerm                             = 0666
+	rootFSAlias                          = "ua-rootfs"
+	libvirtDomainXMLIgnitionKeyName      = "opt/com.coreos/config"
+	networkInterfaceAliasPrefix          = "ua-networkinterface-"
+	MachineReconcilerName                = "machine-reconciler"
+	MachineReconcilerOpsVolumeSize       = "volume-size"
+	MachineReconcilerOpsGarbageCollector = "garbage-collector"
+	MachineReconcilerOpsLibvirtEvent     = "libvirt-event"
 )
 
 var (
@@ -65,19 +68,22 @@ var (
 )
 
 type MachineReconcilerOptions struct {
-	GuestCapabilities              guest.Capabilities
-	TCMallocLibPath                string
-	ImageCache                     providerimage.Cache
-	Raw                            raw.Raw
-	Host                           providerhost.Host
-	VolumePluginManager            *providervolume.PluginManager
-	NetworkInterfacePlugin         providernetworkinterface.Plugin
-	VolumeEvents                   event.Source[*api.Machine]
-	ResyncIntervalVolumeSize       time.Duration
-	ResyncIntervalGarbageCollector time.Duration
-	EnableHugepages                bool
-	GCVMGracefulShutdownTimeout    time.Duration
-	VolumeCachePolicy              string
+	GuestCapabilities                       guest.Capabilities
+	TCMallocLibPath                         string
+	ImageCache                              providerimage.Cache
+	Raw                                     raw.Raw
+	Host                                    providerhost.Host
+	VolumePluginManager                     *providervolume.PluginManager
+	NetworkInterfacePlugin                  providernetworkinterface.Plugin
+	VolumeEvents                            event.Source[*api.Machine]
+	ResyncIntervalVolumeSize                time.Duration
+	ResyncIntervalGarbageCollector          time.Duration
+	EnableHugepages                         bool
+	GCVMGracefulShutdownTimeout             time.Duration
+	VolumeCachePolicy                       string
+	MetricsReconcileDuration                prometheus.Observer
+	MetricsControllerRuntimeActiveWorker    prometheus.Gauge
+	MetricsControllerRuntimeReconcileErrors prometheus.Counter
 }
 
 func NewMachineReconciler(
@@ -122,9 +128,9 @@ func NewMachineReconciler(
 		enableHugepages:                         opts.EnableHugepages,
 		gcVMGracefulShutdownTimeout:             opts.GCVMGracefulShutdownTimeout,
 		volumeCachePolicy:                       opts.VolumeCachePolicy,
-		metricsReconcileDuration:                metrics.ControllerRuntimeReconcileDuration.WithLabelValues(MachineReconcilerName),
-		metricsControllerRuntimeActiveWorker:    metrics.ControllerRuntimeActiveWorker.WithLabelValues(MachineReconcilerName),
-		metricsControllerRuntimeReconcileErrors: metrics.ControllerRuntimeReconcileErrors.WithLabelValues(MachineReconcilerName),
+		metricsReconcileDuration:                opts.MetricsReconcileDuration,
+		metricsControllerRuntimeActiveWorker:    opts.MetricsControllerRuntimeActiveWorker,
+		metricsControllerRuntimeReconcileErrors: opts.MetricsControllerRuntimeReconcileErrors,
 	}, nil
 }
 
@@ -165,7 +171,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 	//todo make configurable
 	workerSize := 15
-	metrics.ControllerRuntimeMaxConccurrentReconciles.WithLabelValues("machine-reconciler").Set(float64(workerSize))
+	metrics.ControllerRuntimeMaxConccurrentReconciles.WithLabelValues(MachineReconcilerName).Set(float64(workerSize))
 
 	r.imageCache.AddListener(providerimage.ListenerFuncs{
 		HandlePullDoneFunc: func(evt providerimage.PullDoneEvent) {
@@ -201,19 +207,19 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startCheckAndEnqueueVolumeResize(ctx, r.log)
+		r.startCheckAndEnqueueVolumeResize(ctx)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startEnqueueMachineByLibvirtEvent(ctx, r.log)
+		r.startEnqueueMachineByLibvirtEvent(ctx)
 	}()
 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startGarbageCollector(ctx, r.log)
+		r.startGarbageCollector(ctx)
 	}()
 
 	go func() {
@@ -234,11 +240,10 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	return nil
 }
 
-func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context, log logr.Logger) {
-	const name = "volume-size"
-	log = log.WithName(name)
-	opsDuration := metrics.OperationDuration.WithLabelValues(name)
-	opsErrors := metrics.OperationErrors.WithLabelValues(name)
+func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context) {
+	log := r.log.WithName(MachineReconcilerOpsVolumeSize)
+	opsDuration := metrics.OperationDuration.WithLabelValues(MachineReconcilerOpsVolumeSize)
+	opsErrors := metrics.OperationErrors.WithLabelValues(MachineReconcilerOpsVolumeSize)
 
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		startTime := time.Now()
@@ -296,10 +301,9 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 	}, r.resyncIntervalVolumeSize)
 }
 
-func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
-	const name = "libvirt-event"
-	log = log.WithName(name)
-	opsErrors := metrics.OperationErrors.WithLabelValues(name)
+func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context) {
+	log := r.log.WithName(MachineReconcilerOpsLibvirtEvent)
+	opsErrors := metrics.OperationErrors.WithLabelValues(MachineReconcilerOpsLibvirtEvent)
 
 	lifecycleEvents, err := r.libvirt.LifecycleEvents(ctx)
 	if err != nil {
@@ -338,11 +342,10 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 	}
 }
 
-func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.Logger) {
-	const name = "garbage-collector"
-	log = log.WithName(name)
-	opsDuration := metrics.OperationDuration.WithLabelValues(name)
-	opsErrors := metrics.OperationErrors.WithLabelValues(name)
+func (r *MachineReconciler) startGarbageCollector(ctx context.Context) {
+	log := r.log.WithName(MachineReconcilerOpsGarbageCollector)
+	opsDuration := metrics.OperationDuration.WithLabelValues(MachineReconcilerOpsGarbageCollector)
+	opsErrors := metrics.OperationErrors.WithLabelValues(MachineReconcilerOpsGarbageCollector)
 
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		startTime := time.Now()
