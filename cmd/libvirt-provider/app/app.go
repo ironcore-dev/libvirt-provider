@@ -18,7 +18,6 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
-	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
 	"github.com/ironcore-dev/ironcore/broker/common"
 	commongrpc "github.com/ironcore-dev/ironcore/broker/common/grpc"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
@@ -46,26 +45,16 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"k8s.io/client-go/rest"
-	"k8s.io/client-go/tools/clientcmd"
 	ctrl "sigs.k8s.io/controller-runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
 
 var (
 	homeDir string
-	scheme  = runtime.NewScheme()
 )
 
 func init() {
 	homeDir, _ = os.UserHomeDir()
-
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(apinetv1alpha1.AddToScheme(scheme))
 }
 
 type Options struct {
@@ -79,8 +68,6 @@ type Options struct {
 
 	PathSupportedMachineClasses string
 	ResyncIntervalVolumeSize    time.Duration
-
-	ApinetKubeconfig string
 
 	EnableHugepages bool
 
@@ -124,8 +111,6 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.StringVar(&o.PathSupportedMachineClasses, "supported-machine-classes", o.PathSupportedMachineClasses, "File containing supported machine classes.")
 	fs.DurationVar(&o.ResyncIntervalVolumeSize, "volume-size-resync-interval", 1*time.Minute, "Interval to determine volume size changes.")
-
-	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
 
 	fs.StringVar(&o.StreamingAddress, "streaming-address", ":20251", "Address to run the streaming server on")
 	fs.StringVar(&o.BaseURL, "base-url", "", "The base url to construct urls for streaming from. If empty it will be "+
@@ -230,30 +215,7 @@ func Run(ctx context.Context, opts Options) error {
 		baseURL = u.String()
 	}
 
-	// Check if apinetKubeconfig is provided
-	var apinetCfg *rest.Config
-	if opts.ApinetKubeconfig != "" {
-		apinetCfg, err = clientcmd.BuildConfigFromFlags("", opts.ApinetKubeconfig)
-		if err != nil {
-			setupLog.Error(err, "failed to create config from apinet-kubeconfig")
-			return err
-		}
-	} else {
-		// assuming in-cluster config
-		apinetCfg, err = rest.InClusterConfig()
-		if err != nil {
-			setupLog.Error(err, "failed to create in-cluster-config")
-			return err
-		}
-	}
-
-	apinetClient, err := client.New(apinetCfg, client.Options{Scheme: scheme})
-	if err != nil {
-		setupLog.Error(err, "failed to initialize api-net client")
-		return err
-	}
-
-	providerHost, err := host.NewLibvirtAt(apinetClient, opts.RootDir, libvirt)
+	providerHost, err := host.NewLibvirtAt(opts.RootDir, libvirt)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize provider host")
 		return err
