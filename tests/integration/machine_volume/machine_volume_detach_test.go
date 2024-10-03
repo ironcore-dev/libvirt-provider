@@ -15,6 +15,10 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
+const (
+	osImage = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
+)
+
 var _ = Describe("DetachVolume", func() {
 	It("should correctly detach volume from machine", func(ctx SpecContext) {
 		By("creating a machine with two empty disks and single ceph volume")
@@ -22,7 +26,7 @@ var _ = Describe("DetachVolume", func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
 					Labels: map[string]string{
-						"foo": "bar",
+						"volume": "detach",
 					},
 				},
 				Spec: &iri.MachineSpec{
