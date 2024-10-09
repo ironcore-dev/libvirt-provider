@@ -99,7 +99,7 @@ func NewMachineReconciler(
 
 	return &MachineReconciler{
 		log:                            log,
-		queue:                          workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		queue:                          workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]()),
 		libvirt:                        libvirt,
 		machines:                       machines,
 		machineEvents:                  machineEvents,
@@ -121,7 +121,7 @@ func NewMachineReconciler(
 
 type MachineReconciler struct {
 	log   logr.Logger
-	queue workqueue.RateLimitingInterface
+	queue workqueue.TypedRateLimitingInterface[string]
 
 	libvirt           *libvirt.Libvirt
 	guestCapabilities guest.Capabilities
@@ -424,23 +424,22 @@ func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machin
 }
 
 func (r *MachineReconciler) processNextWorkItem(ctx context.Context, log logr.Logger) bool {
-	item, shutdown := r.queue.Get()
+	id, shutdown := r.queue.Get()
 	if shutdown {
 		return false
 	}
-	defer r.queue.Done(item)
+	defer r.queue.Done(id)
 
-	id := item.(string)
 	log = log.WithValues("machineID", id)
 	ctx = logr.NewContext(ctx, log)
 
 	if err := r.reconcileMachine(ctx, id); err != nil {
 		log.Error(err, "failed to reconcile machine")
-		r.queue.AddRateLimited(item)
+		r.queue.AddRateLimited(id)
 		return true
 	}
 
-	r.queue.Forget(item)
+	r.queue.Forget(id)
 	return true
 }
 
