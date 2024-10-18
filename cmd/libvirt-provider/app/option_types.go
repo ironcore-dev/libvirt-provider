@@ -8,8 +8,24 @@ import (
 	"reflect"
 	"slices"
 
+	"github.com/prometheus/client_golang/prometheus"
+
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/libvirt-provider/internal/controllers"
+	"github.com/ironcore-dev/libvirt-provider/internal/metrics"
 )
+
+type ReconcilerMetricsOptions struct {
+	ReconcileDuration                prometheus.Observer
+	ControllerRuntimeActiveWorker    prometheus.Gauge
+	ControllerRuntimeReconcileErrors prometheus.Counter
+}
+
+func (r *ReconcilerMetricsOptions) SetMachineReconcilerMetricsOptions() {
+	r.ReconcileDuration = metrics.ControllerRuntimeReconcileDuration.WithLabelValues(controllers.MachineReconcilerName)
+	r.ControllerRuntimeActiveWorker = metrics.ControllerRuntimeActiveWorker.WithLabelValues(controllers.MachineReconcilerName)
+	r.ControllerRuntimeReconcileErrors = metrics.ControllerRuntimeReconcileErrors.WithLabelValues(controllers.MachineReconcilerName)
+}
 
 type GuestAgentOption api.GuestAgent
 

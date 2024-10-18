@@ -15,8 +15,11 @@ import (
 	"sync"
 	"time"
 
-	"github.com/digitalocean/go-libvirt"
+	libvirt "github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
+	"github.com/prometheus/client_golang/prometheus"
+	"libvirt.org/go/libvirtxml"
+
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/internal/event"
 	machineEvent "github.com/ironcore-dev/libvirt-provider/internal/event/machineevent"
@@ -32,12 +35,11 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/store"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
-	"github.com/prometheus/client_golang/prometheus"
+
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
 	"k8s.io/utils/ptr"
-	"libvirt.org/go/libvirtxml"
 )
 
 const (
@@ -52,20 +54,18 @@ const (
 	MachineReconcilerOpsLibvirtEvent     = "libvirt-event"
 )
 
-var (
-	// TODO: improve domainStateToMachineState since some states are mapped to computev1alpha1.MachineStatePending
-	// where it doesn't make that much sense.
-	domainStateToMachineState = map[libvirt.DomainState]api.MachineState{
-		libvirt.DomainNostate:  api.MachineStatePending,
-		libvirt.DomainRunning:  api.MachineStateRunning,
-		libvirt.DomainBlocked:  api.MachineStatePending,
-		libvirt.DomainPaused:   api.MachineStatePending,
-		libvirt.DomainShutdown: api.MachineStateTerminating,
-		// it isn't probably supported by transient domain
-		libvirt.DomainShutoff:     api.MachineStateTerminated,
-		libvirt.DomainPmsuspended: api.MachineStatePending,
-	}
-)
+// TODO: improve domainStateToMachineState since some states are mapped to computev1alpha1.MachineStatePending
+// where it doesn't make that much sense.
+var domainStateToMachineState = map[libvirt.DomainState]api.MachineState{
+	libvirt.DomainNostate:  api.MachineStatePending,
+	libvirt.DomainRunning:  api.MachineStateRunning,
+	libvirt.DomainBlocked:  api.MachineStatePending,
+	libvirt.DomainPaused:   api.MachineStatePending,
+	libvirt.DomainShutdown: api.MachineStateTerminating,
+	// it isn't probably supported by transient domain
+	libvirt.DomainShutoff:     api.MachineStateTerminated,
+	libvirt.DomainPmsuspended: api.MachineStatePending,
+}
 
 type MachineReconcilerOptions struct {
 	GuestCapabilities                       guest.Capabilities
@@ -169,7 +169,7 @@ type MachineReconciler struct {
 func (r *MachineReconciler) Start(ctx context.Context) error {
 	log := r.log
 
-	//todo make configurable
+	// todo make configurable
 	workerSize := 15
 	metrics.ControllerRuntimeMaxConccurrentReconciles.WithLabelValues(MachineReconcilerName).Set(float64(workerSize))
 
@@ -371,7 +371,6 @@ func (r *MachineReconciler) startGarbageCollector(ctx context.Context) {
 				logger.Error(err, "failed to garbage collect machine")
 			}
 		}
-
 	}, r.resyncIntervalGarbageCollector)
 }
 

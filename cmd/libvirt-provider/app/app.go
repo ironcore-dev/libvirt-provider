@@ -17,11 +17,12 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
-	"github.com/ironcore-dev/ironcore-image/oci/remote"
-	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
-	"github.com/ironcore-dev/ironcore/broker/common"
-	commongrpc "github.com/ironcore-dev/ironcore/broker/common/grpc"
-	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/internal/console"
 	"github.com/ironcore-dev/libvirt-provider/internal/controllers"
@@ -32,7 +33,6 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
-	"github.com/ironcore-dev/libvirt-provider/internal/metrics"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	"github.com/ironcore-dev/libvirt-provider/internal/oci"
 	volumeplugin "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
@@ -42,11 +42,12 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/server"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/spf13/cobra"
-	"github.com/spf13/pflag"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
+
+	"github.com/ironcore-dev/ironcore-image/oci/remote"
+	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
+	"github.com/ironcore-dev/ironcore/broker/common"
+	commongrpc "github.com/ironcore-dev/ironcore/broker/common/grpc"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -85,7 +86,8 @@ type Options struct {
 
 	EnableHugepages bool
 
-	GuestAgent GuestAgentOption
+	GuestAgent               GuestAgentOption
+	MachineReconcilerMetrics *ReconcilerMetricsOptions
 
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
@@ -174,6 +176,11 @@ func (o *Options) MarkFlagsRequired(cmd *cobra.Command) {
 	_ = cmd.MarkFlagRequired("supported-machine-classes")
 }
 
+func (o *Options) SetMetrics() {
+	o.MachineReconcilerMetrics = &ReconcilerMetricsOptions{}
+	o.MachineReconcilerMetrics.SetMachineReconcilerMetricsOptions()
+}
+
 func Command() *cobra.Command {
 	var (
 		zapOpts = zap.Options{Development: true}
@@ -188,9 +195,9 @@ func Command() *cobra.Command {
 			cmd.SetContext(ctrl.LoggerInto(cmd.Context(), ctrl.Log))
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			//flag parsing is done therefore we can silence the usage message
+			// flag parsing is done therefore we can silence the usage message
 			cmd.SilenceUsage = true
-			//error logging is done in the main
+			// error logging is done in the main
 			cmd.SilenceErrors = true
 			return Run(cmd.Context(), opts)
 		},
@@ -202,6 +209,7 @@ func Command() *cobra.Command {
 
 	opts.AddFlags(cmd.Flags())
 	opts.MarkFlagsRequired(cmd)
+	opts.SetMetrics()
 
 	return cmd
 }
@@ -360,9 +368,9 @@ func Run(ctx context.Context, opts Options) error {
 			EnableHugepages:                         opts.EnableHugepages,
 			GCVMGracefulShutdownTimeout:             opts.GCVMGracefulShutdownTimeout,
 			VolumeCachePolicy:                       opts.VolumeCachePolicy,
-			MetricsReconcileDuration:                metrics.ControllerRuntimeReconcileDuration.WithLabelValues(controllers.MachineReconcilerName),
-			MetricsControllerRuntimeActiveWorker:    metrics.ControllerRuntimeActiveWorker.WithLabelValues(controllers.MachineReconcilerName),
-			MetricsControllerRuntimeReconcileErrors: metrics.ControllerRuntimeReconcileErrors.WithLabelValues(controllers.MachineReconcilerName),
+			MetricsReconcileDuration:                opts.MachineReconcilerMetrics.ReconcileDuration,
+			MetricsControllerRuntimeActiveWorker:    opts.MachineReconcilerMetrics.ControllerRuntimeActiveWorker,
+			MetricsControllerRuntimeReconcileErrors: opts.MachineReconcilerMetrics.ControllerRuntimeReconcileErrors,
 		},
 	)
 	if err != nil {
@@ -473,7 +481,7 @@ func Run(ctx context.Context, opts Options) error {
 	return g.Wait()
 }
 
-func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, srv *server.Server, opts Options) error {
+func runGRPCServer(ctx context.Context, setupLog, log logr.Logger, srv *server.Server, opts Options) error {
 	setupLog.V(1).Info("Cleaning up any previous socket")
 	if err := common.CleanupSocketIfExists(opts.Address); err != nil {
 		return fmt.Errorf("error cleaning up socket: %w", err)
