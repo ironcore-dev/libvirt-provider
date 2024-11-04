@@ -17,7 +17,7 @@ require (
 	github.com/ironcore-dev/ironcore-net v0.2.1
 	github.com/moby/term v0.5.0
 	github.com/onsi/ginkgo/v2 v2.20.2
-	github.com/onsi/gomega v1.35.0
+	github.com/onsi/gomega v1.35.1
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/prometheus/client_golang v1.20.5
 	github.com/shirou/gopsutil/v3 v3.24.5
