@@ -221,7 +221,12 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 }
 
 func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context, log logr.Logger) {
+	if r.resyncIntervalVolumeSize == 0 {
+		return
+	}
+
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		log.V(1).Info("starting volume resize loop")
 		machines, err := r.machines.List(ctx)
 		if err != nil {
 			log.Error(err, "failed to list machines")
@@ -306,6 +311,7 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 
 func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.Logger) {
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
+		log.V(1).Info("starting garbage-collector loop")
 		machines, err := r.machines.List(ctx)
 		if err != nil {
 			log.Error(err, "failed to list machines")

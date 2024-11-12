@@ -41,6 +41,7 @@ func connectToRados(ctx context.Context, monitors, user, keyfile string) (*rados
 	if err != nil {
 		return nil, fmt.Errorf("creating a new connection failed: %w", err)
 	}
+
 	err = conn.ParseCmdLineArgs(args)
 	if err != nil {
 		return nil, fmt.Errorf("parsing cmdline args (%v) failed: %w", args, err)
@@ -108,13 +109,15 @@ func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, erro
 	if err != nil {
 		return 0, fmt.Errorf("failed to open connection: %w", err)
 	}
+	defer conn.Shutdown()
 
 	ioCtx, err := conn.OpenIOContext(poolName)
 	if err != nil {
 		return 0, fmt.Errorf("failed to open io context: %w", err)
 	}
+	defer ioCtx.Destroy()
 
-	image, err := rbd.OpenImage(ioCtx, imageName, rbd.NoSnapshot)
+	image, err := rbd.OpenImageReadOnly(ioCtx, imageName, rbd.NoSnapshot)
 	if err != nil {
 		return 0, fmt.Errorf("failed to open image: %w", err)
 	}
