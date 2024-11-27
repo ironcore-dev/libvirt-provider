@@ -222,11 +222,12 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context, log logr.Logger) {
 	if r.resyncIntervalVolumeSize == 0 {
+		log.V(1).Info("volume resize trigger loop is disabled")
 		return
 	}
 
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		log.V(1).Info("starting volume resize loop")
+		log.V(1).Info("starting volume resize trigger loop")
 		machines, err := r.machines.List(ctx)
 		if err != nil {
 			log.Error(err, "failed to list machines")
