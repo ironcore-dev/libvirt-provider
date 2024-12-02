@@ -9,7 +9,7 @@
 
 Please consult the [project documentation](https://ironcore-dev.github.io/libvirt-provider/) for additional information.
 
-### How it works
+### How it  works
 This project aims to follow the Kubernetes [Operator pattern](https://kubernetes.io/docs/concepts/extend-kubernetes/operator/)
 
 It uses [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
