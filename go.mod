@@ -28,7 +28,7 @@ require (
 	k8s.io/api v0.32.0
 	k8s.io/apimachinery v0.32.0
 	k8s.io/client-go v0.32.0
-	k8s.io/kubectl v0.31.3
+	k8s.io/kubectl v0.32.0
 	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
 	libvirt.org/go/libvirtxml v1.10009.0
 	sigs.k8s.io/controller-runtime v0.19.3
@@ -36,7 +36,7 @@ require (
 
 require (
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20230811130428-ced1acdcaa24 // indirect
-	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20230124172434-306776ec8161 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
@@ -120,7 +120,7 @@ require (
 	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
 	k8s.io/apiserver v0.31.0 // indirect
-	k8s.io/cli-runtime v0.31.3 // indirect
+	k8s.io/cli-runtime v0.32.0 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	oras.land/oras-go v1.2.6 // indirect
