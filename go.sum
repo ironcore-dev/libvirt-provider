@@ -146,8 +146,8 @@ github.com/hashicorp/golang-lru/v2 v2.0.5 h1:wW7h1TG88eUIJ2i69gaE3uNVtEPIagzhGvH
 github.com/hashicorp/golang-lru/v2 v2.0.5/go.mod h1:QeFd9opnmA6QUJc5vARoKUSoFhyfM2/ZepoAG6RGpeM=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
-github.com/ironcore-dev/controller-utils v0.9.5 h1:vdUnCNolC0uDMZy5d8Noib5kdqdK9YpelVSgPc30qTc=
-github.com/ironcore-dev/controller-utils v0.9.5/go.mod h1:pzrmJmc6LXtn48cTAgKHm5i8ry6q1Qw7SUh0XaYfIP4=
+github.com/ironcore-dev/controller-utils v0.9.6 h1:4A7ysv18C9hw9hXYPtesM+uFQZxuC78jTD9jaLcjpiY=
+github.com/ironcore-dev/controller-utils v0.9.6/go.mod h1:m4bb/NovyLb9h4DShqjNHXCt5dBOHObhpfKkeBVNjGA=
 github.com/ironcore-dev/ironcore v0.2.0 h1:HETSSh46t+aKbJZql5dcbXBRUjHSwHYy7ZixN24vdnM=
 github.com/ironcore-dev/ironcore v0.2.0/go.mod h1:wlvF43Afs1OpO0w6ZIXw+YaLnfBOfrEi9f4/MBdR1mc=
 github.com/ironcore-dev/ironcore-image v0.2.4 h1:yzmnXnXPKXCfJIL8TmyapyHfK6gup8zA+WV9Kq9pYqA=
@@ -275,8 +275,8 @@ github.com/stretchr/testify v1.7.0/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/
 github.com/stretchr/testify v1.7.1/go.mod h1:6Fq8oRcR53rry900zMqJjRRixrwX3KX962/h/Wwjteg=
 github.com/stretchr/testify v1.8.0/go.mod h1:yNjHg4UonilssWZ8iaSj1OCr/vHnekPRkoO+kdMU+MU=
 github.com/stretchr/testify v1.8.1/go.mod h1:w2LPCIKwWwSfY2zedu0+kehJoqGctiVI29o6fzry7u4=
-github.com/stretchr/testify v1.9.0 h1:HtqpIVDClZ4nwg75+f6Lvsy/wHu+3BoSGCbBAcpTsTg=
-github.com/stretchr/testify v1.9.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
+github.com/stretchr/testify v1.10.0 h1:Xv5erBjTwe/5IxqUQTdXv5kgmIvbHo3QQyRwhJsOfJA=
+github.com/stretchr/testify v1.10.0/go.mod h1:r2ic/lqez/lEtzL7wO/rwa5dbSLXVDPFyf8C91i36aY=
 github.com/tklauser/go-sysconf v0.3.12 h1:0QaGUFOdQaIVdPgfITYzaTegZvdCjmYO52cSFAEVmqU=
 github.com/tklauser/go-sysconf v0.3.12/go.mod h1:Ho14jnntGE1fpdOqQEEaiKRpvIavV0hSfmBq8nJbHYI=
 github.com/tklauser/numcpus v0.6.1 h1:ng9scYS7az0Bk4OZLvrNXNSAO2Pxr1XXRAPyjhIx+Fk=
