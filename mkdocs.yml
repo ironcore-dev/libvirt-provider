@@ -48,10 +48,17 @@ markdown_extensions:
 
 nav:
   - Home: README.md
-  - Architecture:
-    - architecture/README.md
-  - Main Documentation ⧉: https://ironcore-dev.github.io/documentation/
-  - Landing Page ⧉: https://ironcore-dev.github.io/
+  - Architecture: architecture.md
+  - Concepts:
+      - Console: concepts/console.md
+      - Events: concepts/events.md
+      - Plugins:
+        - NIC: concepts/plugins/nic.md
+        - Volume: concepts/plugins/volume.md
+  - Usage: usage.md
+  - Development Guide:
+      - Local Setup: development/dev_setup.md
+      - Documentation: development/dev_docs.md
 
 extra:
   social:
