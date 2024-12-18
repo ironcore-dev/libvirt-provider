@@ -137,15 +137,10 @@ func (s *Server) getIRINICStatus(machine *api.Machine) ([]*iri.NetworkInterfaceS
 			return nil, fmt.Errorf("failed to get nic state: %w", err)
 		}
 
-		nicIPs := make([]string, 0, len(nic.IPs))
-		for _, ip := range nic.IPs {
-			nicIPs = append(nicIPs, ip.String())
-		}
 		nics = append(nics, &iri.NetworkInterfaceStatus{
 			Name:   nic.Name,
 			Handle: nic.Handle,
 			State:  state,
-			Ips:    nicIPs,
 		})
 	}
 

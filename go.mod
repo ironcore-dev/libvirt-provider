@@ -4,15 +4,15 @@ go 1.23.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/ceph/go-ceph v0.30.0
+	github.com/ceph/go-ceph v0.31.0
 	github.com/containerd/containerd v1.7.24
-	github.com/digitalocean/go-libvirt v0.0.0-20241112162257-c54891ad610b
-	github.com/go-chi/chi/v5 v5.1.0
+	github.com/digitalocean/go-libvirt v0.0.0-20241216201552-9fbdb61a21af
+	github.com/go-chi/chi/v5 v5.2.0
 	github.com/go-logr/logr v1.4.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.6.0
-	github.com/ironcore-dev/controller-utils v0.9.5
-	github.com/ironcore-dev/ironcore v0.2.0
+	github.com/ironcore-dev/controller-utils v0.9.6
+	github.com/ironcore-dev/ironcore v0.2.1-0.20241218153354-947447fbabbf
 	github.com/ironcore-dev/ironcore-image v0.2.4
 	github.com/ironcore-dev/ironcore-net v0.2.1
 	github.com/moby/term v0.5.0
@@ -24,12 +24,12 @@ require (
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	golang.org/x/sync v0.10.0
-	google.golang.org/grpc v1.68.1
+	google.golang.org/grpc v1.69.0
 	k8s.io/api v0.32.0
 	k8s.io/apimachinery v0.32.0
 	k8s.io/client-go v0.32.0
 	k8s.io/kubectl v0.32.0
-	k8s.io/utils v0.0.0-20241104163129-6fe5fd82f078
+	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	libvirt.org/go/libvirtxml v1.10009.0
 	sigs.k8s.io/controller-runtime v0.19.3
 )
@@ -96,23 +96,22 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	github.com/yusufpapurcu/wmi v1.2.4 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.53.0 // indirect
-	go.opentelemetry.io/otel v1.28.0 // indirect
-	go.opentelemetry.io/otel/metric v1.28.0 // indirect
-	go.opentelemetry.io/otel/trace v1.28.0 // indirect
+	go.opentelemetry.io/otel v1.31.0 // indirect
+	go.opentelemetry.io/otel/metric v1.31.0 // indirect
+	go.opentelemetry.io/otel/trace v1.31.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
-	go4.org/netipx v0.0.0-20220812043211-3cc044ffd68d // indirect
 	golang.org/x/crypto v0.31.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
-	golang.org/x/net v0.31.0 // indirect
+	golang.org/x/net v0.32.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sys v0.28.0 // indirect
 	golang.org/x/term v0.27.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
 	golang.org/x/time v0.7.0 // indirect
-	golang.org/x/tools v0.27.0 // indirect
+	golang.org/x/tools v0.28.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.4.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20240903143218-8af14fe29dc1 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241015192408-796eee8c2d53 // indirect
 	google.golang.org/protobuf v1.35.1 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -125,6 +124,6 @@ require (
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	oras.land/oras-go v1.2.6 // indirect
 	sigs.k8s.io/json v0.0.0-20241010143419-9aa6b5e7a4b3 // indirect
-	sigs.k8s.io/structured-merge-diff/v4 v4.4.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.4.3 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 )

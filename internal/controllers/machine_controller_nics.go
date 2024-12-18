@@ -89,7 +89,6 @@ func (r *MachineReconciler) setDomainNetworkInterfaces(
 			Name:   nic.Name,
 			Handle: providerNic.Handle,
 			State:  api.NetworkInterfaceStateAttached,
-			IPs:    providerNic.IPs,
 		})
 	}
 
