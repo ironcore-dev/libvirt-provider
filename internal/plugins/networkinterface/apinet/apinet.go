@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -187,12 +186,6 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		return nil, fmt.Errorf("error fetching updated apinet network interface: %w", err)
 	}
 
-	log.V(1).Info("Host device is ready", "HostDevice", hostDev)
-	nicIPs := make([]net.IP, 0, len(apinetNic.Spec.IPs))
-	for _, apinetNicIP := range apinetNic.Spec.IPs {
-		// TODO: do proper IP type conversion here
-		nicIPs = append(nicIPs, net.ParseIP(apinetNicIP.String()))
-	}
 	return &providernetworkinterface.NetworkInterface{
 		Handle: provider.GetNetworkInterfaceID(
 			apinetNic.Namespace,
@@ -201,7 +194,6 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 			apinetNic.UID,
 		),
 		HostDevice: hostDev,
-		IPs:        nicIPs,
 	}, nil
 }
 
