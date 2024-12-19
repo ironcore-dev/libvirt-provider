@@ -6,10 +6,8 @@ package server_test
 import (
 	"time"
 
-	"github.com/digitalocean/go-libvirt"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	irimeta "github.com/ironcore-dev/ironcore/iri/apis/meta/v1alpha1"
-	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"libvirt.org/go/libvirtxml"
@@ -22,7 +20,7 @@ var _ = Describe("AttachVolume", func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
 					Labels: map[string]string{
-						"foo": "bar",
+						"volume": "attach",
 					},
 				},
 				Spec: &iri.MachineSpec{
@@ -34,34 +32,12 @@ var _ = Describe("AttachVolume", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
-		DeferCleanup(func(ctx SpecContext) {
-			Eventually(func(g Gomega) bool {
-				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
-				g.Expect(err).To(SatisfyAny(
-					BeNil(),
-					MatchError(ContainSubstring("NotFound")),
-				))
-				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-				return libvirt.IsNotFound(err)
-			}).Should(BeTrue())
+		DeferCleanup(machineClient.DeleteMachine, &iri.DeleteMachineRequest{
+			MachineId: createResp.Machine.Metadata.Id,
 		})
 
-		By("ensuring domain and domain XML is created for machine")
-		var domain libvirt.Domain
-		Eventually(func() error {
-			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
-			return err
-		}).Should(Succeed())
-		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-		Expect(err).NotTo(HaveOccurred())
-		Expect(domainXMLData).NotTo(BeEmpty())
-
-		By("ensuring domain for machine is in running state")
-		Eventually(func(g Gomega) libvirt.DomainState {
-			domainState, _, err := libvirtConn.DomainGetState(domain, 0)
-			g.Expect(err).NotTo(HaveOccurred())
-			return libvirt.DomainState(domainState)
-		}).Should(Equal(libvirt.DomainRunning))
+		By("ensuring domain and domain XML is created and machine is running")
+		domain := assertMachineIsRunning(createResp.Machine.Metadata.Id)
 
 		By("attaching empty disk to a machine")
 		attachEmptyDiskResp, err := machineClient.AttachVolume(ctx, &iri.AttachVolumeRequest{
