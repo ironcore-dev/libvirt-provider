@@ -150,8 +150,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/ironcore-dev/controller-utils v0.9.6 h1:4A7ysv18C9hw9hXYPtesM+uFQZxuC78jTD9jaLcjpiY=
 github.com/ironcore-dev/controller-utils v0.9.6/go.mod h1:m4bb/NovyLb9h4DShqjNHXCt5dBOHObhpfKkeBVNjGA=
-github.com/ironcore-dev/ironcore v0.2.1-0.20241218153354-947447fbabbf h1:xjmQ4KZF8cz2LVjmLndiE6BVVE5uD5dpwMQIGdYI81M=
-github.com/ironcore-dev/ironcore v0.2.1-0.20241218153354-947447fbabbf/go.mod h1:6JkDtUwjjMeq5sV7ttvCfwdaQYyttRsF66ulxDxNhHk=
+github.com/ironcore-dev/ironcore v0.2.1 h1:5jmunXlVx7nnwdGjOb2hJ7Zc7NjV5ynaA3T6PdSB4XQ=
+github.com/ironcore-dev/ironcore v0.2.1/go.mod h1:6JkDtUwjjMeq5sV7ttvCfwdaQYyttRsF66ulxDxNhHk=
 github.com/ironcore-dev/ironcore-image v0.2.4 h1:yzmnXnXPKXCfJIL8TmyapyHfK6gup8zA+WV9Kq9pYqA=
 github.com/ironcore-dev/ironcore-image v0.2.4/go.mod h1:ZwUrZ+pZumYAu6F9RJYe04824Leylma3tvIkNANwiyE=
 github.com/ironcore-dev/ironcore-net v0.2.1 h1:cOYnW1xtGQ1TzDfGTqgP+JD9YaFeaRtoBOXGYACqytI=
