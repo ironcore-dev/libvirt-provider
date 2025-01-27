@@ -27,8 +27,8 @@ require (
 	google.golang.org/grpc v1.69.2
 	k8s.io/api v0.32.1
 	k8s.io/apimachinery v0.32.1
-	k8s.io/client-go v0.32.0
-	k8s.io/kubectl v0.32.0
+	k8s.io/client-go v0.32.1
+	k8s.io/kubectl v0.32.1
 	k8s.io/utils v0.0.0-20241210054802-24370beab758
 	libvirt.org/go/libvirtxml v1.10009.0
 	sigs.k8s.io/controller-runtime v0.19.4
@@ -120,7 +120,7 @@ require (
 	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/apiextensions-apiserver v0.31.0 // indirect
 	k8s.io/apiserver v0.31.0 // indirect
-	k8s.io/cli-runtime v0.32.0 // indirect
+	k8s.io/cli-runtime v0.32.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20241105132330-32ad38e42d3f // indirect
 	oras.land/oras-go v1.2.6 // indirect
