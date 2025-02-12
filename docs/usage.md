@@ -36,68 +36,11 @@ To build `libvirt-provider` from the source:
 
 ## Configuration
 
-### Configuration options
+`libvirt-provider` is configured via command-line flags. To see the full list of configuration options, run:
 
-`libvirt-provider` is configured via command-line flags. Below is a description few of the options.
-
-#### General
-
-| Flag | Description | Default value |
-| --- | --- | --- |
-| `--address` | The address where the provider will listen for connections. | `/var/run/iri-machinebroker.sock` |
-| `--streaming-address` | The address for the streaming server. | `:20251` |
-| `--base-url` | The base URL for constructing URLs for streaming (e.g., `http://<address>`). | `""` |
-| `--libvirt-provider-dir` | Path to the directory where the provider manages its content. | `~/.libvirt-provider` |
-| `--supported-machine-classes` | Path to the file containing supported machine classes. | `""` |
-| `--volume-size-resync-interval` | The interval to determine volume size changes. | `1m` |
-| `--enable-hugepages` | Whether to enable Hugepages. | `false` |
-| `--guest-agent-type` | Type of guest agent to use. Available options: `None`, `Qemu` | `None` |
-
-#### Libvirt configuration
-
-| Flag | Description | DefaultvValue |
-| --- | --- | --- |
-| `--libvirt-socket` | Path to the libvirt socket. | `""` |
-| `--libvirt-address` | Address of the RPC libvirt socket. | `""` |
-| `--libvirt-uri` | URI to connect to inside the libvirt system. | `""` |
-
-#### Server and health monitoring
-
-| Flag | Description | Default value |
-| --- | --- | --- |
-| `--servers-metrics-address` | Address to expose metrics for monitoring. | `""` (disabled) |
-| `--servers-health-check-address` | Address for the health check endpoint. | `:8181` |
-| `--servers-metrics-gracefultimeout` | Graceful shutdown timeout for metrics server. | `2s` |
-| `--servers-health-check-gracefultimeout` | Graceful shutdown timeout for health check server. | `2s` |
-
-#### Garbage collection and resync
-
-| Flag | Description | Default value |
-| --- | --- | --- |
-| `--gc-vm-graceful-shutdown-timeout` | Timeout for VM graceful shutdown during garbage collection. | `5m` |
-| `--gc-resync-interval` | Interval for resynchronizing the garbage collector. | `1m` |
-
-#### Guest capabilities
-
-| Flag | Description | Default value |
-| --- | --- | --- |
-| `--preferred-domain-types` | Ordered list of preferred domain types to use. | `[kvm,qemu]` |
-| `--preferred-machine-types` | Ordered list of preferred machine types to use. | `[pc-q35]` |
-
-#### Machine event store
-
-| Flag | Description | Default value |
-| --- | --- | --- |
-| `--machine-event-max-events` | Maximum number of machine events that can be stored. | `100` |
-| `--machine-event-ttl` | Time to live for machine events. | `5m` |
-| `--machine-event-resync-interval` | Interval for resynchronizing the machine events. | `1m` |
-
-#### Volume and network configuration
-
-| Flag | Description | Default value |
-| --- | --- | --- |
-| `--volume-cache-policy` | Policy to use when creating a remote disk. Available options: `none`, `writeback`, `writethrough`, `directsync`, `unsafe`. | `none` |
-| `--network-interface-plugin` | Specifies the network plugin to use for managing network interfaces. Available options:  `apinet`, `isolated`, `providernet` | `apinet` |
+```bash
+libvirt-provider -h
+```
 
 ### Required flags
 
@@ -178,5 +121,3 @@ If the `libvirt` socket or URI is incorrectly configured, the service will fail 
 ### VM launch failures
 
 If VMs fail to launch, check the logs for specific errors related to machine classes or network plugins. You may need to adjust the supported machine classes or verify your network plugin configuration.
-
----
