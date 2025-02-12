@@ -24,7 +24,7 @@ var _ = Describe("ListEvents", func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
 					Labels: map[string]string{
-						"foo": "bar",
+						"event": "list",
 					},
 				},
 				Spec: &iri.MachineSpec{
@@ -73,7 +73,7 @@ var _ = Describe("ListEvents", func() {
 
 		By("listing the machine events with matching label and time filters")
 		resp, err = machineClient.ListEvents(ctx, &iri.ListEventsRequest{Filter: &iri.EventFilter{
-			LabelSelector:  map[string]string{"foo": "bar"},
+			LabelSelector:  map[string]string{"event": "list"},
 			EventsFromTime: time.Now().Add(-5 * time.Second).Unix(),
 			EventsToTime:   time.Now().Unix(),
 		}})
@@ -101,7 +101,7 @@ var _ = Describe("ListEvents", func() {
 
 		By("listing the machine events with matching label filter and non matching time filter")
 		resp, err = machineClient.ListEvents(ctx, &iri.ListEventsRequest{Filter: &iri.EventFilter{
-			LabelSelector:  map[string]string{machinepoolletv1alpha1.MachineUIDLabel: "foobar"},
+			LabelSelector:  map[string]string{machinepoolletv1alpha1.MachineUIDLabel: "eventlist"},
 			EventsFromTime: time.Now().Add(-10 * time.Minute).Unix(),
 			EventsToTime:   time.Now().Add(-5 * time.Minute).Unix(),
 		}})
