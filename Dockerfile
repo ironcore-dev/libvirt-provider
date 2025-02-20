@@ -42,12 +42,15 @@ FROM gcr.io/distroless/base-debian11 AS distroless-base
 FROM distroless-base AS distroless-amd64
 ENV LIB_DIR_PREFIX=x86_64
 ENV LIB_DIR_PREFIX_MINUS=x86-64
+ENV LIB_DIR_SUFFIX_NUMBER=2
+ENV LIB_DIR=lib64
 
 # The distroless arm64 image has a target triplet of aarch64
 FROM distroless-base AS distroless-arm64
 ENV LIB_DIR_PREFIX=aarch64
 ENV LIB_DIR_PREFIX_MINUS=aarch64
-
+ENV LIB_DIR_SUFFIX_NUMBER=1
+ENV LIB_DIR=lib
 
 FROM busybox:1.37.0-uclibc AS busybox
 FROM distroless-$TARGETARCH  AS libvirt-provider
@@ -84,8 +87,8 @@ COPY --from=builder /lib/${LIB_DIR_PREFIX}-linux-gnu/librados.so.2 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libselinux.so.1 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libpthread.so.0 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libpcre2-8.so.0 /lib/${LIB_DIR_PREFIX}-linux-gnu/
-RUN mkdir -p /lib64
-COPY --from=builder /lib64/ld-linux-${LIB_DIR_PREFIX_MINUS}.so.2 /lib64/
+RUN mkdir -p /${LIB_DIR}
+COPY --from=builder /${LIB_DIR}/ld-linux-${LIB_DIR_PREFIX_MINUS}.so.${LIB_DIR_SUFFIX_NUMBER} /${LIB_DIR}/
 RUN mkdir -p /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/
 COPY --from=builder /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/libceph-common.so.2 /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
