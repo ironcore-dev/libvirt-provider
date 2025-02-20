@@ -623,7 +623,9 @@ func (r *MachineReconciler) domainFor(
 		OnReboot:   "restart",
 		OnCrash:    "coredump-restart",
 		CPU: &libvirtxml.DomainCPU{
-			Mode: "host-passthrough",
+			//Mode: "host-passthrough",
+			// TODO for test
+			Mode: "host-model",
 		},
 		Features: &libvirtxml.DomainFeatureList{
 			ACPI: &libvirtxml.DomainFeature{},
