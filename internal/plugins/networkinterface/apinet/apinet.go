@@ -52,10 +52,6 @@ func NewPlugin(nodeName string, client client.Client) providernetworkinterface.P
 	}
 }
 
-func GetAPInetPlugin() *Plugin {
-	return &Plugin{}
-}
-
 func (p *Plugin) Init(host providerhost.Host) error {
 	p.host = host
 	return nil
@@ -148,7 +144,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		return nil, fmt.Errorf("error applying apinet network interface: %w", err)
 	}
 
-	hostDev, err := getHostDevice(apinetNic)
+	hostDev, direct, err := getHostDevice(apinetNic)
 	if err != nil {
 		return nil, fmt.Errorf("error getting host device: %w", err)
 	}
@@ -165,6 +161,19 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		}, nil
 	}
 
+	if direct != nil {
+		log.V(1).Info("Direct device is ready", "Direct", direct)
+		return &providernetworkinterface.NetworkInterface{
+			Handle: provider.GetNetworkInterfaceID(
+				apinetNic.Namespace,
+				apinetNic.Name,
+				apinetNic.Spec.NodeRef.Name,
+				apinetNic.UID,
+			),
+			Direct: direct,
+		}, nil
+	}
+
 	log.V(1).Info("Waiting for apinet network interface to become ready")
 	apinetNicKey := client.ObjectKeyFromObject(apinetNic)
 	if err := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 5*time.Second, true, func(ctx context.Context) (done bool, err error) {
@@ -172,11 +181,11 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 			return false, fmt.Errorf("error getting apinet nic %s: %w", apinetNicKey, err)
 		}
 
-		hostDev, err = getHostDevice(apinetNic)
+		hostDev, direct, err = getHostDevice(apinetNic)
 		if err != nil {
 			return false, fmt.Errorf("error getting host device: %w", err)
 		}
-		return hostDev != nil, nil
+		return hostDev != nil || direct != nil, nil
 	}); err != nil {
 		return nil, fmt.Errorf("error waiting for nic to become ready: %w", err)
 	}
@@ -194,49 +203,59 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 			apinetNic.UID,
 		),
 		HostDevice: hostDev,
+		Direct:     direct,
 	}, nil
 }
 
-func getHostDevice(apinetNic *apinetv1alpha1.NetworkInterface) (*providernetworkinterface.HostDevice, error) {
+func getHostDevice(apinetNic *apinetv1alpha1.NetworkInterface) (*providernetworkinterface.HostDevice, *providernetworkinterface.Direct, error) {
 	switch apinetNic.Status.State {
 	case apinetv1alpha1.NetworkInterfaceStateReady:
-		pciDevice := apinetNic.Status.PCIAddress
-		if pciDevice == nil {
-			return nil, nil
-		}
 
-		domain, err := strconv.ParseUint(pciDevice.Domain, 16, strconv.IntSize)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing pci device domain %q: %w", pciDevice.Domain, err)
-		}
+		switch {
+		case apinetNic.Status.PCIAddress == nil && apinetNic.Status.TAPDevice == nil:
+			return nil, nil, fmt.Errorf("apinet network interface: PCIAddress and TAPDevice not set")
+		case apinetNic.Status.PCIAddress == nil && apinetNic.Status.TAPDevice != nil:
+			tapDevice := apinetNic.Status.TAPDevice
+			return nil, &providernetworkinterface.Direct{
+				Dev: tapDevice.Name,
+			}, nil
+		case apinetNic.Status.PCIAddress != nil && apinetNic.Status.TAPDevice == nil:
+			pciDevice := apinetNic.Status.PCIAddress
+			domain, err := strconv.ParseUint(pciDevice.Domain, 16, strconv.IntSize)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error parsing pci device domain %q: %w", pciDevice.Domain, err)
+			}
 
-		bus, err := strconv.ParseUint(pciDevice.Bus, 16, strconv.IntSize)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing pci device bus %q: %w", pciDevice.Bus, err)
-		}
+			bus, err := strconv.ParseUint(pciDevice.Bus, 16, strconv.IntSize)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error parsing pci device bus %q: %w", pciDevice.Bus, err)
+			}
 
-		slot, err := strconv.ParseUint(pciDevice.Slot, 16, strconv.IntSize)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing pci device slot %q: %w", pciDevice.Slot, err)
-		}
+			slot, err := strconv.ParseUint(pciDevice.Slot, 16, strconv.IntSize)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error parsing pci device slot %q: %w", pciDevice.Slot, err)
+			}
 
-		function, err := strconv.ParseUint(pciDevice.Function, 16, strconv.IntSize)
-		if err != nil {
-			return nil, fmt.Errorf("error parsing pci device function %q: %w", pciDevice.Function, err)
-		}
+			function, err := strconv.ParseUint(pciDevice.Function, 16, strconv.IntSize)
+			if err != nil {
+				return nil, nil, fmt.Errorf("error parsing pci device function %q: %w", pciDevice.Function, err)
+			}
 
-		return &providernetworkinterface.HostDevice{
-			Domain:   uint(domain),
-			Bus:      uint(bus),
-			Slot:     uint(slot),
-			Function: uint(function),
-		}, nil
+			return &providernetworkinterface.HostDevice{
+				Domain:   uint(domain),
+				Bus:      uint(bus),
+				Slot:     uint(slot),
+				Function: uint(function),
+			}, nil, nil
+		default:
+			return nil, nil, fmt.Errorf("apinet network interface: PCIAddress and TAPDevice should not be set at the same time")
+		}
 	case apinetv1alpha1.NetworkInterfaceStatePending:
-		return nil, nil
+		return nil, nil, nil
 	case apinetv1alpha1.NetworkInterfaceStateError:
-		return nil, fmt.Errorf("apinet network interface is in state error")
+		return nil, nil, fmt.Errorf("apinet network interface is in state error")
 	default:
-		return nil, nil
+		return nil, nil, nil
 	}
 }
 
