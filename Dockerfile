@@ -20,15 +20,32 @@ COPY hack/ hack/
 ARG TARGETOS
 ARG TARGETARCH
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    qemu-utils ca-certificates libvirt-clients libcephfs-dev librbd-dev librados-dev libc-bin gcc \
-    && update-ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+# Install AMD64 dependencies
+RUN if [ "$TARGETARCH" = "amd64" ]; then \
+      apt-get update && apt-get install -y --no-install-recommends \
+      qemu-user-static qemu-utils ca-certificates \
+      libvirt-clients libcephfs-dev librbd-dev librados-dev libc-bin \
+      gcc g++ \
+      && update-ca-certificates \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
 
-# Build
+# Install ARM64 dependencies
+RUN if [ "$TARGETARCH" = "arm64" ]; then \
+      dpkg --add-architecture arm64 && \
+      apt-get update && apt-get install -y --no-install-recommends \
+      gcc-aarch64-linux-gnu librbd-dev:arm64 librados-dev:arm64 libc6-dev:arm64 \
+      && rm -rf /var/lib/apt/lists/*; \
+    fi
+
+# Build the binary with the necessary flags
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w" -a -o libvirt-provider ./cmd/libvirt-provider/main.go
+    CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
+    CGO_LDFLAGS="$(if [ "$TARGETARCH" = "arm64" ]; then echo "-L/usr/lib/aarch64-linux-gnu -Wl,-lrados -Wl,-lrbd"; else echo "-L/usr/lib/x86_64-linux-gnu -Wl,-lrados -Wl,-lrbd"; fi)" \
+    CC="$(if [ "$TARGETARCH" = "arm64" ]; then echo "/usr/bin/aarch64-linux-gnu-gcc"; else echo "/usr/bin/gcc"; fi)" \
+    go build -ldflags="-s -w -linkmode=external" -o libvirt-provider ./cmd/libvirt-provider/main.go
+#    go build -ldflags="-s -w $(if [ "$TARGETARCH" = "arm64" ]; then echo "-linkmode=external -extld=/usr/bin/aarch64-linux-gnu-ld"; fi)" -o libvirt-provider ./cmd/libvirt-provider/main.go
 
 # Install irictl-machine
 RUN --mount=type=cache,target=/root/.cache/go-build \
