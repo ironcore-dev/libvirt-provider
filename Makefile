@@ -7,20 +7,8 @@ ENVTEST_K8S_VERSION = 1.28
 # Docker image name for the mkdocs based local development setup
 MKDOCS_IMG=onmetal/libvirt-provider-docs
 
-# Code depend on OS
-TARGET_OS ?= linux
-TARGET_ARCH ?= amd64
-CGO_ENABLED ?= 1
-
 LIBVIRT_PROVIDER_BIN=$(LOCALBIN)/libvirt-provider
 LIBVIRT_PROVIDER_BIN_SOURCE=./cmd/libvirt-provider
-
-GITHUB_PAT_PATH ?=
-ifeq (,$(GITHUB_PAT_PATH))
-GITHUB_PAT_MOUNT ?=
-else
-GITHUB_PAT_MOUNT ?= --secret id=github_pat,src=$(GITHUB_PAT_PATH)
-endif
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -34,8 +22,6 @@ endif
 # scaffolded by default. However, you might want to replace it to use other
 # tools. (i.e. podman)
 CONTAINER_TOOL ?= docker
-
-CONTAINER_BUILDARGS ?= --platform $(TARGET_OS)/$(TARGET_ARCH)
 
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
@@ -86,15 +72,15 @@ fmt: ## Run go fmt against code.
 
 .PHONY: vet
 vet: ## Run go vet against code.
-	GOOS=$(TARGET_OS) CGO_ENABLED=$(CGO_ENABLED) go vet ./...
+	go vet ./...
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint against code.
-	GOOS=$(TARGET_OS) CGO_ENABLED=$(CGO_ENABLED) $(GOLANGCI_LINT) run
+	CGO_ENABLED=1 $(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	GOOS=$(TARGET_OS) CGO_ENABLED=$(CGO_ENABLED) $(GOLANGCI_LINT) run --fix
+	CGO_ENABLED=1 $(GOLANGCI_LINT) run --fix
 
 .PHONY: check
 check: manifests generate fmt check-license lint test ## Generate manifests, code, lint, check licenses, test
@@ -122,7 +108,7 @@ clean-docs: ## Remove all local mkdocs Docker images (cleanup).
 
 .PHONY: build
 build: manifests generate fmt vet add-license lint ## Build the binary
-	GOOS=$(TARGET_OS) GOARCH=$(TARGET_ARCH) CGO_ENABLED=$(CGO_ENABLED) go build -o $(LIBVIRT_PROVIDER_BIN) $(LIBVIRT_PROVIDER_BIN_SOURCE)
+	CGO_ENABLED=1 go build -o $(LIBVIRT_PROVIDER_BIN) $(LIBVIRT_PROVIDER_BIN_SOURCE)
 
 .PHONY: run
 run: manifests generate fmt vet ## Run the binary
@@ -133,7 +119,7 @@ run: manifests generate fmt vet ## Run the binary
 
 .PHONY: docker-build
 docker-build: ## Build docker image with partitionlet
-	$(CONTAINER_TOOL) build $(CONTAINER_BUILDARGS) -t ${IMG} $(GITHUB_PAT_MOUNT) .
+	$(CONTAINER_TOOL) build -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
