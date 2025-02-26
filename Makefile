@@ -23,6 +23,10 @@ endif
 # tools. (i.e. podman)
 CONTAINER_TOOL ?= docker
 
+TARGET_OS ?= linux
+TARGET_ARCH ?= $(shell uname -m)
+CONTAINER_BUILDARGS ?= --platform $(TARGET_OS)/$(TARGET_ARCH)
+
 # Setting SHELL to bash allows bash commands to be executed by recipes.
 # Options are set to exit when a recipe line exits non-zero or a piped command fails.
 SHELL = /usr/bin/env bash -o pipefail
@@ -119,7 +123,7 @@ run: manifests generate fmt vet ## Run the binary
 
 .PHONY: docker-build
 docker-build: ## Build docker image with partitionlet
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build $(CONTAINER_BUILDARGS) -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.

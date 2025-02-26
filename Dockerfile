@@ -20,7 +20,7 @@ COPY hack/ hack/
 ARG TARGETOS
 ARG TARGETARCH
 ARG BUILDPLATFORM
-ENV BUILDARCH=amd64
+ENV BUILDARCH=${BUILDPLATFORM##*/}
 
 # Install common dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -39,20 +39,24 @@ RUN if [ "$TARGETARCH" = "arm64" ] && [ "$BUILDARCH" = "amd64" ]; then \
 
 # Install cross-compiler for AMD64 if building for amd64 on an arm64 host
 RUN if [ "$TARGETARCH" = "amd64" ] && [ "$BUILDARCH" = "arm64" ]; then \
+      apt update && \
       apt-get install -y --no-install-recommends \
-      gcc g++; \
+      gcc-x86-64-linux-gnu; \
     fi
 
 # Set compiler and linker flags based on target architecture
 ENV CC=""
 ENV CGO_LDFLAGS=""
 
-RUN if [ "$TARGETARCH" = "arm64" ]; then \
+RUN if [ "$TARGETARCH" != "$BUILDARCH" ] && [ "$TARGETARCH" = "arm64" ]; then \
       export CC="/usr/bin/aarch64-linux-gnu-gcc"; \
       export CGO_LDFLAGS="-L/usr/lib/aarch64-linux-gnu -Wl,-lrados -Wl,-lrbd"; \
-    elif [ "$TARGETARCH" = "amd64" ]; then \
-      export CC="/usr/bin/gcc"; \
+    elif [ "$TARGETARCH" != "$BUILDARCH" ] && [ "$TARGETARCH" = "amd64" ]; then \
+      export CC="/usr/bin/x86_64-linux-gnu-gcc"; \
       export CGO_LDFLAGS="-L/usr/lib/x86_64-linux-gnu -Wl,-lrados -Wl,-lrbd"; \
+    else \
+      export CC="/usr/bin/gcc"; \
+      export CGO_LDFLAGS=""; \
     fi && \
     CGO_ENABLED=1 GOOS=$TARGETOS GOARCH=$TARGETARCH \
     CC="$CC" CGO_LDFLAGS="$CGO_LDFLAGS" \
@@ -65,7 +69,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     go install github.com/ironcore-dev/ironcore/irictl-machine/cmd/irictl-machine@main
 
 # Ensure the binary is in a common location
-RUN if [ "$TARGETARCH" = "amd64" ]; then \
+RUN if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
         mv /go/bin/irictl-machine /workspace/irictl-machine; \
     else \
         mv /go/bin/linux_$TARGETARCH/irictl-machine /workspace/irictl-machine; \
