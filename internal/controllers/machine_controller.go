@@ -605,12 +605,13 @@ func (r *MachineReconciler) domainFor(
 	log logr.Logger,
 	machine *api.Machine,
 ) (*libvirtxml.Domain, []api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
-	architecture := "x86_64"  // TODO: Detect this from the image / machine specification.
+	architecture := "aarch64" // TODO: Detect this from the image / machine specification.
 	osType := guest.OSTypeHVM // TODO: Make this configurable via machine class
 	domainSettings, err := r.guestCapabilities.SettingsFor(guest.Requests{
 		Architecture: architecture,
 		OSType:       osType,
 	})
+
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -623,9 +624,7 @@ func (r *MachineReconciler) domainFor(
 		OnReboot:   "restart",
 		OnCrash:    "coredump-restart",
 		CPU: &libvirtxml.DomainCPU{
-			//Mode: "host-passthrough",
-			// TODO for test
-			Mode: "host-model",
+			Mode: "host-passthrough",
 		},
 		Features: &libvirtxml.DomainFeatureList{
 			ACPI: &libvirtxml.DomainFeature{},
