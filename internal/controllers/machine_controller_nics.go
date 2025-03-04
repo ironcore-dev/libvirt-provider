@@ -414,6 +414,12 @@ func libvirtInterfaceToProviderNetworkInterface(iface *libvirtxml.DomainInterfac
 				NetworkName: src.Network.Network,
 			},
 		}, nil
+	case src.Direct != nil:
+		return &providernetworkinterface.NetworkInterface{
+			Direct: &providernetworkinterface.Direct{
+				Dev: src.Direct.Dev,
+			},
+		}, nil
 	default:
 		return nil, fmt.Errorf("invalid network source")
 	}
@@ -445,6 +451,20 @@ func providerNetworkInterfaceToLibvirt(name string, nic *providernetworkinterfac
 				Address: &libvirtxml.DomainAddress{
 					//if not defined, not conflicting pci address will be selected
 					PCI: &libvirtxml.DomainAddressPCI{},
+				},
+			},
+		}, nil
+	case nic.Direct != nil:
+		return &libvirtNetworkInterface{
+			iface: &libvirtxml.DomainInterface{
+				Alias: &libvirtxml.DomainAlias{
+					Name: networkInterfaceAlias(name),
+				},
+				Source: &libvirtxml.DomainInterfaceSource{
+					Direct: &libvirtxml.DomainInterfaceSourceDirect{
+						Dev:  nic.Direct.Dev,
+						Mode: "bridge",
+					},
 				},
 			},
 		}, nil

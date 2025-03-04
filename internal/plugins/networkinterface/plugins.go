@@ -21,6 +21,7 @@ type Plugin interface {
 type NetworkInterface struct {
 	Handle          string
 	HostDevice      *HostDevice
+	Direct          *Direct
 	Isolated        *Isolated
 	ProviderNetwork *ProviderNetwork
 }
@@ -36,4 +37,8 @@ type HostDevice struct {
 	Bus      uint
 	Slot     uint
 	Function uint
+}
+
+type Direct struct {
+	Dev string
 }

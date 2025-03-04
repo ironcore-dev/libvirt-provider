@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"sync"
 	"time"
@@ -44,6 +45,9 @@ const (
 	rootFSAlias                     = "ua-rootfs"
 	libvirtDomainXMLIgnitionKeyName = "opt/com.coreos/config"
 	networkInterfaceAliasPrefix     = "ua-networkinterface-"
+
+	ArchitectureAARCH64 = "aarch64"
+	ArchitectureX8664   = "x86_64"
 )
 
 var (
@@ -600,19 +604,40 @@ func (r *MachineReconciler) createDomain(
 	return volumeStates, nicStates, nil
 }
 
+func detectArchitecture() (string, error) {
+	switch runtime.GOARCH {
+	case "amd64":
+		return ArchitectureX8664, nil
+	case "arm64":
+		return ArchitectureAARCH64, nil
+	default:
+		return "", fmt.Errorf("unsupported architecture: %s", runtime.GOARCH)
+	}
+}
+
 func (r *MachineReconciler) domainFor(
 	ctx context.Context,
 	log logr.Logger,
 	machine *api.Machine,
 ) (*libvirtxml.Domain, []api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
-	architecture := "x86_64"  // TODO: Detect this from the image / machine specification.
+	architecture, err := detectArchitecture()
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
 	osType := guest.OSTypeHVM // TODO: Make this configurable via machine class
 	domainSettings, err := r.guestCapabilities.SettingsFor(guest.Requests{
 		Architecture: architecture,
 		OSType:       osType,
 	})
+
 	if err != nil {
 		return nil, nil, nil, err
+	}
+
+	cpu := &libvirtxml.DomainCPU{}
+	if architecture != ArchitectureAARCH64 && domainSettings.Type != "qemu" {
+		cpu.Mode = "host-passthrough"
 	}
 
 	domainDesc := &libvirtxml.Domain{
@@ -622,9 +647,7 @@ func (r *MachineReconciler) domainFor(
 		OnPoweroff: "destroy",
 		OnReboot:   "restart",
 		OnCrash:    "coredump-restart",
-		CPU: &libvirtxml.DomainCPU{
-			Mode: "host-passthrough",
-		},
+		CPU:        cpu,
 		Features: &libvirtxml.DomainFeatureList{
 			ACPI: &libvirtxml.DomainFeature{},
 			APIC: &libvirtxml.DomainFeatureAPIC{},
