@@ -1,12 +1,11 @@
 # Build the libvirt-provider binary
-FROM --platform=$BUILDPLATFORM golang:1.23-bookworm AS builder
+FROM golang:1.23-bookworm AS builder
 
 WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.mod
 COPY go.sum go.sum
-# cache deps before building and copying source so that we don't need to re-download as much
-# and so that source changes don't invalidate our downloaded layer
+# Cache deps before building and copying source
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
     go mod download
@@ -35,22 +34,21 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
     CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go install github.com/ironcore-dev/ironcore/irictl-machine/cmd/irictl-machine@main
 
-# Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
+# Base distroless image
 FROM gcr.io/distroless/base-debian11 AS distroless-base
 
-# The distroless amd64 image has a target triplet of x86_64
+# Distroless for amd64
 FROM distroless-base AS distroless-amd64
 ENV LIB_DIR_PREFIX=x86_64
 ENV LIB_DIR_PREFIX_MINUS=x86-64
 
-# The distroless arm64 image has a target triplet of aarch64
+# Distroless for arm64
 FROM distroless-base AS distroless-arm64
 ENV LIB_DIR_PREFIX=aarch64
 ENV LIB_DIR_PREFIX_MINUS=aarch64
 
-
 FROM busybox:1.37.0-uclibc AS busybox
-FROM distroless-$TARGETARCH  AS libvirt-provider
+FROM distroless-$TARGETARCH AS libvirt-provider
 WORKDIR /
 COPY --from=busybox /bin/sh /bin/sh
 COPY --from=busybox /bin/mkdir /bin/mkdir
@@ -84,8 +82,6 @@ COPY --from=builder /lib/${LIB_DIR_PREFIX}-linux-gnu/librados.so.2 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libselinux.so.1 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libpthread.so.0 \
 /lib/${LIB_DIR_PREFIX}-linux-gnu/libpcre2-8.so.0 /lib/${LIB_DIR_PREFIX}-linux-gnu/
-RUN mkdir -p /lib64
-COPY --from=builder /lib64/ld-linux-${LIB_DIR_PREFIX_MINUS}.so.2 /lib64/
 RUN mkdir -p /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/
 COPY --from=builder /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph/libceph-common.so.2 /usr/lib/${LIB_DIR_PREFIX}-linux-gnu/ceph
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
