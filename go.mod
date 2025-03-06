@@ -12,7 +12,7 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.9.7
-	github.com/ironcore-dev/ironcore v0.2.2-0.20250123160359-93cbe02a9e96
+	github.com/ironcore-dev/ironcore v0.2.2
 	github.com/ironcore-dev/ironcore-image v0.2.4
 	github.com/ironcore-dev/ironcore-net v0.2.2-0.20250217135313-cdc549e75d91
 	github.com/moby/term v0.5.2
@@ -66,7 +66,7 @@ require (
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.6.9 // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/pprof v0.0.0-20250208200701-d0013a598941 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect

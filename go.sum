@@ -123,8 +123,9 @@ github.com/google/gnostic-models v0.6.9 h1:MU/8wDLif2qCXZmzncUQ/BOfxWfthHi63Kqpo
 github.com/google/gnostic-models v0.6.9/go.mod h1:CiWsm0s6BSQd1hRn8/QmxqB6BesYcbSZxsz9b0KuDBw=
 github.com/google/go-cmp v0.3.0/go.mod h1:8QqcDgzrUqlUb/G2PQTWiueGozuR1884gddMywk6iLU=
 github.com/google/go-cmp v0.5.9/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
-github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/google/go-cmp v0.6.0/go.mod h1:17dUlkBOakJ0+DkrSSNjCkIjxS6bF9zb3elmeNGIjoY=
+github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
+github.com/google/go-cmp v0.7.0/go.mod h1:pXiqmnSA92OHEEa9HXL2W4E7lf9JzCmGVUdgjX3N/iU=
 github.com/google/gofuzz v1.0.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
 github.com/google/gofuzz v1.2.0 h1:xRy4A+RhZaiKjJ1bPfwQ8sedCA+YS2YcCHW6ec7JMi0=
 github.com/google/gofuzz v1.2.0/go.mod h1:dBl0BpW6vV/+mYPU4Po3pmUjxk6FQPldtuIdl/M65Eg=
@@ -149,8 +150,8 @@ github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2
 github.com/inconshreveable/mousetrap v1.1.0/go.mod h1:vpF70FUmC8bwa3OWnCshd2FqLfsEA9PFc4w1p2J65bw=
 github.com/ironcore-dev/controller-utils v0.9.7 h1:ywNcB6lDeOe6UWxJaptbdgb9qb6cDx4+jxBcIGkMQD8=
 github.com/ironcore-dev/controller-utils v0.9.7/go.mod h1:7X6JUmq75o4KFe05zUa9rEXnS39dSrlXqUnt9Wuiug0=
-github.com/ironcore-dev/ironcore v0.2.2-0.20250123160359-93cbe02a9e96 h1:+THS3ZecpNFNL1Pbr9v6C3tMexk3YMTsl/GqQ21ARKg=
-github.com/ironcore-dev/ironcore v0.2.2-0.20250123160359-93cbe02a9e96/go.mod h1:mhBrtMafGURMJ90JA2E2VaefBzLgWe6dEqYEwLznOsY=
+github.com/ironcore-dev/ironcore v0.2.2 h1:c23smdbxcoSKOir/jQvCIyWuj3HfF7T6t6tN2h7pqQ8=
+github.com/ironcore-dev/ironcore v0.2.2/go.mod h1:r4p2CGWnzk8/0UTXUgDTT9AvA6hkvRmPHZ/oHKn7Fl8=
 github.com/ironcore-dev/ironcore-image v0.2.4 h1:yzmnXnXPKXCfJIL8TmyapyHfK6gup8zA+WV9Kq9pYqA=
 github.com/ironcore-dev/ironcore-image v0.2.4/go.mod h1:ZwUrZ+pZumYAu6F9RJYe04824Leylma3tvIkNANwiyE=
 github.com/ironcore-dev/ironcore-net v0.2.2-0.20250217135313-cdc549e75d91 h1:aVZ9js8S1N43Zg1x0JPkExSWl5eCSIThZdGTXqAEf2w=
