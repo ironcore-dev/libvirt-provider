@@ -11,12 +11,12 @@ require (
 	github.com/go-logr/logr v1.4.2
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.6.0
-	github.com/ironcore-dev/controller-utils v0.9.7
+	github.com/ironcore-dev/controller-utils v0.9.8
 	github.com/ironcore-dev/ironcore v0.2.2-0.20250123160359-93cbe02a9e96
 	github.com/ironcore-dev/ironcore-image v0.2.4
 	github.com/ironcore-dev/ironcore-net v0.2.2-0.20250217135313-cdc549e75d91
 	github.com/moby/term v0.5.2
-	github.com/onsi/ginkgo/v2 v2.22.2
+	github.com/onsi/ginkgo/v2 v2.23.0
 	github.com/onsi/gomega v1.36.2
 	github.com/opencontainers/image-spec v1.1.0
 	github.com/prometheus/client_golang v1.21.0
