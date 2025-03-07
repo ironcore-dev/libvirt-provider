@@ -24,7 +24,7 @@ import (
 
 type Image struct {
 	Config    ironcoreimage.Config
-	RootFS    *FileLayer
+	SquashFS  *FileLayer
 	InitRAMFs *FileLayer
 	Kernel    *FileLayer
 }
@@ -112,24 +112,24 @@ func (c *LocalCache) resolveImage(ctx context.Context, ociImg image.Image) (*Ima
 				Descriptor: layer.Descriptor(),
 				Path:       kernelPath,
 			}
-		case ironcoreimage.RootFSLayerMediaType:
-			rootFSPath, err := localStore.BlobPath(layer.Descriptor().Digest)
+		case ironcoreimage.SquashFSLayerMediaType:
+			squashFSPath, err := localStore.BlobPath(layer.Descriptor().Digest)
 			if err != nil {
 				return nil, fmt.Errorf("error getting path to rootfs: %w", err)
 			}
-			img.RootFS = &FileLayer{
+			img.SquashFS = &FileLayer{
 				Descriptor: layer.Descriptor(),
-				Path:       rootFSPath,
+				Path:       squashFSPath,
 			}
 
 		}
 	}
 	var missing []string
-	if img.RootFS == nil || img.RootFS.Path == "" {
-		missing = append(missing, "rootfs")
-	}
 	if img.Kernel == nil || img.Kernel.Path == "" {
 		missing = append(missing, "kernel")
+	}
+	if img.SquashFS == nil || img.SquashFS.Path == "" {
+		missing = append(missing, "squashfs")
 	}
 	if img.InitRAMFs == nil || img.InitRAMFs.Path == "" {
 		missing = append(missing, "initramfs")
@@ -262,6 +262,7 @@ func setupMediaTypeKeyPrefixes(ctx context.Context) context.Context {
 		ironcoreimage.InitRAMFSLayerMediaType: "layer",
 		ironcoreimage.KernelLayerMediaType:    "layer",
 		ironcoreimage.RootFSLayerMediaType:    "layer",
+		ironcoreimage.SquashFSLayerMediaType:  "layer",
 	}
 	for mediaType, prefix := range mediaTypeToPrefix {
 		ctx = remotes.WithMediaTypeKeyPrefix(ctx, mediaType, prefix)
