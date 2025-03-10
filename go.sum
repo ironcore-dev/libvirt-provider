@@ -153,8 +153,8 @@ github.com/ironcore-dev/ironcore v0.2.2-0.20250123160359-93cbe02a9e96 h1:+THS3Ze
 github.com/ironcore-dev/ironcore v0.2.2-0.20250123160359-93cbe02a9e96/go.mod h1:mhBrtMafGURMJ90JA2E2VaefBzLgWe6dEqYEwLznOsY=
 github.com/ironcore-dev/ironcore-image v0.2.4 h1:yzmnXnXPKXCfJIL8TmyapyHfK6gup8zA+WV9Kq9pYqA=
 github.com/ironcore-dev/ironcore-image v0.2.4/go.mod h1:ZwUrZ+pZumYAu6F9RJYe04824Leylma3tvIkNANwiyE=
-github.com/ironcore-dev/ironcore-net v0.2.2-0.20250217135313-cdc549e75d91 h1:aVZ9js8S1N43Zg1x0JPkExSWl5eCSIThZdGTXqAEf2w=
-github.com/ironcore-dev/ironcore-net v0.2.2-0.20250217135313-cdc549e75d91/go.mod h1:zGJ5CsZn5eLHb4Sn3yKDD5CRCUIPt7Kr6p9yKijt33g=
+github.com/ironcore-dev/ironcore-net v0.2.2 h1:9JjDfDvKONsap7LFJKTcgyW7yCqElpEq/VkwXyCV1Qc=
+github.com/ironcore-dev/ironcore-net v0.2.2/go.mod h1:RB6aKSX10tExYXfg3Jf64E1IHJqz1H20PocDSCmzy2c=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
