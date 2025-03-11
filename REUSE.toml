@@ -4,7 +4,24 @@ SPDX-PackageSupplier = "IronCore authors <ospo@sap.com>"
 SPDX-PackageDownloadLocation = "https://github.com/ironcore-dev/libvirt-provider"
 
 [[annotations]]
-path = [".github/**", "config/**", "go.mod", "go.sum", ".dockerignore", ".gitignore", ".golangci.yaml", "CODEOWNERS", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md", "Dockerfile", "Makefile", "mkdocs.yml", "hack/**.sh", "mkdocs.yml"]
+path = [
+    ".github/**",
+    "config/**",
+    "go.mod",
+    "go.sum",
+    ".dockerignore",
+    ".gitignore",
+    ".golangci.yaml",
+    "CODEOWNERS",
+    "CODE_OF_CONDUCT.md",
+    "CONTRIBUTING.md",
+    "Dockerfile",
+    "Makefile",
+    "mkdocs.yml",
+    "hack/**.sh",
+    "mkdocs.yml",
+    "REUSE.toml"
+]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2023 SAP SE or an SAP affiliate company and IronCore contributors"
 SPDX-License-Identifier = "Apache-2.0"
