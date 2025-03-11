@@ -14,10 +14,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-const (
-	osImage = "ghcr.io/ironcore-dev/ironcore-image/gardenlinux:rootfs-dev-20231206-v1"
-)
-
 var _ = Describe("CreateMachine", func() {
 	It("should create a machine without boot image, volume and network interface", func(ctx SpecContext) {
 		By("creating a machine without boot image, volume and network interface")

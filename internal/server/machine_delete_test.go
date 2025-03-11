@@ -29,7 +29,7 @@ var _ = Describe("DeleteMachine", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Image: &iri.ImageSpec{
-						Image: squashfsOSImage,
+						Image: osImage,
 					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{

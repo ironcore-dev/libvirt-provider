@@ -1,6 +1,7 @@
 module github.com/ironcore-dev/libvirt-provider
 
-go 1.23.0
+go 1.24
+toolchain go1.24.1
 
 require (
 	github.com/blang/semver/v4 v4.0.0
