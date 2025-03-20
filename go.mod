@@ -1,6 +1,7 @@
 module github.com/ironcore-dev/libvirt-provider
 
 go 1.24
+
 toolchain go1.24.1
 
 require (
@@ -17,7 +18,7 @@ require (
 	github.com/ironcore-dev/ironcore-image v0.2.4
 	github.com/ironcore-dev/ironcore-net v0.2.2
 	github.com/moby/term v0.5.2
-	github.com/onsi/ginkgo/v2 v2.23.0
+	github.com/onsi/ginkgo/v2 v2.23.2
 	github.com/onsi/gomega v1.36.2
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.21.1
