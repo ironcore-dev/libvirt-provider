@@ -19,7 +19,7 @@ import (
 	remotecommandserver "github.com/ironcore-dev/ironcore/poollet/machinepoollet/iri/streaming/remotecommand"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
-	"github.com/ironcore-dev/libvirt-provider/internal/store"
+	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	"github.com/moby/term"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

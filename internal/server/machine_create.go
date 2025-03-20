@@ -9,7 +9,8 @@ import (
 
 	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
-	api "github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/libvirt-provider/api"
+	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
 )
 
 func calcResources(class *iri.MachineClass) (int64, int64) {
@@ -64,7 +65,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	}
 
 	machine := &api.Machine{
-		Metadata: api.Metadata{
+		Metadata: apiutils.Metadata{
 			ID: s.idGen.Generate(),
 		},
 		Spec: api.MachineSpec{

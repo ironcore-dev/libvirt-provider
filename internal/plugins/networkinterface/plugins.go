@@ -12,7 +12,7 @@ import (
 
 type Plugin interface {
 	Name() string
-	Init(host providerhost.Host) error
+	Init(host providerhost.LibvirtHost) error
 
 	Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*NetworkInterface, error)
 	Delete(ctx context.Context, computeNicName string, machineID string) error

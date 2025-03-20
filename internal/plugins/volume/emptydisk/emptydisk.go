@@ -14,7 +14,6 @@ import (
 
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
-	"github.com/ironcore-dev/libvirt-provider/internal/qcow2"
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	utilstrings "k8s.io/utils/strings"
 )
@@ -29,15 +28,13 @@ const (
 )
 
 type plugin struct {
-	host  volume.Host
-	qcow2 qcow2.QCow2
-	raw   raw.Raw
+	host volume.Host
+	raw  raw.Raw
 }
 
-func NewPlugin(qcow2 qcow2.QCow2, raw raw.Raw) volume.Plugin {
+func NewPlugin(raw raw.Raw) volume.Plugin {
 	return &plugin{
-		qcow2: qcow2,
-		raw:   raw,
+		raw: raw,
 	}
 }
 

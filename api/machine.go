@@ -5,10 +5,12 @@ package api
 
 import (
 	"time"
+
+	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
 )
 
 type Machine struct {
-	Metadata `json:"metadata,omitempty"`
+	apiutils.Metadata `json:"metadata,omitempty"`
 
 	Spec   MachineSpec   `json:"spec"`
 	Status MachineStatus `json:"status"`
