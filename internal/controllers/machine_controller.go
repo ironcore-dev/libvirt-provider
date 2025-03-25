@@ -784,7 +784,7 @@ func (r *MachineReconciler) domainFor(
 }
 
 func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {
-	labels, found := machine.Metadata.Annotations[api.LabelsAnnotation]
+	labels, found := machine.Annotations[api.LabelsAnnotation]
 	if !found {
 		log.V(1).Info("IRI machine labels are not annotated in the API machine")
 		return nil
