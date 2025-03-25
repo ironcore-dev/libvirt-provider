@@ -5,7 +5,7 @@ go 1.24.0
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.32.0
-	github.com/containerd/containerd v1.7.26
+	github.com/containerd/containerd v1.7.27
 	github.com/digitalocean/go-libvirt v0.0.0-20250226181018-4d5f24afb7c2
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-logr/logr v1.4.2
