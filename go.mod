@@ -5,8 +5,8 @@ go 1.24.0
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.32.0
-	github.com/containerd/containerd v1.7.26
-	github.com/digitalocean/go-libvirt v0.0.0-20250226181018-4d5f24afb7c2
+	github.com/containerd/containerd v1.7.27
+	github.com/digitalocean/go-libvirt v0.0.0-20250317183548-13bf9b43b50b
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-logr/logr v1.4.2
 	github.com/gogo/protobuf v1.3.2
@@ -16,8 +16,8 @@ require (
 	github.com/ironcore-dev/ironcore-image v0.2.4
 	github.com/ironcore-dev/ironcore-net v0.2.2
 	github.com/moby/term v0.5.2
-	github.com/onsi/ginkgo/v2 v2.23.0
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/gomega v1.36.3
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.21.1
 	github.com/shirou/gopsutil/v3 v3.24.5
@@ -25,13 +25,13 @@ require (
 	github.com/spf13/pflag v1.0.6
 	golang.org/x/sync v0.12.0
 	google.golang.org/grpc v1.71.0
-	k8s.io/api v0.32.2
-	k8s.io/apimachinery v0.32.2
-	k8s.io/client-go v0.32.2
-	k8s.io/kubectl v0.32.2
-	k8s.io/utils v0.0.0-20241210054802-24370beab758
-	libvirt.org/go/libvirtxml v1.11000.1
-	sigs.k8s.io/controller-runtime v0.20.3
+	k8s.io/api v0.32.3
+	k8s.io/apimachinery v0.32.3
+	k8s.io/client-go v0.32.3
+	k8s.io/kubectl v0.32.3
+	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
+	libvirt.org/go/libvirtxml v1.11001.0
+	sigs.k8s.io/controller-runtime v0.20.4
 )
 
 require (
@@ -121,7 +121,7 @@ require (
 	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/apiextensions-apiserver v0.32.2 // indirect
 	k8s.io/apiserver v0.32.2 // indirect
-	k8s.io/cli-runtime v0.32.2 // indirect
+	k8s.io/cli-runtime v0.32.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250304201544-e5f78fe3ede9 // indirect
 	oras.land/oras-go v1.2.6 // indirect
