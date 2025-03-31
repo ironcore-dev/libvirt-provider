@@ -640,7 +640,7 @@ func (r *MachineReconciler) domainFor(
 		cpu.Mode = "host-passthrough"
 	}
 
-	if domainSettings.Type == "qemu" {
+	if domainSettings.Type == "qemu" && architecture == ArchitectureAARCH64 {
 		cpu.Model = &libvirtxml.DomainCPUModel{
 			Value: "max",
 		}
