@@ -2,6 +2,8 @@ module github.com/ironcore-dev/libvirt-provider
 
 go 1.24.0
 
+toolchain go1.24.1
+
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.32.0
@@ -12,9 +14,9 @@ require (
 	github.com/gogo/protobuf v1.3.2
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.9.8
-	github.com/ironcore-dev/ironcore v0.2.2
+	github.com/ironcore-dev/ironcore v0.2.3
 	github.com/ironcore-dev/ironcore-image v0.2.4
-	github.com/ironcore-dev/ironcore-net v0.2.2
+	github.com/ironcore-dev/ironcore-net v0.2.3
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.23.3
 	github.com/onsi/gomega v1.36.3
@@ -120,7 +122,7 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/apiextensions-apiserver v0.32.2 // indirect
-	k8s.io/apiserver v0.32.2 // indirect
+	k8s.io/apiserver v0.32.3 // indirect
 	k8s.io/cli-runtime v0.32.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250304201544-e5f78fe3ede9 // indirect
