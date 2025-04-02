@@ -1,7 +1,6 @@
 module github.com/ironcore-dev/libvirt-provider
 
 go 1.24.0
-
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.32.0
@@ -17,7 +16,7 @@ require (
 	github.com/ironcore-dev/ironcore-net v0.2.2
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.23.3
-	github.com/onsi/gomega v1.36.3
+	github.com/onsi/gomega v1.37.0
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.21.1
 	github.com/shirou/gopsutil/v3 v3.24.5
