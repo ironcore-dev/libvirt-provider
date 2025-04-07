@@ -4,7 +4,7 @@ The `libvirt-provider` project is a Libvirt based provider implementation of the
 
 ```mermaid
 graph TD
-    libvirt-provider -. implements .-> storage.ironcore.dev
+    libvirt-provider -. implements .-> compute.ironcore.dev
 ```
 
 Namely `libvirt-provider` implements the [`Machine`](https://github.com/ironcore-dev/ironcore/blob/main/api/compute/v1alpha1/machine_types.go) type.
