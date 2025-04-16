@@ -4,7 +4,7 @@ go 1.24.0
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/ceph/go-ceph v0.32.0
+	github.com/ceph/go-ceph v0.33.0
 	github.com/containerd/containerd v1.7.27
 	github.com/digitalocean/go-libvirt v0.0.0-20250317183548-13bf9b43b50b
 	github.com/go-chi/chi/v5 v5.2.1
@@ -107,7 +107,7 @@ require (
 	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/net v0.37.0 // indirect
 	golang.org/x/oauth2 v0.28.0 // indirect
-	golang.org/x/sys v0.31.0 // indirect
+	golang.org/x/sys v0.32.0 // indirect
 	golang.org/x/term v0.30.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
