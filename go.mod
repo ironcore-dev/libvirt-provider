@@ -7,7 +7,7 @@ toolchain go1.24.1
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/ceph/go-ceph v0.32.0
-	github.com/containerd/containerd v1.7.26
+	github.com/containerd/containerd v1.7.27
 	github.com/digitalocean/go-libvirt v0.0.0-20250317183548-13bf9b43b50b
 	github.com/go-chi/chi/v5 v5.2.1
 	github.com/go-logr/logr v1.4.2
@@ -18,8 +18,8 @@ require (
 	github.com/ironcore-dev/ironcore-net v0.2.2
 	github.com/ironcore-dev/provider-utils v0.0.0-20250306151636-96670e489568
 	github.com/moby/term v0.5.2
-	github.com/onsi/ginkgo/v2 v2.23.0
-	github.com/onsi/gomega v1.36.2
+	github.com/onsi/ginkgo/v2 v2.23.3
+	github.com/onsi/gomega v1.36.3
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.21.1
 	github.com/shirou/gopsutil/v3 v3.24.5

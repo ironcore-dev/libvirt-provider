@@ -1,28 +1,40 @@
-run:
-  timeout: 10m
-
+version: "2"
 linters:
   enable:
-    - revive
-    - ineffassign
     - misspell
-    - goimports
-
-severity:
-  default-severity: error
-
-linters-settings:
-  misspell:
-    ignore-words:
-      - strat
-  revive:
-    severity: error
+    - revive
+  settings:
+    misspell:
+      ignore-rules:
+        - strat
+    revive:
+      severity: error
+      rules:
+        - name: exported
+        - name: if-return
+          disabled: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
     rules:
-      - name: exported
-      - name: if-return
-        disabled: true
-
-issues:
-  exclude:
-    # Exclude stutter issues (for now)
-    - "exported: type name will be used as (.+) by other packages, and that stutters; consider calling this (.+)"
+      - path: (.+)\.go$
+        text: 'exported: type name will be used as (.+) by other packages, and that stutters; consider calling this (.+)'
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+severity:
+  default: error
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

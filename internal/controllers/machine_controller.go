@@ -637,6 +637,20 @@ func (r *MachineReconciler) domainFor(
 		cpu.Mode = "host-passthrough"
 	}
 
+	if domainSettings.Type == "qemu" && architecture == ArchitectureAARCH64 {
+		cpu.Model = &libvirtxml.DomainCPUModel{
+			Value: "max",
+		}
+	}
+
+	var serialTargetType string
+	switch architecture {
+	case ArchitectureAARCH64:
+		serialTargetType = "system-serial"
+	case ArchitectureX8664:
+		serialTargetType = "pci-serial"
+	}
+
 	domainDesc := &libvirtxml.Domain{
 		Name:       machine.GetID(),
 		UUID:       machine.GetID(),
@@ -690,7 +704,7 @@ func (r *MachineReconciler) domainFor(
 			Serials: []libvirtxml.DomainSerial{
 				{
 					Target: &libvirtxml.DomainSerialTarget{
-						Type: "pci-serial",
+						Type: serialTargetType,
 					},
 				},
 			},
@@ -781,7 +795,7 @@ func (r *MachineReconciler) domainFor(
 }
 
 func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {
-	labels, found := machine.Metadata.Annotations[api.LabelsAnnotation]
+	labels, found := machine.Annotations[api.LabelsAnnotation]
 	if !found {
 		log.V(1).Info("IRI machine labels are not annotated in the API machine")
 		return nil
