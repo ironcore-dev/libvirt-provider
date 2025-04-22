@@ -139,9 +139,9 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
 
 	// Machine event store options
-	fs.IntVar(&o.MachineEventStore.MachineEventMaxEvents, "machine-event-max-events", 100, "Maximum number of machine events that can be stored.")
-	fs.DurationVar(&o.MachineEventStore.MachineEventTTL, "machine-event-ttl", 5*time.Minute, "Time to live for machine events.")
-	fs.DurationVar(&o.MachineEventStore.MachineEventResyncInterval, "machine-event-resync-interval", 1*time.Minute, "Interval for resynchronizing the machine events.")
+	fs.IntVar(&o.MachineEventStore.MaxEvents, "machine-event-max-events", 100, "Maximum number of machine events that can be stored.")
+	fs.DurationVar(&o.MachineEventStore.TTL, "machine-event-ttl", 5*time.Minute, "Time to live for machine events.")
+	fs.DurationVar(&o.MachineEventStore.ResyncInterval, "machine-event-resync-interval", 1*time.Minute, "Interval for resynchronizing the machine events.")
 
 	// Volume cache policy option
 	fs.StringVar(&o.VolumeCachePolicy, "volume-cache-policy", "none",

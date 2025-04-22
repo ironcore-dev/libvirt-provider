@@ -132,9 +132,9 @@ var _ = BeforeSuite(func() {
 		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
 		MachineEventStore: recorder.EventStoreOptions{
-			MachineEventMaxEvents:      machineEventMaxEvents,
-			MachineEventTTL:            machineEventTTL,
-			MachineEventResyncInterval: machineEventResyncInterval,
+			MaxEvents:      machineEventMaxEvents,
+			TTL:            machineEventTTL,
+			ResyncInterval: machineEventResyncInterval,
 		},
 	}
 
