@@ -18,14 +18,14 @@ const (
 )
 
 type plugin struct {
-	host providerhost.Host
+	host providerhost.LibvirtHost
 }
 
 func NewPlugin() providernetworkinterface.Plugin {
 	return &plugin{}
 }
 
-func (p *plugin) Init(host providerhost.Host) error {
+func (p *plugin) Init(host providerhost.LibvirtHost) error {
 	p.host = host
 	return nil
 }

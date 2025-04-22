@@ -352,7 +352,7 @@ func (r *MachineReconciler) attachDomainDevice(domain libvirt.Domain, dev libvir
 	if err != nil {
 		return err
 	}
-	return r.libvirt.DomainAttachDevice(domain, data)
+	return r.host.Libvirt().DomainAttachDevice(domain, data)
 }
 
 func (r *MachineReconciler) detachDomainDevice(domain libvirt.Domain, dev libvirtxml.Document) error {
@@ -360,7 +360,7 @@ func (r *MachineReconciler) detachDomainDevice(domain libvirt.Domain, dev libvir
 	if err != nil {
 		return err
 	}
-	return r.libvirt.DomainDetachDevice(domain, data)
+	return r.host.Libvirt().DomainDetachDevice(domain, data)
 }
 
 func parseNetworkInterfaceAlias(alias string) (string, error) {

@@ -19,8 +19,6 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/libvirt-provider/api"
-	"github.com/ironcore-dev/libvirt-provider/internal/event"
-	machineEvent "github.com/ironcore-dev/libvirt-provider/internal/event/machineevent"
 	providerhost "github.com/ironcore-dev/libvirt-provider/internal/host"
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtmeta "github.com/ironcore-dev/libvirt-provider/internal/libvirt/meta"
@@ -30,8 +28,10 @@ import (
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	providervolume "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
-	"github.com/ironcore-dev/libvirt-provider/internal/store"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
+	"github.com/ironcore-dev/provider-utils/eventutils/event"
+	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
+	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/util/workqueue"
@@ -70,7 +70,6 @@ type MachineReconcilerOptions struct {
 	TCMallocLibPath                string
 	ImageCache                     providerimage.Cache
 	Raw                            raw.Raw
-	Host                           providerhost.Host
 	VolumePluginManager            *providervolume.PluginManager
 	NetworkInterfacePlugin         providernetworkinterface.Plugin
 	VolumeEvents                   event.Source[*api.Machine]
@@ -83,14 +82,14 @@ type MachineReconcilerOptions struct {
 
 func NewMachineReconciler(
 	log logr.Logger,
-	libvirt *libvirt.Libvirt,
+	host providerhost.LibvirtHost,
 	machines store.Store[*api.Machine],
 	machineEvents event.Source[*api.Machine],
-	eventRecorder machineEvent.EventRecorder,
+	eventRecorder recorder.EventRecorder,
 	opts MachineReconcilerOptions,
 ) (*MachineReconciler, error) {
-	if libvirt == nil {
-		return nil, fmt.Errorf("must specify libvirt client")
+	if host == nil {
+		return nil, fmt.Errorf("must specify libvirt host")
 	}
 
 	if machines == nil {
@@ -104,13 +103,12 @@ func NewMachineReconciler(
 	return &MachineReconciler{
 		log:                            log,
 		queue:                          workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]()),
-		libvirt:                        libvirt,
 		machines:                       machines,
 		machineEvents:                  machineEvents,
 		EventRecorder:                  eventRecorder,
 		guestCapabilities:              opts.GuestCapabilities,
 		tcMallocLibPath:                opts.TCMallocLibPath,
-		host:                           opts.Host,
+		host:                           host,
 		imageCache:                     opts.ImageCache,
 		raw:                            opts.Raw,
 		volumePluginManager:            opts.VolumePluginManager,
@@ -127,10 +125,9 @@ type MachineReconciler struct {
 	log   logr.Logger
 	queue workqueue.TypedRateLimitingInterface[string]
 
-	libvirt           *libvirt.Libvirt
 	guestCapabilities guest.Capabilities
 	tcMallocLibPath   string
-	host              providerhost.Host
+	host              providerhost.LibvirtHost
 	imageCache        providerimage.Cache
 	raw               raw.Raw
 
@@ -141,7 +138,7 @@ type MachineReconciler struct {
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
-	machineEvent.EventRecorder
+	recorder.EventRecorder
 
 	resyncIntervalVolumeSize time.Duration
 
@@ -167,7 +164,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 			for _, machine := range machines {
 				if ptr.Deref(machine.Spec.Image, "") == evt.Ref {
-					r.Eventf(log, machine.Metadata, corev1.EventTypeNormal, "PulledImage", "Pulled image %s", *machine.Spec.Image)
+					r.Eventf(machine.Metadata, corev1.EventTypeNormal, "PulledImage", "Pulled image %s", *machine.Spec.Image)
 					log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
 					r.queue.Add(machine.ID)
 				}
@@ -264,7 +261,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 				}
 
 				if lastVolumeSize := getLastVolumeSize(machine, GetUniqueVolumeName(plugin.Name(), volumeID)); volumeSize != lastVolumeSize {
-					r.Eventf(log, machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", "Volume size changed %s, lastVolumeSize: %d bytes, volumeSize: %d bytes", volume.Name, lastVolumeSize, volumeSize)
+					r.Eventf(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", "Volume size changed %s, lastVolumeSize: %d bytes, volumeSize: %d bytes", volume.Name, lastVolumeSize, volumeSize)
 					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "volumeID", volumeID, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 					shouldEnqueue = true
 					break
@@ -279,7 +276,7 @@ func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context
 }
 
 func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {
-	lifecycleEvents, err := r.libvirt.LifecycleEvents(ctx)
+	lifecycleEvents, err := r.host.Libvirt().LifecycleEvents(ctx)
 	if err != nil {
 		log.Error(err, "failed to subscribe to libvirt lifecycle events")
 		return
@@ -371,7 +368,7 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
 		return fmt.Errorf("failed to update machine metadata: %w", err)
 	}
-	r.Eventf(log, machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed")
+	r.Eventf(machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed")
 	log.V(1).Info("Removed Finalizer. Deletion completed")
 
 	return nil
@@ -403,14 +400,14 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine, domain libvirt.Domain) error {
 	// DomainDestroyFlags is a blocking operation, and its synchronous nature may pose potential performance issues in the future.
 	// During test involving 26 empty disks, the function call took a maximum of 1 second to complete.
-	if err := r.libvirt.DomainDestroyFlags(domain, libvirt.DomainDestroyGraceful); err != nil {
+	if err := r.host.Libvirt().DomainDestroyFlags(domain, libvirt.DomainDestroyGraceful); err != nil {
 		if libvirt.IsNotFound(err) {
 			return nil
 		}
 		return fmt.Errorf("failed to initiate forceful shutdown: %w", err)
 	}
 
-	r.Eventf(log, machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed")
+	r.Eventf(machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed")
 
 	log.V(1).Info("Destroyed domain")
 	return nil
@@ -418,13 +415,13 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine,
 
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
-	r.Eventf(log, machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered")
+	r.Eventf(machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered")
 
 	shutdownMode := libvirt.DomainShutdownAcpiPowerBtn
 	if machine.Spec.GuestAgent == api.GuestAgentQemu {
 		shutdownMode = libvirt.DomainShutdownGuestAgent
 	}
-	if err := r.libvirt.DomainShutdownFlags(domain, shutdownMode); err != nil {
+	if err := r.host.Libvirt().DomainShutdownFlags(domain, shutdownMode); err != nil {
 		if libvirt.IsNotFound(err) {
 			return false, nil
 		}
@@ -509,7 +506,7 @@ func (r *MachineReconciler) reconcileDomain(
 	machine *api.Machine,
 ) (api.MachineState, []api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
 	log.V(1).Info("Looking up domain")
-	if _, err := r.libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
+	if _, err := r.host.Libvirt().DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
 		if !libvirt.IsNotFound(err) {
 			return "", nil, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
 		}
@@ -548,20 +545,20 @@ func (r *MachineReconciler) updateDomain(
 		return nil, nil, fmt.Errorf("error getting domain description: %w", err)
 	}
 
-	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewRunningDomainExecutor(r.libvirt, machine.ID), r.volumeCachePolicy)
+	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewRunningDomainExecutor(r.host.Libvirt(), machine.ID), r.volumeCachePolicy)
 	if err != nil {
 		return nil, nil, fmt.Errorf("error construction volume attacher: %w", err)
 	}
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		r.Eventf(log, machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
+		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
 		return nil, nil, fmt.Errorf("[volumes] %w", err)
 	}
 
 	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
-		r.Eventf(log, machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "NIC attach/detach failed with error: %s", err)
+		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "NIC attach/detach failed with error: %s", err)
 		return nil, nil, fmt.Errorf("[network interfaces] %w", err)
 	}
 
@@ -569,7 +566,7 @@ func (r *MachineReconciler) updateDomain(
 }
 
 func (r *MachineReconciler) getMachineState(machineID string) (api.MachineState, error) {
-	domainState, _, err := r.libvirt.DomainGetState(machineDomain(machineID), 0)
+	domainState, _, err := r.host.Libvirt().DomainGetState(machineDomain(machineID), 0)
 	if err != nil {
 		return "", fmt.Errorf("error getting domain state: %w", err)
 	}
@@ -597,7 +594,7 @@ func (r *MachineReconciler) createDomain(
 
 	log.V(1).Info("Creating domain")
 	log.V(2).Info("Domain", "XML", domainXMLData)
-	if _, err := r.libvirt.DomainCreateXML(domainXMLData, libvirt.DomainNone); err != nil {
+	if _, err := r.host.Libvirt().DomainCreateXML(domainXMLData, libvirt.DomainNone); err != nil {
 		return nil, nil, err
 	}
 
@@ -768,30 +765,30 @@ func (r *MachineReconciler) domainFor(
 			return nil, nil, nil, err
 		}
 	} else {
-		r.Eventf(log, machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data")
+		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data")
 	}
 
-	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewCreateDomainExecutor(r.libvirt), r.volumeCachePolicy)
+	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewCreateDomainExecutor(r.host.Libvirt()), r.volumeCachePolicy)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		r.Eventf(log, machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
+		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
 		return nil, nil, nil, err
 	}
 	if machine.Spec.Volumes != nil {
-		r.Eventf(log, machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes")
+		r.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes")
 	}
 
 	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
 	if err != nil {
-		r.Eventf(log, machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "Setting domain network interface failed with error: %s", err)
+		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "Setting domain network interface failed with error: %s", err)
 		return nil, nil, nil, err
 	}
 	if machine.Spec.NetworkInterfaces != nil {
-		r.Eventf(log, machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces")
+		r.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces")
 	}
 
 	return domainDesc, volumeStates, nicStates, nil
@@ -920,7 +917,7 @@ func (r *MachineReconciler) setDomainImage(
 			return err
 		}
 
-		r.Eventf(log, machine.Metadata, corev1.EventTypeNormal, "PullingImage", "Pulling image %s", machineImgRef)
+		r.Eventf(machine.Metadata, corev1.EventTypeNormal, "PullingImage", "Pulling image %s", machineImgRef)
 		return err
 	}
 
@@ -988,7 +985,7 @@ func (r *MachineReconciler) setDomainIgnition(machine *api.Machine, domain *libv
 }
 
 func (r *MachineReconciler) getDomainDesc(machineID string) (*libvirtxml.Domain, error) {
-	domainXMLData, err := r.libvirt.DomainGetXMLDesc(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(machineID)}, 0)
+	domainXMLData, err := r.host.Libvirt().DomainGetXMLDesc(libvirt.Domain{UUID: libvirtutils.UUIDStringToBytes(machineID)}, 0)
 	if err != nil {
 		return nil, err
 	}

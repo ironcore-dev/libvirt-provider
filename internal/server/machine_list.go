@@ -11,7 +11,7 @@ import (
 	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
-	"github.com/ironcore-dev/libvirt-provider/internal/store"
+	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/labels"

@@ -475,7 +475,7 @@ func (a *libvirtVolumeAttacher) GetVolume(name string) (*AttachVolume, error) {
 type MountVolume = providerhost.MachineVolume
 
 type volumeMounter struct {
-	host          providerhost.Host
+	host          providerhost.LibvirtHost
 	pluginManager *providervolume.PluginManager
 	machine       *api.Machine
 }

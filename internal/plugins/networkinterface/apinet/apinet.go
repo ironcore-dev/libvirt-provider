@@ -41,7 +41,7 @@ const (
 
 type Plugin struct {
 	nodeName     string
-	host         providerhost.Host
+	host         providerhost.LibvirtHost
 	apinetClient client.Client
 }
 
@@ -52,7 +52,7 @@ func NewPlugin(nodeName string, client client.Client) providernetworkinterface.P
 	}
 }
 
-func (p *Plugin) Init(host providerhost.Host) error {
+func (p *Plugin) Init(host providerhost.LibvirtHost) error {
 	p.host = host
 	return nil
 }
