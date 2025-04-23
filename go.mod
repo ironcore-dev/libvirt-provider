@@ -27,9 +27,9 @@ require (
 	github.com/spf13/pflag v1.0.6
 	golang.org/x/sync v0.13.0
 	google.golang.org/grpc v1.72.0
-	k8s.io/api v0.32.3
-	k8s.io/apimachinery v0.32.3
-	k8s.io/client-go v0.32.3
+	k8s.io/api v0.32.4
+	k8s.io/apimachinery v0.32.4
+	k8s.io/client-go v0.32.4
 	k8s.io/kubectl v0.32.3
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	libvirt.org/go/libvirtxml v1.11001.0
