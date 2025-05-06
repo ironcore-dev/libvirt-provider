@@ -5,11 +5,14 @@ package networkinterfaceplugin
 
 import (
 	"fmt"
+	"time"
+
+	"github.com/spf13/pflag"
 
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface/apinet"
-	"github.com/spf13/pflag"
+
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -18,9 +21,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-var (
-	scheme = runtime.NewScheme()
-)
+var scheme = runtime.NewScheme()
 
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
@@ -28,8 +29,10 @@ func init() {
 }
 
 type apinetOptions struct {
-	APInetNodeName   string
-	ApinetKubeconfig string
+	APInetNodeName        string
+	ApinetKubeconfig      string
+	APInetPollingDuration time.Duration
+	APInetPollingInterval time.Duration
 }
 
 func (o *apinetOptions) PluginName() string {
@@ -39,6 +42,8 @@ func (o *apinetOptions) PluginName() string {
 func (o *apinetOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.APInetNodeName, "apinet-node-name", "", "APInet node name")
 	fs.StringVar(&o.ApinetKubeconfig, "apinet-kubeconfig", "", "Path to the kubeconfig file for the apinet-cluster.")
+	fs.DurationVar(&o.APInetPollingDuration, "apinet-polling-duration", time.Second*30, "The maximum time the apinet plugin will wait until the networkinterface becomes ready.")
+	fs.DurationVar(&o.APInetPollingInterval, "apinet-polling-interval", time.Second*1, "The polling interval the apinet plugin uses to check if the networkinterface became ready.")
 }
 
 func (o *apinetOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
@@ -67,7 +72,7 @@ func (o *apinetOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugi
 		return nil, nil, fmt.Errorf("failed to initialize api-net client: %w", err)
 	}
 
-	return apinet.NewPlugin(o.APInetNodeName, apinetClient), nil, nil
+	return apinet.NewPlugin(o.APInetNodeName, apinetClient, o.APInetPollingDuration, o.APInetPollingInterval), nil, nil
 }
 
 func init() {
