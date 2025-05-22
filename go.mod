@@ -29,7 +29,7 @@ require (
 	google.golang.org/grpc v1.72.1
 	k8s.io/api v0.33.1
 	k8s.io/apimachinery v0.33.1
-	k8s.io/client-go v0.33.0
+	k8s.io/client-go v0.33.1
 	k8s.io/kubectl v0.33.0
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
 	libvirt.org/go/libvirtxml v1.11002.0
