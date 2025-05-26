@@ -138,11 +138,6 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 		}
 	}
 
-	volumeSize, err := p.GetSize(ctx, spec)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get volume size: %w", err)
-	}
-
 	return &volume.Volume{
 		QCow2File: "",
 		RawFile:   "",
@@ -156,7 +151,6 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 			Encryption: cephEncryption,
 		},
 		Handle: volumeData.handle,
-		Size:   volumeSize,
 	}, nil
 }
 

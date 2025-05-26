@@ -248,11 +248,12 @@ func (s *Server) getVolumeFromIRIVolume(iriVolume *iri.Volume) (*api.VolumeSpec,
 	var connectionSpec *api.VolumeConnection
 	if connection := iriVolume.Connection; connection != nil {
 		connectionSpec = &api.VolumeConnection{
-			Driver:         connection.Driver,
-			Handle:         connection.Handle,
-			Attributes:     connection.Attributes,
-			SecretData:     connection.SecretData,
-			EncryptionData: connection.EncryptionData,
+			Driver:                connection.Driver,
+			Handle:                connection.Handle,
+			Attributes:            connection.Attributes,
+			SecretData:            connection.SecretData,
+			EncryptionData:        connection.EncryptionData,
+			EffectiveStorageBytes: connection.EffectiveStorageBytes,
 		}
 	}
 
