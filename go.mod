@@ -32,7 +32,7 @@ require (
 	k8s.io/client-go v0.33.1
 	k8s.io/kubectl v0.33.1
 	k8s.io/utils v0.0.0-20250321185631-1f6e0b77f77e
-	libvirt.org/go/libvirtxml v1.11002.0
+	libvirt.org/go/libvirtxml v1.11004.0
 	sigs.k8s.io/controller-runtime v0.21.0
 )
 
