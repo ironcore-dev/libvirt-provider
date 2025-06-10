@@ -29,10 +29,11 @@ type Plugin interface {
 }
 
 type Volume struct {
-	QCow2File string
-	RawFile   string
-	CephDisk  *CephDisk
-	Handle    string
+	QCow2File                 string
+	RawFile                   string
+	CephDisk                  *CephDisk
+	Handle                    string
+	EffectiveStorageBytesSize int64
 }
 
 type CephDisk struct {

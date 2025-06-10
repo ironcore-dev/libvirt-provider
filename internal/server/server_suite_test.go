@@ -129,7 +129,6 @@ var _ = BeforeSuite(func() {
 		NicPlugin:                      pluginOpts,
 		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
 		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
-		ResyncIntervalVolumeSize:       resyncVolumeSizeInterval,
 		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
 		MachineEventStore: recorder.EventStoreOptions{
 			MaxEvents:      machineEventMaxEvents,

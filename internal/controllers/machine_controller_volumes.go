@@ -441,7 +441,7 @@ func (a *libvirtVolumeAttacher) DetachVolume(name string) error {
 }
 
 func (a *libvirtVolumeAttacher) ResizeVolume(volume *AttachVolume) error {
-	return a.executor.ResizeDisk(volume.Device, volume.Spec.Size)
+	return a.executor.ResizeDisk(volume.Device, volume.Spec.EffectiveStorageBytesSize)
 }
 
 func (a *libvirtVolumeAttacher) GetVolume(name string) (*AttachVolume, error) {
@@ -645,8 +645,8 @@ func (r *MachineReconciler) applyVolume(
 	}
 
 	//TODO do epsilon comparison
-	if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != 0 && providerVolume.Size != lastVolumeSize {
-		log.V(1).Info("Resize volume", "volumeID", volumeID, "lastSize", lastVolumeSize, "volumeSize", providerVolume.Size)
+	if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != 0 && providerVolume.EffectiveStorageBytesSize != lastVolumeSize {
+		log.V(1).Info("Resize volume", "volumeID", volumeID, "lastSize", lastVolumeSize, "volumeSize", providerVolume.EffectiveStorageBytesSize)
 		if err := attacher.ResizeVolume(&AttachVolume{
 			Name:   desiredVolume.Name,
 			Device: desiredVolume.Device,
@@ -656,7 +656,7 @@ func (r *MachineReconciler) applyVolume(
 		}
 	}
 
-	return volumeID, providerVolume.Size, nil
+	return volumeID, providerVolume.EffectiveStorageBytesSize, nil
 }
 
 func (r *MachineReconciler) listDesiredVolumes(machine *api.Machine) map[string]*api.VolumeSpec {
