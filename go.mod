@@ -6,7 +6,7 @@ toolchain go1.24.1
 
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/ceph/go-ceph v0.33.0
+	github.com/ceph/go-ceph v0.34.0
 	github.com/containerd/containerd v1.7.27
 	github.com/digitalocean/go-libvirt v0.0.0-20250417173424-a6a66ef779d6
 	github.com/go-chi/chi/v5 v5.2.1
@@ -116,7 +116,7 @@ require (
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect
-	golang.org/x/sys v0.32.0 // indirect
+	golang.org/x/sys v0.33.0 // indirect
 	golang.org/x/term v0.31.0 // indirect
 	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
