@@ -49,8 +49,19 @@ RUN if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
         mv /go/bin/linux_$TARGETARCH/irictl-machine /workspace/irictl-machine; \
     fi
 
+# Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
+FROM gcr.io/distroless/base-debian11 AS distroless-base
 
+# The distroless amd64 image has a target triplet of x86_64
+FROM distroless-base AS distroless-amd64
 
+# The distroless arm64 image has a target triplet of aarch64
+FROM distroless-base AS distroless-arm64
+
+FROM busybox:1.37.0-uclibc AS busybox
+FROM distroless-$TARGETARCH  AS libvirt-provider
+WORKDIR /
+COPY --from=busybox /bin/sh /bin/sh
 
 COPY --from=builder /workspace/libvirt-provider /libvirt-provider
 COPY --from=builder /workspace/irictl-machine /irictl-machine
