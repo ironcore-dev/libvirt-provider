@@ -28,6 +28,8 @@ import (
 var _ iri.MachineRuntimeServer = (*Server)(nil)
 
 type Server struct {
+	iri.UnimplementedMachineRuntimeServer
+
 	baseURL *url.URL
 
 	idGen idgen.IDGen

@@ -26,16 +26,14 @@ type Plugin interface {
 
 	Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.Machine) (*Volume, error)
 	Delete(ctx context.Context, computeVolumeName string, machineID string) error
-
-	GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, error)
 }
 
 type Volume struct {
-	QCow2File string
-	RawFile   string
-	CephDisk  *CephDisk
-	Handle    string
-	Size      int64
+	QCow2File                 string
+	RawFile                   string
+	CephDisk                  *CephDisk
+	Handle                    string
+	EffectiveStorageBytesSize int64
 }
 
 type CephDisk struct {

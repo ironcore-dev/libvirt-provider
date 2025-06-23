@@ -73,7 +73,6 @@ type MachineReconcilerOptions struct {
 	VolumePluginManager            *providervolume.PluginManager
 	NetworkInterfacePlugin         providernetworkinterface.Plugin
 	VolumeEvents                   event.Source[*api.Machine]
-	ResyncIntervalVolumeSize       time.Duration
 	ResyncIntervalGarbageCollector time.Duration
 	EnableHugepages                bool
 	GCVMGracefulShutdownTimeout    time.Duration
@@ -113,7 +112,6 @@ func NewMachineReconciler(
 		raw:                            opts.Raw,
 		volumePluginManager:            opts.VolumePluginManager,
 		networkInterfacePlugin:         opts.NetworkInterfacePlugin,
-		resyncIntervalVolumeSize:       opts.ResyncIntervalVolumeSize,
 		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 		enableHugepages:                opts.EnableHugepages,
 		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
@@ -139,8 +137,6 @@ type MachineReconciler struct {
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
 	recorder.EventRecorder
-
-	resyncIntervalVolumeSize time.Duration
 
 	gcVMGracefulShutdownTimeout    time.Duration
 	resyncIntervalGarbageCollector time.Duration
@@ -188,12 +184,6 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		r.startCheckAndEnqueueVolumeResize(ctx, r.log.WithName("volume-size"))
-	}()
-
-	wg.Add(1)
-	go func() {
-		defer wg.Done()
 		r.startEnqueueMachineByLibvirtEvent(ctx, r.log.WithName("libvirt-event"))
 	}()
 
@@ -219,60 +209,6 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 	wg.Wait()
 	return nil
-}
-
-func (r *MachineReconciler) startCheckAndEnqueueVolumeResize(ctx context.Context, log logr.Logger) {
-	if r.resyncIntervalVolumeSize == 0 {
-		log.V(1).Info("volume resize trigger loop is disabled")
-		return
-	}
-
-	wait.UntilWithContext(ctx, func(ctx context.Context) {
-		log.V(1).Info("starting volume resize trigger loop")
-		machines, err := r.machines.List(ctx)
-		if err != nil {
-			log.Error(err, "failed to list machines")
-			return
-		}
-
-		for _, machine := range machines {
-			if machine.DeletedAt != nil || !slices.Contains(machine.Finalizers, MachineFinalizer) {
-				continue
-			}
-
-			var shouldEnqueue bool
-			for _, volume := range machine.Spec.Volumes {
-				plugin, err := r.volumePluginManager.FindPluginBySpec(volume)
-				if err != nil {
-					log.Error(err, "failed to get volume plugin", "machineID", machine.ID, "volumeName", volume.Name)
-					continue
-				}
-
-				volumeID, err := plugin.GetBackingVolumeID(volume)
-				if err != nil {
-					log.Error(err, "failed to get volume id", "machineID", machine.ID, "volumeName", volume.Name)
-					continue
-				}
-
-				volumeSize, err := plugin.GetSize(ctx, volume)
-				if err != nil {
-					log.Error(err, "failed to get volume size", "machineID", machine.ID, "volumeName", volume.Name, "volumeID", volumeID)
-					continue
-				}
-
-				if lastVolumeSize := getLastVolumeSize(machine, GetUniqueVolumeName(plugin.Name(), volumeID)); volumeSize != lastVolumeSize {
-					r.Eventf(machine.Metadata, corev1.EventTypeNormal, "SizeChangedVolume", "Volume size changed %s, lastVolumeSize: %d bytes, volumeSize: %d bytes", volume.Name, lastVolumeSize, volumeSize)
-					log.V(1).Info("Volume size changed", "volumeName", volume.Name, "volumeID", volumeID, "machineID", machine.ID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
-					shouldEnqueue = true
-					break
-				}
-			}
-
-			if shouldEnqueue {
-				r.queue.AddRateLimited(machine.ID)
-			}
-		}
-	}, r.resyncIntervalVolumeSize)
 }
 
 func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Context, log logr.Logger) {

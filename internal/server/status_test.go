@@ -34,7 +34,7 @@ var _ = Describe("Status", func() {
 						MemoryBytes: machineClasses[0].Capabilities.MemoryBytes,
 					},
 				},
-				Quantity: mcr.GetQuantity(&machineClasses[0], hostResources),
+				Quantity: mcr.GetQuantity(machineClasses[0], hostResources),
 			},
 			&iriv1alpha1.MachineClassStatus{
 				MachineClass: &iriv1alpha1.MachineClass{
@@ -44,7 +44,7 @@ var _ = Describe("Status", func() {
 						MemoryBytes: machineClasses[1].Capabilities.MemoryBytes,
 					},
 				},
-				Quantity: mcr.GetQuantity(&machineClasses[1], hostResources),
+				Quantity: mcr.GetQuantity(machineClasses[1], hostResources),
 			},
 		))
 	})

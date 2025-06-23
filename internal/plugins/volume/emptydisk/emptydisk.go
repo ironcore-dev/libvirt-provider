@@ -91,16 +91,11 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 			return nil, fmt.Errorf("error changing disk file mode: %w", err)
 		}
 	}
-	return &volume.Volume{RawFile: diskFilename, Handle: handle, Size: size}, nil
+	return &volume.Volume{RawFile: diskFilename, Handle: handle}, nil
 }
 
 func (p *plugin) Delete(ctx context.Context, computeVolumeName string, machineID string) error {
 	return os.RemoveAll(p.host.MachineVolumeDir(machineID, utilstrings.EscapeQualifiedName(pluginName), computeVolumeName))
-}
-
-func (p *plugin) GetSize(ctx context.Context, spec *api.VolumeSpec) (int64, error) {
-	// Currently Ironcore does not support resize of EmptyDisk
-	return spec.EmptyDisk.Size, nil
 }
 
 // randomHex generates random hexadecimal digits of the length n*2.
