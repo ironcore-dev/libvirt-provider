@@ -16,12 +16,12 @@ func (s *Server) DetachVolume(ctx context.Context, req *iri.DetachVolumeRequest)
 	log.V(1).Info("Detaching volume from machine")
 
 	if req == nil || req.MachineId == "" || req.Name == "" {
-		return nil, fmt.Errorf("invalid request")
+		return nil, convertInternalErrorToGRPC(ErrInvalidRequest)
 	}
 
 	apiMachine, err := s.machineStore.Get(ctx, req.MachineId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get machine: %w", err)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get machine '%s': %w", req.MachineId, err))
 	}
 
 	var updatedVolumes []*api.VolumeSpec
@@ -35,13 +35,13 @@ func (s *Server) DetachVolume(ctx context.Context, req *iri.DetachVolumeRequest)
 	}
 
 	if !found {
-		return nil, fmt.Errorf("volume '%s' not found in machine '%s'", req.Name, req.MachineId)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("volume '%s' not found in machine '%s': %w", req.Name, req.MachineId, ErrVolumeNotFound))
 	}
 
 	apiMachine.Spec.Volumes = updatedVolumes
 
 	if _, err := s.machineStore.Update(ctx, apiMachine); err != nil {
-		return nil, fmt.Errorf("failed to update machine after detaching volume: %w", err)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to update machine after detaching volume: %w", err))
 	}
 
 	return &iri.DetachVolumeResponse{}, nil

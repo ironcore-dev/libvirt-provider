@@ -21,8 +21,6 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	"github.com/moby/term"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"k8s.io/client-go/tools/remotecommand"
 	"libvirt.org/go/libvirtxml"
 )
@@ -43,10 +41,7 @@ func (s *Server) Exec(ctx context.Context, req *iri.ExecRequest) (*iri.ExecRespo
 	log := s.loggerFrom(ctx, "MachineID", req.MachineId)
 	log.V(1).Info("Verifying machine in the store")
 	if _, err := s.machineStore.Get(ctx, req.MachineId); err != nil {
-		if !errors.Is(err, store.ErrNotFound) {
-			return nil, fmt.Errorf("error getting machine: %w", err)
-		}
-		return nil, status.Errorf(codes.NotFound, "machine %s not found", req.MachineId)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("error getting machine: %w", err))
 	}
 
 	log.V(1).Info("Inserting request into cache")
@@ -109,43 +104,43 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 	// Check if a console is already active for this machine
 	_, loaded := e.activeConsoles.LoadOrStore(machineID, true)
 	if loaded {
-		return errors.New("operation failed: Active console session exists for this domain")
+		return convertInternalErrorToGRPC(fmt.Errorf("operation failed: %w", ErrActiveConsoleSessionExists))
 	}
 
 	defer e.activeConsoles.Delete(machineID)
 
 	// Check if the apiMachine doesn't exist, to avoid making the libvirt-lookup call.
 	if e.Machine == nil {
-		return fmt.Errorf("apiMachine %w in the store", store.ErrNotFound)
+		return convertInternalErrorToGRPC(fmt.Errorf("apiMachine %w in the store", ErrMachineNotFound))
 	}
 
 	domain, err := e.Libvirt.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
 	if err != nil {
 		if !libvirtutils.IsErrorCode(err, libvirt.ErrNoDomain) {
-			return fmt.Errorf("error looking up domain: %w", err)
+			return convertInternalErrorToGRPC(fmt.Errorf("error looking up domain: %w", err))
 		}
 
-		return fmt.Errorf("machine %s has not yet been synced", machineID)
+		return convertInternalErrorToGRPC(fmt.Errorf("machine %s has not yet been synced: %w %w", machineID, ErrMachineUnavailable, err))
 	}
 
 	domainXMLData, err := e.Libvirt.DomainGetXMLDesc(domain, 0)
 	if err != nil {
-		return fmt.Errorf("failed to lookup domain: %w", err)
+		return convertInternalErrorToGRPC(fmt.Errorf("failed to lookup domain: %w", err))
 	}
 
 	domainXML := &libvirtxml.Domain{}
 	if err := domainXML.Unmarshal(domainXMLData); err != nil {
-		return fmt.Errorf("failed to unmarshal domain: %w", err)
+		return convertInternalErrorToGRPC(fmt.Errorf("failed to unmarshal domain: %w", err))
 	}
 
 	if domainXML.Devices == nil || len(domainXML.Devices.Consoles) == 0 {
-		return errors.New("device console not set in machine domainXML")
+		return convertInternalErrorToGRPC(errors.New("device console not set in machine domainXML"))
 	}
 	ttyPath := domainXML.Devices.Consoles[0].TTY
 
 	f, err := os.OpenFile(ttyPath, os.O_RDWR, 0)
 	if err != nil {
-		return fmt.Errorf("error opening PTY: %w", err)
+		return convertInternalErrorToGRPC(fmt.Errorf("error opening PTY: %w", err))
 	}
 
 	// Wrap the input stream with an escape proxy. Escape Sequence Ctrl + ] = 29
