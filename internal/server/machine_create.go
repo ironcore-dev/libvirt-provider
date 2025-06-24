@@ -103,13 +103,13 @@ func (s *Server) CreateMachine(ctx context.Context, req *iri.CreateMachineReques
 	log.V(1).Info("Creating machine from iri machine")
 	machine, err := s.createMachineFromIRIMachine(ctx, log, req.Machine)
 	if err != nil {
-		return nil, fmt.Errorf("unable to get libvirt machine config: %w", err)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("unable to get libvirt machine config: %w", err))
 	}
 
 	log.V(1).Info("Converting machine to iri machine")
 	iriMachine, err := s.convertMachineToIRIMachine(ctx, log, machine)
 	if err != nil {
-		return nil, fmt.Errorf("unable to convert machine: %w", err)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("unable to convert machine: %w", err))
 	}
 
 	return &iri.CreateMachineResponse{

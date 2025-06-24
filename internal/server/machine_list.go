@@ -12,8 +12,6 @@ import (
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 	"k8s.io/apimachinery/pkg/labels"
 )
 
@@ -21,13 +19,13 @@ func (s *Server) getLibvirtMachine(ctx context.Context, id string) (*api.Machine
 	machine, err := s.machineStore.Get(ctx, id)
 	if err != nil {
 		if errors.Is(err, store.ErrNotFound) {
-			return nil, status.Errorf(codes.NotFound, "machine %s not found", id)
+			return nil, fmt.Errorf("failed to get machine %s: %w", id, ErrMachineNotFound)
 		}
 		return nil, fmt.Errorf("failed to get machine: %w", err)
 	}
 
 	if !api.IsManagedBy(machine, api.MachineManager) {
-		return nil, status.Errorf(codes.NotFound, "machine %s not found", id)
+		return nil, fmt.Errorf("missing manage label for %s: %w", api.MachineManager, ErrMachineIsntManaged)
 	}
 
 	return machine, nil
@@ -89,8 +87,8 @@ func (s *Server) ListMachines(ctx context.Context, req *iri.ListMachinesRequest)
 	if filter := req.Filter; filter != nil && filter.Id != "" {
 		machine, err := s.getMachine(ctx, log, filter.Id)
 		if err != nil {
-			if status.Code(err) != codes.NotFound {
-				return nil, err
+			if !errors.Is(err, ErrMachineNotFound) && !errors.Is(err, ErrMachineIsntManaged) {
+				return nil, convertInternalErrorToGRPC(err)
 			}
 			return &iri.ListMachinesResponse{
 				Machines: []*iri.Machine{},
@@ -104,7 +102,7 @@ func (s *Server) ListMachines(ctx context.Context, req *iri.ListMachinesRequest)
 
 	machines, err := s.listMachines(ctx, log)
 	if err != nil {
-		return nil, err
+		return nil, convertInternalErrorToGRPC(err)
 	}
 
 	machines = s.filterMachines(machines, req.Filter)

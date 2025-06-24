@@ -15,17 +15,17 @@ func (s *Server) AttachNetworkInterface(ctx context.Context, req *iri.AttachNetw
 	log.V(1).Info("Attaching NIC to machine")
 
 	if req == nil {
-		return nil, fmt.Errorf("AttachNetworkInterfaceRequest is nil")
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("AttachNetworkInterfaceRequest is nil: %w", ErrInvalidRequest))
 	}
 
 	apiMachine, err := s.machineStore.Get(ctx, req.MachineId)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get machine: %w", err)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get machine '%s': %w", req.MachineId, err))
 	}
 
 	nicSpec, err := s.getNICFromIRINIC(req.NetworkInterface)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get nic from iri nic: %w", err)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get nic from iri nic: %w", err))
 	}
 
 	apiMachine.Spec.NetworkInterfaces = append(apiMachine.Spec.NetworkInterfaces, nicSpec)

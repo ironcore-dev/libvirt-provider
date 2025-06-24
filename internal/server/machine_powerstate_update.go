@@ -5,14 +5,10 @@ package server
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
-	"github.com/ironcore-dev/provider-utils/storeutils/store"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 )
 
 func (s *Server) updatePowerState(ctx context.Context, machine *api.Machine, iriPower iri.Power) error {
@@ -36,14 +32,11 @@ func (s *Server) UpdateMachinePower(ctx context.Context, req *iri.UpdateMachineP
 	log.V(1).Info("Getting machine")
 	machine, err := s.machineStore.Get(ctx, req.MachineId)
 	if err != nil {
-		if !errors.Is(err, store.ErrNotFound) {
-			return nil, fmt.Errorf("error getting machine: %w", err)
-		}
-		return nil, status.Errorf(codes.NotFound, "machine %s not found", req.MachineId)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get machine '%s': %w", req.MachineId, err))
 	}
 
 	if err := s.updatePowerState(ctx, machine, req.Power); err != nil {
-		return nil, fmt.Errorf("failed to update power state: %w", err)
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to update power state: %w", err))
 	}
 
 	return &iri.UpdateMachinePowerResponse{}, nil
