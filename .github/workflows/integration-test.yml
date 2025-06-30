@@ -13,7 +13,7 @@ jobs:
   integration-tests:
     runs-on: ubuntu-22.04
 
-    if: contains(github.event.pull_request.labels.*.name, 'integration-tests')
+    #if: contains(github.event.pull_request.labels.*.name, 'integration-tests')
 
     steps:
       - name: Checkout repository
