@@ -128,7 +128,7 @@ var _ = FDescribe("UpdateVolume", func() {
 			g.Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).Should(Equal(4))
+		}).Should(Equal(3))
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 		Expect(disks[1].Serial).To(HavePrefix("odc"))
 
