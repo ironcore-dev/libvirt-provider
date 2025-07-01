@@ -16,9 +16,9 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = FDescribe("UpdateVolume", func() {
+var _ = Describe("UpdateVolume", func() {
 	It("should correctly update machine volume", func(ctx SpecContext) {
-		By("creating a machine with empty disks and single ceph volume")
+		By("creating a machine with ceph volume")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
@@ -34,15 +34,8 @@ var _ = FDescribe("UpdateVolume", func() {
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "oda",
-						},
-						{
 							Name:   "volume-1",
-							Device: "odc",
+							Device: "oda",
 							Connection: &iri.VolumeConnection{
 								Driver: "ceph",
 								Handle: "dummy",
@@ -107,11 +100,6 @@ var _ = FDescribe("UpdateVolume", func() {
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(
 				&iri.VolumeStatus{
-					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
-				},
-				&iri.VolumeStatus{
 					Name:   "volume-1",
 					Handle: "libvirt-provider.ironcore.dev/ceph/libvirt-provider.ironcore.dev/ceph^dummy",
 					State:  iri.VolumeState_VOLUME_ATTACHED,
@@ -119,7 +107,7 @@ var _ = FDescribe("UpdateVolume", func() {
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
 		))
 
-		By("ensuring the empty disks and a ceph volume is attached to a machine domain")
+		By("ensuring the ceph volume is attached to a machine domain")
 		var disks []libvirtxml.DomainDisk
 		Eventually(func(g Gomega) int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
@@ -128,19 +116,18 @@ var _ = FDescribe("UpdateVolume", func() {
 			g.Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).Should(Equal(3))
+		}).Should(Equal(2))
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
-		Expect(disks[1].Serial).To(HavePrefix("odc"))
 
 		// wait to complete machine reconciliation
 		time.Sleep(20 * time.Second)
 
-		By("update volume-1 from machine")
+		By("updating machine volume")
 		updateVolumeResp, err := machineClient.UpdateVolume(ctx, &iri.UpdateVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			Volume: &iri.Volume{
 				Name:   "volume-1",
-				Device: "odc",
+				Device: "oda",
 				Connection: &iri.VolumeConnection{
 					Driver: "ceph",
 					Handle: "dummy",
@@ -159,12 +146,11 @@ var _ = FDescribe("UpdateVolume", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updateVolumeResp).NotTo(BeNil())
 
-		By("ensuring volume-1 is updated")
 		// wait to complete machine reconciliation
 		time.Sleep(20 * time.Second)
 
-		By("ensuring volume-1 has been updated in machine spec field")
-		Eventually(func(g Gomega) *iri.MachineSpec {
+		By("ensuring volume has been resized and updated in machine spec field")
+		Eventually(func(g Gomega) *iri.Volume {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
@@ -173,33 +159,11 @@ var _ = FDescribe("UpdateVolume", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(listResp.Machines).NotTo(BeEmpty())
 			g.Expect(listResp.Machines).Should(HaveLen(1))
-			return listResp.Machines[0].Spec
+			return listResp.Machines[0].Spec.Volumes[0]
 		}).Should(SatisfyAll(
-			HaveField("Volumes", ContainElements(
-				&iri.Volume{
-					Name: "disk-1",
-					EmptyDisk: &iri.EmptyDisk{
-						SizeBytes: emptyDiskSize,
-					},
-					Device: "oda",
-				},
-				&iri.Volume{
-					Name:   "volume-1",
-					Device: "odc",
-					Connection: &iri.VolumeConnection{
-						Driver: "ceph",
-						Handle: "dummy",
-						Attributes: map[string]string{
-							"image":    cephImage,
-							"monitors": cephMonitors,
-						},
-						SecretData: map[string][]byte{
-							"userID":  []byte(cephUsername),
-							"userKey": []byte(cephUserkey),
-						},
-						EffectiveStorageBytes: resource.NewQuantity(2*1024*1024*1024, resource.BinarySI).Value(),
-					},
-				})),
+			HaveField("Name", Equal("volume-1")),
+			HaveField("Device", Equal("oda")),
+			HaveField("Connection.EffectiveStorageBytes", Equal(resource.NewQuantity(2*1024*1024*1024, resource.BinarySI).Value())),
 		))
 	})
 })

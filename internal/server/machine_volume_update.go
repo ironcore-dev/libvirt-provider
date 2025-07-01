@@ -47,7 +47,7 @@ func (s *Server) UpdateVolume(ctx context.Context, req *iri.UpdateVolumeRequest)
 	apiMachine.Spec.Volumes[apiVolumeIndex] = apiBaseVolume
 
 	if _, err := s.machineStore.Update(ctx, apiMachine); err != nil {
-		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to update machine after detaching volume: %w", err))
+		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to update machine after updating volume: %w", err))
 	}
 
 	return &iri.UpdateVolumeResponse{}, nil
