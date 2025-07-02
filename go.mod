@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.9.9
-	github.com/ironcore-dev/ironcore v0.2.4-0.20250605101147-768826bd8776
+	github.com/ironcore-dev/ironcore v0.2.4-0.20250626115959-9223614b0845
 	github.com/ironcore-dev/ironcore-image v0.2.4
 	github.com/ironcore-dev/ironcore-net v0.2.3
 	github.com/ironcore-dev/provider-utils v0.0.0-20250617134512-c47138779fed
