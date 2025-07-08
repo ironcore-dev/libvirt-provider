@@ -19,7 +19,7 @@ type Machine struct {
 type MachineSpec struct {
 	Power PowerState `json:"power"`
 
-	CpuMillis   int64 `json:"cpuMillis"`
+	Cpu         int64 `json:"cpu"`
 	MemoryBytes int64 `json:"memoryBytes"`
 
 	Image    *string `json:"image"`

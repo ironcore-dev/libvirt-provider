@@ -14,6 +14,7 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/digitalocean/go-libvirt/socket/dialers"
+	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
@@ -79,15 +80,19 @@ var _ = BeforeSuite(func() {
 		{
 			Name: machineClassx3xlarge,
 			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				CpuMillis:   4000,
-				MemoryBytes: 8589934592,
+				Resources: map[string]int64{
+					string(corev1alpha1.ResourceCPU):    4,
+					string(corev1alpha1.ResourceMemory): 8589934592,
+				},
 			},
 		},
 		{
 			Name: machineClassx2medium,
 			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				CpuMillis:   2000,
-				MemoryBytes: 2147483648,
+				Resources: map[string]int64{
+					string(corev1alpha1.ResourceCPU):    2,
+					string(corev1alpha1.ResourceMemory): 2147483648,
+				},
 			},
 		},
 	}
