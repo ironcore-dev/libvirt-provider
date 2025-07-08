@@ -771,7 +771,7 @@ func (r *MachineReconciler) setDomainResources(machine *api.Machine, domain *lib
 		}
 	}
 
-	cpu := uint(machine.Spec.CpuMillis / 1000)
+	cpu := uint(machine.Spec.Cpu)
 	domain.VCPU = &libvirtxml.DomainVCPU{
 		Value: cpu,
 	}

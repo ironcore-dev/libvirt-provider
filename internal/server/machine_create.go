@@ -8,6 +8,7 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
@@ -15,7 +16,7 @@ import (
 
 func calcResources(class *iri.MachineClass) (int64, int64) {
 	//Todo do some magic
-	return class.Capabilities.CpuMillis, class.Capabilities.MemoryBytes
+	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
 }
 
 func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
@@ -70,7 +71,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		},
 		Spec: api.MachineSpec{
 			Power:             power,
-			CpuMillis:         cpu,
+			Cpu:               cpu,
 			MemoryBytes:       memory,
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,

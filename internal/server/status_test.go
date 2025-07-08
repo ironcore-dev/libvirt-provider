@@ -4,6 +4,7 @@
 package server_test
 
 import (
+	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
 	. "github.com/onsi/ginkgo/v2"
@@ -30,8 +31,10 @@ var _ = Describe("Status", func() {
 				MachineClass: &iriv1alpha1.MachineClass{
 					Name: machineClasses[0].Name,
 					Capabilities: &iriv1alpha1.MachineClassCapabilities{
-						CpuMillis:   machineClasses[0].Capabilities.CpuMillis,
-						MemoryBytes: machineClasses[0].Capabilities.MemoryBytes,
+						Resources: map[string]int64{
+							string(corev1alpha1.ResourceCPU):    machineClasses[0].Capabilities.Resources[string(corev1alpha1.ResourceCPU)],
+							string(corev1alpha1.ResourceMemory): machineClasses[0].Capabilities.Resources[string(corev1alpha1.ResourceMemory)],
+						},
 					},
 				},
 				Quantity: mcr.GetQuantity(machineClasses[0], hostResources),
@@ -40,8 +43,10 @@ var _ = Describe("Status", func() {
 				MachineClass: &iriv1alpha1.MachineClass{
 					Name: machineClasses[1].Name,
 					Capabilities: &iriv1alpha1.MachineClassCapabilities{
-						CpuMillis:   machineClasses[1].Capabilities.CpuMillis,
-						MemoryBytes: machineClasses[1].Capabilities.MemoryBytes,
+						Resources: map[string]int64{
+							string(corev1alpha1.ResourceCPU):    machineClasses[1].Capabilities.Resources[string(corev1alpha1.ResourceCPU)],
+							string(corev1alpha1.ResourceMemory): machineClasses[1].Capabilities.Resources[string(corev1alpha1.ResourceMemory)],
+						},
 					},
 				},
 				Quantity: mcr.GetQuantity(machineClasses[1], hostResources),

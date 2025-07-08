@@ -10,6 +10,7 @@ import (
 	"math"
 	"os"
 
+	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/shirou/gopsutil/v3/cpu"
 	"github.com/shirou/gopsutil/v3/mem"
@@ -69,8 +70,8 @@ func (m *Mcr) List() []*iri.MachineClass {
 }
 
 func GetQuantity(class *iri.MachineClass, host *Host) int64 {
-	cpuRatio := host.Cpu.Value() / class.Capabilities.CpuMillis
-	memoryRatio := host.Mem.Value() / class.Capabilities.MemoryBytes
+	cpuRatio := host.Cpu.Value() / class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)]
+	memoryRatio := host.Mem.Value() / class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
 
 	return int64(math.Min(float64(cpuRatio), float64(memoryRatio)))
 }
@@ -92,7 +93,7 @@ func GetResources(ctx context.Context, enableHugepages bool) (*Host, error) {
 	}
 
 	host := &Host{
-		Cpu: resource.NewScaledQuantity(hostCPUSum, resource.Kilo),
+		Cpu: resource.NewQuantity(hostCPUSum, resource.DecimalSI),
 	}
 
 	if enableHugepages {
