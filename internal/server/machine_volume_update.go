@@ -20,20 +20,19 @@ func (s *Server) UpdateVolume(ctx context.Context, req *iri.UpdateVolumeRequest)
 		return nil, convertInternalErrorToGRPC(ErrInvalidRequest)
 	}
 
-	iriVolume := req.Volume
 	apiMachine, err := s.machineStore.Get(ctx, req.MachineId)
 	if err != nil {
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get machine '%s': %w", req.MachineId, err))
 	}
 
 	apiVolumeIndex := apiMachineVolumeIndex(apiMachine, req.Volume.Name)
-	if apiVolumeIndex < 0 {
+	if apiVolumeIndex == -1 {
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("volume '%s' not found in machine '%s': %w", req.Volume.Name, req.MachineId, ErrVolumeNotFound))
 	}
 
 	apiBaseVolume := apiMachine.Spec.Volumes[apiVolumeIndex]
-	apiBaseVolume.Device = iriVolume.Device
-	if volumeConnection := iriVolume.Connection; volumeConnection != nil {
+	apiBaseVolume.Device = req.Volume.Device
+	if volumeConnection := req.Volume.Connection; volumeConnection != nil {
 		apiBaseVolume.Connection = &api.VolumeConnection{
 			Driver:                volumeConnection.Driver,
 			Handle:                volumeConnection.Handle,

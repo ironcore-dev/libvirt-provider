@@ -174,6 +174,9 @@ func (p *plugin) getVolumeData(spec *api.VolumeSpec) (vData *volumeData, err err
 	if connection.Handle == "" {
 		return nil, fmt.Errorf("volume connection does not specify handle")
 	}
+	if connection.EffectiveStorageBytes <= 0 {
+		return nil, fmt.Errorf("volume connection does not specify effective storage bytes")
+	}
 	vData.handle = connection.Handle
 
 	vData.monitors, vData.image, err = readVolumeAttributes(connection.Attributes)
@@ -193,9 +196,8 @@ func (p *plugin) getVolumeData(spec *api.VolumeSpec) (vData *volumeData, err err
 		}
 	}
 
-	if effectiveStorageBytes := spec.Connection.EffectiveStorageBytes; effectiveStorageBytes != 0 {
-		vData.effectiveStorageBytes = effectiveStorageBytes
-	}
+	vData.effectiveStorageBytes = spec.Connection.EffectiveStorageBytes
+
 	return vData, nil
 }
 

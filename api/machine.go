@@ -84,12 +84,12 @@ type EmptyDiskSpec struct {
 }
 
 type VolumeConnection struct {
-	Driver                string            ` json:"driver,omitempty"`
-	Handle                string            ` json:"handle,omitempty"`
-	Attributes            map[string]string ` json:"attributes,omitempty"`
-	SecretData            map[string][]byte ` json:"secret_data,omitempty"`
-	EncryptionData        map[string][]byte ` json:"encryption_data,omitempty"`
-	EffectiveStorageBytes int64             ` json:"effective_storage_bytes,omitempty"`
+	Driver                string            `json:"driver,omitempty"`
+	Handle                string            `json:"handle,omitempty"`
+	Attributes            map[string]string `json:"attributes,omitempty"`
+	SecretData            map[string][]byte `json:"secret_data,omitempty"`
+	EncryptionData        map[string][]byte `json:"encryption_data,omitempty"`
+	EffectiveStorageBytes int64             `json:"effective_storage_bytes,omitempty"`
 }
 
 type VolumeState string
