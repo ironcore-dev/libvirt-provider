@@ -119,9 +119,6 @@ var _ = Describe("UpdateVolume", func() {
 		}).Should(Equal(2))
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 
-		// wait to complete machine reconciliation
-		time.Sleep(20 * time.Second)
-
 		By("updating machine volume")
 		updateVolumeResp, err := machineClient.UpdateVolume(ctx, &iri.UpdateVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
@@ -145,9 +142,6 @@ var _ = Describe("UpdateVolume", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(updateVolumeResp).NotTo(BeNil())
-
-		// wait to complete machine reconciliation
-		time.Sleep(20 * time.Second)
 
 		By("ensuring volume has been resized and updated in machine spec field")
 		Eventually(func(g Gomega) *iri.Volume {

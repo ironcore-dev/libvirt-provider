@@ -26,6 +26,8 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
+var ErrNotAssignedDomain = errors.New("not assigned to domain")
+
 func (r *MachineReconciler) deleteVolumes(ctx context.Context, log logr.Logger, machine *api.Machine) error {
 	mounter := r.machineVolumeMounter(machine)
 	var errs []error
@@ -66,20 +68,38 @@ func (r *MachineReconciler) machineVolumeMounter(machine *api.Machine) VolumeMou
 	}
 }
 
-func getVolumeStatus(machine *api.Machine, volumeID string) *api.VolumeStatus {
-	for _, volumeStatus := range machine.Status.VolumeStatus {
-		if volumeID == volumeStatus.Handle {
-			return &volumeStatus
+func (r *MachineReconciler) getLastVolumeSize(machineID, deviceName string) (int64, error) {
+	domain, err := r.host.Libvirt().DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
+	if err != nil {
+		if !libvirt.IsNotFound(err) {
+			return 0, fmt.Errorf("error getting blockInfo from domain for machine %s device %s: %w", machineID, deviceName, err)
 		}
+		return 0, nil
 	}
-	return nil
+
+	virtDeviceName := computeVirtioDiskTargetDeviceName(deviceName)
+	_, capacity, _, err := r.host.Libvirt().DomainGetBlockInfo(domain, virtDeviceName, 0)
+
+	if err != nil {
+		if IsNotAssignedDomainErr(err) {
+			return 0, nil
+		}
+		return 0, fmt.Errorf("error getting blockInfo from domain for machine %s device %s: %w", machineID, deviceName, err)
+	}
+
+	return int64(capacity), nil
 }
 
-func getLastVolumeSize(machine *api.Machine, volumeID string) int64 {
-	if status := getVolumeStatus(machine, volumeID); status != nil && status.Size != 0 {
-		return status.Size
+func IsNotAssignedDomainErr(err error) bool {
+	var lvErr libvirt.Error
+	if !errors.As(err, &lvErr) {
+		return false
 	}
-	return 0
+	if lvErr.Code == uint32(libvirt.ErrInvalidArg) && strings.Contains(err.Error(), ErrNotAssignedDomain.Error()) {
+		return true
+	}
+
+	return false
 }
 
 func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Logger, machine *api.Machine, attacher VolumeAttacher) ([]api.VolumeStatus, error) {
@@ -635,6 +655,18 @@ func (r *MachineReconciler) applyVolume(
 		return "", 0, fmt.Errorf("error applying volume mount: %w", err)
 	}
 
+	lastVolumeSize, err := r.getLastVolumeSize(machine.ID, desiredVolume.Device)
+	if err != nil {
+		return volumeID, 0, fmt.Errorf("error getting last volume size: %w", err)
+	}
+
+	var volumeSize int64
+	if providerVolume != nil {
+		volumeSize = providerVolume.EffectiveStorageBytesSize
+	} else {
+		volumeSize = lastVolumeSize
+	}
+
 	log.V(1).Info("Ensuring volume is attached")
 	if err := attacher.AttachVolume(&AttachVolume{
 		Name:   desiredVolume.Name,
@@ -645,8 +677,8 @@ func (r *MachineReconciler) applyVolume(
 	}
 
 	//TODO do epsilon comparison
-	if lastVolumeSize := getLastVolumeSize(machine, volumeID); lastVolumeSize != 0 && providerVolume.EffectiveStorageBytesSize != lastVolumeSize {
-		log.V(1).Info("Resize volume", "volumeID", volumeID, "lastSize", lastVolumeSize, "volumeSize", providerVolume.EffectiveStorageBytesSize)
+	if lastVolumeSize != 0 && volumeSize != lastVolumeSize {
+		log.V(1).Info("Resize volume", "volumeID", volumeID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 		if err := attacher.ResizeVolume(&AttachVolume{
 			Name:   desiredVolume.Name,
 			Device: desiredVolume.Device,

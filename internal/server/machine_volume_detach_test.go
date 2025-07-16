@@ -12,6 +12,7 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"libvirt.org/go/libvirtxml"
 )
 
@@ -60,6 +61,7 @@ var _ = Describe("DetachVolume", func() {
 									"userID":  []byte(cephUsername),
 									"userKey": []byte(cephUserkey),
 								},
+								EffectiveStorageBytes: resource.NewQuantity(1*1024*1024*1024, resource.BinarySI).Value(),
 							},
 						},
 					},
