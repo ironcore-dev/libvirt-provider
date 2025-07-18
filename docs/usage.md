@@ -69,6 +69,7 @@ go run cmd/libvirt-provider/main.go \
   --servers-health-check-address ":8080" \
   --gc-vm-graceful-shutdown-timeout 5m \
   --gc-resync-interval 1m \
+  --event-list-watch-source-resync-duration 1m \
   --supported-machine-classes "/home/libvirt-provider/machine-classes.json"
 ```
 
