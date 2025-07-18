@@ -76,8 +76,9 @@ type Options struct {
 	Libvirt   LibvirtOptions
 	NicPlugin *networkinterfaceplugin.Options
 
-	GCVMGracefulShutdownTimeout    time.Duration
-	ResyncIntervalGarbageCollector time.Duration
+	GCVMGracefulShutdownTimeout        time.Duration
+	ResyncIntervalGarbageCollector     time.Duration
+	EventListWatchSourceResyncDuration time.Duration
 
 	MachineEventStore recorder.EventStoreOptions
 
@@ -135,6 +136,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 
 	fs.DurationVar(&o.GCVMGracefulShutdownTimeout, "gc-vm-graceful-shutdown-timeout", 5*time.Minute, "Duration to wait for the VM to gracefully shut down. If the VM does not shut down within this period, it will be forcibly destroyed by garbage collector.")
 	fs.DurationVar(&o.ResyncIntervalGarbageCollector, "gc-resync-interval", 1*time.Minute, "Interval for resynchronizing the garbage collector.")
+	fs.DurationVar(&o.EventListWatchSourceResyncDuration, "event-list-watch-source-resync-duration", 1*time.Minute, "Duration for resynchronizing the list and watch events of source.")
 
 	// Machine event store options
 	fs.IntVar(&o.MachineEventStore.MaxEvents, "machine-event-max-events", 100, "Maximum number of machine events that can be stored.")
@@ -291,7 +293,9 @@ func Run(ctx context.Context, opts Options) error {
 	machineEvents, err := event.NewListWatchSource[*api.Machine](
 		machineStore.List,
 		machineStore.Watch,
-		event.ListWatchSourceOptions{},
+		event.ListWatchSourceOptions{
+			ResyncDuration: opts.EventListWatchSourceResyncDuration,
+		},
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize machine events")
