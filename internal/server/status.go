@@ -19,14 +19,19 @@ func (s *Server) Status(ctx context.Context, req *iri.StatusRequest) (*iri.Statu
 		return nil, fmt.Errorf("failed to get host resources: %w", err)
 	}
 
+	log.V(2).Info("Host resources", "cpu", host.Cpu.String(), "memory", host.Mem.String())
+
 	log.V(1).Info("Listing machine classes")
 	machineClassList := s.machineClasses.List()
 
 	var machineClassStatus []*iri.MachineClassStatus
 	for _, machineClass := range machineClassList {
+		quantity := mcr.GetQuantity(machineClass, host)
+
+		log.V(2).Info("MachineClass info", "class", machineClass.Name, "quantity", quantity)
 		machineClassStatus = append(machineClassStatus, &iri.MachineClassStatus{
 			MachineClass: machineClass,
-			Quantity:     mcr.GetQuantity(machineClass, host),
+			Quantity:     quantity,
 		})
 	}
 
