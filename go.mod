@@ -26,10 +26,10 @@ require (
 	github.com/spf13/pflag v1.0.7
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.74.2
-	k8s.io/api v0.33.3
-	k8s.io/apimachinery v0.33.3
-	k8s.io/client-go v0.33.3
-	k8s.io/kubectl v0.33.3
+	k8s.io/api v0.33.4
+	k8s.io/apimachinery v0.33.4
+	k8s.io/client-go v0.33.4
+	k8s.io/kubectl v0.33.4
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
 	libvirt.org/go/libvirtxml v1.11006.0
 	sigs.k8s.io/controller-runtime v0.21.0
@@ -130,7 +130,7 @@ require (
 	gotest.tools/v3 v3.5.1 // indirect
 	k8s.io/apiextensions-apiserver v0.33.3 // indirect
 	k8s.io/apiserver v0.33.3 // indirect
-	k8s.io/cli-runtime v0.33.3 // indirect
+	k8s.io/cli-runtime v0.33.4 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20250610211856-8b98d1ed966a // indirect
 	oras.land/oras-go v1.2.6 // indirect
