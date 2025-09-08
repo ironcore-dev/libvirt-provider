@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.10.0
-	github.com/ironcore-dev/ironcore v0.2.4-0.20250704085741-9036bfe3b718
+	github.com/ironcore-dev/ironcore v0.2.4
 	github.com/ironcore-dev/ironcore-image v0.2.4
 	github.com/ironcore-dev/ironcore-net v0.2.3
 	github.com/ironcore-dev/provider-utils v0.0.0-20250829073857-ee02a09dd769
@@ -22,8 +22,8 @@ require (
 	github.com/opencontainers/image-spec v1.1.1
 	github.com/prometheus/client_golang v1.23.1
 	github.com/shirou/gopsutil/v3 v3.24.5
-	github.com/spf13/cobra v1.9.1
-	github.com/spf13/pflag v1.0.7
+	github.com/spf13/cobra v1.10.1
+	github.com/spf13/pflag v1.0.9
 	golang.org/x/sync v0.16.0
 	google.golang.org/grpc v1.75.0
 	k8s.io/api v0.33.3
@@ -141,5 +141,5 @@ require (
 	sigs.k8s.io/json v0.0.0-20241014173422-cfa47c3a1cc8 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.7.0 // indirect
-	sigs.k8s.io/yaml v1.5.0 // indirect
+	sigs.k8s.io/yaml v1.6.0 // indirect
 )
