@@ -31,7 +31,6 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
-	"github.com/ironcore-dev/libvirt-provider/internal/oci"
 	volumeplugin "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/ceph"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/emptydisk"
@@ -40,6 +39,8 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
+	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
+	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
 	hostutils "github.com/ironcore-dev/provider-utils/storeutils/host"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -220,7 +221,14 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	reg, err := remote.DockerRegistry(nil)
+	platform, err := ocihostutils.Platform()
+	if err != nil {
+		setupLog.Error(err, "failed to get host platform: %w", err)
+		return err
+	}
+	setupLog.Info("Current platform", "architecture", platform.Architecture)
+
+	reg, err := remote.DockerRegistryWithPlatform(nil, platform)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize registry")
 		return err
@@ -232,7 +240,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	imgCache, err := oci.NewLocalCache(log, reg, ociStore)
+	imgCache, err := ociutils.NewLocalCache(log, reg, ociStore, nil)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize oci manager")
 		return err
