@@ -23,7 +23,6 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtmeta "github.com/ironcore-dev/libvirt-provider/internal/libvirt/meta"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
-	providerimage "github.com/ironcore-dev/libvirt-provider/internal/oci"
 	"github.com/ironcore-dev/libvirt-provider/internal/osutils"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	providervolume "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
@@ -31,6 +30,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
+	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -68,7 +68,7 @@ var (
 type MachineReconcilerOptions struct {
 	GuestCapabilities              guest.Capabilities
 	TCMallocLibPath                string
-	ImageCache                     providerimage.Cache
+	ImageCache                     ociutils.Cache
 	Raw                            raw.Raw
 	VolumePluginManager            *providervolume.PluginManager
 	NetworkInterfacePlugin         providernetworkinterface.Plugin
@@ -104,7 +104,7 @@ func NewMachineReconciler(
 		queue:                          workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]()),
 		machines:                       machines,
 		machineEvents:                  machineEvents,
-		EventRecorder:                  eventRecorder,
+		eventRecorder:                  eventRecorder,
 		guestCapabilities:              opts.GuestCapabilities,
 		tcMallocLibPath:                opts.TCMallocLibPath,
 		host:                           host,
@@ -126,7 +126,7 @@ type MachineReconciler struct {
 	guestCapabilities guest.Capabilities
 	tcMallocLibPath   string
 	host              providerhost.LibvirtHost
-	imageCache        providerimage.Cache
+	imageCache        ociutils.Cache
 	raw               raw.Raw
 
 	enableHugepages bool
@@ -136,7 +136,7 @@ type MachineReconciler struct {
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
-	recorder.EventRecorder
+	eventRecorder recorder.EventRecorder
 
 	gcVMGracefulShutdownTimeout    time.Duration
 	resyncIntervalGarbageCollector time.Duration
@@ -150,8 +150,8 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 	//todo make configurable
 	workerSize := 15
 
-	r.imageCache.AddListener(providerimage.ListenerFuncs{
-		HandlePullDoneFunc: func(evt providerimage.PullDoneEvent) {
+	r.imageCache.AddListener(ociutils.ListenerFuncs{
+		HandlePullDoneFunc: func(evt ociutils.PullDoneEvent) {
 			machines, err := r.machines.List(ctx)
 			if err != nil {
 				log.Error(err, "failed to list machine")
@@ -160,7 +160,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 			for _, machine := range machines {
 				if ptr.Deref(machine.Spec.Image, "") == evt.Ref {
-					r.Eventf(machine.Metadata, corev1.EventTypeNormal, "PulledImage", "Pulled image %s", *machine.Spec.Image)
+					r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "PulledImage", "Pulled image %s", *machine.Spec.Image)
 					log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
 					r.queue.Add(machine.ID)
 				}
@@ -304,7 +304,7 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	if _, err := r.machines.Update(ctx, machine); store.IgnoreErrNotFound(err) != nil {
 		return fmt.Errorf("failed to update machine metadata: %w", err)
 	}
-	r.Eventf(machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed")
+	r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "CompletedDeletion", "Deletion completed")
 	log.V(1).Info("Removed Finalizer. Deletion completed")
 
 	return nil
@@ -343,7 +343,7 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine,
 		return fmt.Errorf("failed to initiate forceful shutdown: %w", err)
 	}
 
-	r.Eventf(machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed")
+	r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "DestroyedDomain", "Domain Destroyed")
 
 	log.V(1).Info("Destroyed domain")
 	return nil
@@ -351,7 +351,7 @@ func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine,
 
 func (r *MachineReconciler) shutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) (bool, error) {
 	log.V(1).Info("Triggering shutdown", "ShutdownAt", machine.Spec.ShutdownAt)
-	r.Eventf(machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered")
+	r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "TriggeringShutdown", "Shutdown Triggered")
 
 	shutdownMode := libvirt.DomainShutdownAcpiPowerBtn
 	if machine.Spec.GuestAgent == api.GuestAgentQemu {
@@ -421,7 +421,7 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	log.V(1).Info("Reconciling domain")
 	state, volumeStates, nicStates, err := r.reconcileDomain(ctx, log, machine)
 	if err != nil {
-		return providerimage.IgnoreImagePulling(err)
+		return ociutils.IgnoreImagePulling(err)
 	}
 	log.V(1).Info("Reconciled domain")
 
@@ -488,13 +488,13 @@ func (r *MachineReconciler) updateDomain(
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
 		return nil, nil, fmt.Errorf("[volumes] %w", err)
 	}
 
 	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
-		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "NIC attach/detach failed with error: %s", err)
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "NIC attach/detach failed with error: %s", err)
 		return nil, nil, fmt.Errorf("[network interfaces] %w", err)
 	}
 
@@ -701,7 +701,7 @@ func (r *MachineReconciler) domainFor(
 			return nil, nil, nil, err
 		}
 	} else {
-		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data")
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "NoIgnitionData", "Machine does not have ignition data")
 	}
 
 	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewCreateDomainExecutor(r.host.Libvirt()), r.volumeCachePolicy)
@@ -711,20 +711,20 @@ func (r *MachineReconciler) domainFor(
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
-		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachVolume", "Volume attach/detach failed with error: %s", err)
 		return nil, nil, nil, err
 	}
 	if machine.Spec.Volumes != nil {
-		r.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes")
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedVolume", "Successfully attached volumes")
 	}
 
 	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
 	if err != nil {
-		r.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "Setting domain network interface failed with error: %s", err)
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttchDetachNIC", "Setting domain network interface failed with error: %s", err)
 		return nil, nil, nil, err
 	}
 	if machine.Spec.NetworkInterfaces != nil {
-		r.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces")
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttchedNIC", "Successfully attached network interfaces")
 	}
 
 	return domainDesc, volumeStates, nicStates, nil
@@ -849,11 +849,11 @@ func (r *MachineReconciler) setDomainImage(
 ) error {
 	img, err := r.imageCache.Get(ctx, machineImgRef)
 	if err != nil {
-		if !errors.Is(err, providerimage.ErrImagePulling) {
+		if !errors.Is(err, ociutils.ErrImagePulling) {
 			return err
 		}
 
-		r.Eventf(machine.Metadata, corev1.EventTypeNormal, "PullingImage", "Pulling image %s", machineImgRef)
+		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "PullingImage", "Pulling image %s", machineImgRef)
 		return err
 	}
 
@@ -863,7 +863,7 @@ func (r *MachineReconciler) setDomainImage(
 		return err
 	}
 	if !ok {
-		if err := r.raw.Create(rootFSFile, raw.WithSourceFile(img.SquashFS.Path)); err != nil {
+		if err := r.raw.Create(rootFSFile, raw.WithSourceFile(img.RootFS.Path)); err != nil {
 			return fmt.Errorf("error creating root fs disk: %w", err)
 		}
 		if err := os.Chmod(rootFSFile, filePerm); err != nil {
@@ -871,9 +871,6 @@ func (r *MachineReconciler) setDomainImage(
 		}
 	}
 
-	domain.OS.Kernel = img.Kernel.Path
-	domain.OS.Initrd = img.InitRAMFs.Path
-	domain.OS.Cmdline = img.Config.CommandLine
 	domain.Devices.Disks = append(domain.Devices.Disks, libvirtxml.DomainDisk{
 		Alias: &libvirtxml.DomainAlias{
 			Name: rootFSAlias,

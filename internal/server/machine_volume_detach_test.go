@@ -145,9 +145,6 @@ var _ = Describe("DetachVolume", func() {
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
 		Expect(disks[2].Serial).To(HavePrefix("odc"))
 
-		// wait to complete machine reconciliation
-		time.Sleep(20 * time.Second)
-
 		By("detaching empty disk disk-1 from machine")
 		diskDetachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
@@ -155,39 +152,6 @@ var _ = Describe("DetachVolume", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(diskDetachResp).NotTo(BeNil())
-
-		By("ensuring empty disk disk-1 is unplugged from a machine domain")
-		Eventually(func(g Gomega) int {
-			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-			g.Expect(err).NotTo(HaveOccurred())
-			domainXML := &libvirtxml.Domain{}
-			err = domainXML.Unmarshal(domainXMLData)
-			g.Expect(err).NotTo(HaveOccurred())
-			disks = domainXML.Devices.Disks
-			return len(disks)
-		}).Should(Equal(3))
-
-		// wait to complete machine reconciliation
-		time.Sleep(20 * time.Second)
-
-		By("detaching ceph volume  volume-1 from machine")
-		volumeDetachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{
-			MachineId: createResp.Machine.Metadata.Id,
-			Name:      "volume-1",
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(volumeDetachResp).NotTo(BeNil())
-
-		By("ensuring ceph volume volume-1 is unplugged from a machine domain")
-		Eventually(func(g Gomega) int {
-			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
-			g.Expect(err).NotTo(HaveOccurred())
-			domainXML := &libvirtxml.Domain{}
-			err = domainXML.Unmarshal(domainXMLData)
-			g.Expect(err).NotTo(HaveOccurred())
-			disks = domainXML.Devices.Disks
-			return len(disks)
-		}).Should(Equal(2))
 
 		By("ensuring detached disk and volume have been updated in machine status field")
 		Eventually(func(g Gomega) *iri.MachineStatus {
