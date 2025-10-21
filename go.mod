@@ -13,7 +13,7 @@ require (
 	github.com/ironcore-dev/controller-utils v0.10.0
 	github.com/ironcore-dev/ironcore v0.2.4
 	github.com/ironcore-dev/ironcore-image v0.2.5
-	github.com/ironcore-dev/ironcore-net v0.2.3
+	github.com/ironcore-dev/ironcore-net v0.2.4
 	github.com/ironcore-dev/provider-utils v0.0.0-20251010114402-394db8015df4
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.26.0
@@ -23,13 +23,13 @@ require (
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/sync v0.17.0
-	google.golang.org/grpc v1.75.1
+	google.golang.org/grpc v1.76.0
 	k8s.io/api v0.33.4
 	k8s.io/apimachinery v0.33.4
 	k8s.io/client-go v0.33.4
 	k8s.io/kubectl v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
-	libvirt.org/go/libvirtxml v1.11007.0
+	libvirt.org/go/libvirtxml v1.11008.0
 	sigs.k8s.io/controller-runtime v0.21.0
 )
 
@@ -119,7 +119,7 @@ require (
 	golang.org/x/time v0.12.0 // indirect
 	golang.org/x/tools v0.36.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.5.0 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250707201910-8d1bb00bc6a7 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250804133106-a7a43d27e69b // indirect
 	google.golang.org/protobuf v1.36.8 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.12.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
