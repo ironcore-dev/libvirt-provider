@@ -86,10 +86,6 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	api.SetClassLabel(machine, iriMachine.Spec.Class)
 	api.SetManagerLabel(machine, api.MachineManager)
 
-	if iriMachine.Spec.Image != nil {
-		machine.Spec.Image = &iriMachine.Spec.Image.Image
-	}
-
 	apiMachine, err := s.machineStore.Create(ctx, machine)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create machine: %w", err)

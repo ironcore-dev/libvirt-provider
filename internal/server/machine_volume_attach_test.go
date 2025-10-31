@@ -29,6 +29,17 @@ var _ = Describe("AttachVolume", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Class: machineClassx3xlarge,
+					Volumes: []*iri.Volume{
+						{
+							Name:   "rootdisk",
+							Device: "oda",
+							LocalDisk: &iri.LocalDisk{
+								Image: &iri.ImageSpec{
+									Image: osImage,
+								},
+							},
+						},
+					},
 				},
 			},
 		})
@@ -65,18 +76,18 @@ var _ = Describe("AttachVolume", func() {
 		}).Should(Equal(libvirt.DomainRunning))
 
 		By("attaching empty disk to a machine")
-		attachEmptyDiskResp, err := machineClient.AttachVolume(ctx, &iri.AttachVolumeRequest{
+		attachLocalDiskResp, err := machineClient.AttachVolume(ctx, &iri.AttachVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			Volume: &iri.Volume{
 				Name: "disk-1",
-				EmptyDisk: &iri.EmptyDisk{
+				LocalDisk: &iri.LocalDisk{
 					SizeBytes: 5368709120,
 				},
-				Device: "oda",
+				Device: "odb",
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(attachEmptyDiskResp).NotTo(BeNil())
+		Expect(attachLocalDiskResp).NotTo(BeNil())
 
 		By("ensuring attached empty disk have been updated in machine status field")
 		Eventually(func(g Gomega) *iri.MachineStatus {
@@ -93,7 +104,7 @@ var _ = Describe("AttachVolume", func() {
 			HaveField("Volumes", ContainElements(
 				&iri.VolumeStatus{
 					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-1",
 					State:  iri.VolumeState_VOLUME_ATTACHED,
 				})),
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
@@ -104,7 +115,7 @@ var _ = Describe("AttachVolume", func() {
 			MachineId: createResp.Machine.Metadata.Id,
 			Volume: &iri.Volume{
 				Name:   "volume-1",
-				Device: "odb",
+				Device: "odc",
 				Connection: &iri.VolumeConnection{
 					Driver: "ceph",
 					Handle: "dummy",
@@ -132,9 +143,10 @@ var _ = Describe("AttachVolume", func() {
 			g.Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(2))
+		}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(3))
 		Expect(disks[0].Serial).To(HavePrefix("oda"))
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
+		Expect(disks[2].Serial).To(HavePrefix("odc"))
 
 		By("ensuring attached volume have been updated in machine status field")
 		Eventually(func(g Gomega) *iri.MachineStatus {
@@ -151,7 +163,7 @@ var _ = Describe("AttachVolume", func() {
 			HaveField("Volumes", ContainElements(
 				&iri.VolumeStatus{
 					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-1",
 					State:  iri.VolumeState_VOLUME_ATTACHED,
 				},
 				&iri.VolumeStatus{

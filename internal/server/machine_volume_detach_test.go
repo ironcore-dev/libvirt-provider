@@ -28,28 +28,34 @@ var _ = Describe("DetachVolume", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
-					Image: &iri.ImageSpec{
-						Image: osImage,
-					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
-							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
-								SizeBytes: emptyDiskSize,
-							},
+							Name:   "rootdisk",
 							Device: "oda",
+							LocalDisk: &iri.LocalDisk{
+								Image: &iri.ImageSpec{
+									Image: osImage,
+								},
+							},
 						},
 						{
-							Name: "disk-2",
-							EmptyDisk: &iri.EmptyDisk{
+							Name: "disk-1",
+							LocalDisk: &iri.LocalDisk{
 								SizeBytes: emptyDiskSize,
 							},
 							Device: "odb",
 						},
 						{
-							Name:   "volume-1",
+							Name: "disk-2",
+							LocalDisk: &iri.LocalDisk{
+								SizeBytes: emptyDiskSize,
+							},
 							Device: "odc",
+						},
+						{
+							Name:   "volume-1",
+							Device: "odd",
 							Connection: &iri.VolumeConnection{
 								Driver: "ceph",
 								Handle: "dummy",
@@ -114,13 +120,18 @@ var _ = Describe("DetachVolume", func() {
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(
 				&iri.VolumeStatus{
+					Name:   "rootdisk",
+					Handle: "libvirt-provider.ironcore.dev/local-disk/rootdisk",
+					State:  iri.VolumeState_VOLUME_ATTACHED,
+				},
+				&iri.VolumeStatus{
 					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-1",
+					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-1",
 					State:  iri.VolumeState_VOLUME_ATTACHED,
 				},
 				&iri.VolumeStatus{
 					Name:   "disk-2",
-					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-2",
+					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-2",
 					State:  iri.VolumeState_VOLUME_ATTACHED,
 				},
 				&iri.VolumeStatus{
@@ -168,7 +179,7 @@ var _ = Describe("DetachVolume", func() {
 			HaveField("Volumes", ContainElements(
 				&iri.VolumeStatus{
 					Name:   "disk-2",
-					Handle: "libvirt-provider.ironcore.dev/empty-disk/disk-2",
+					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-2",
 					State:  iri.VolumeState_VOLUME_ATTACHED,
 				})),
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),

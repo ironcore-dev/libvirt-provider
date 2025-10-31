@@ -28,7 +28,7 @@ var _ = Describe("ListMachine", func() {
 					Volumes: []*iri.Volume{
 						{
 							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
+							LocalDisk: &iri.LocalDisk{
 								SizeBytes: 5368709120,
 							},
 							Device: "oda",

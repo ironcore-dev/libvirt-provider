@@ -28,8 +28,16 @@ var _ = Describe("AttachNetworkInterface", func() {
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
 					Class: machineClassx2medium,
-					Image: &iri.ImageSpec{
-						Image: osImage,
+					Volumes: []*iri.Volume{
+						{
+							Name:   "rootdisk",
+							Device: "oda",
+							LocalDisk: &iri.LocalDisk{
+								Image: &iri.ImageSpec{
+									Image: osImage,
+								},
+							},
+						},
 					},
 				},
 			},
