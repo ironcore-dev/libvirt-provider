@@ -16,20 +16,20 @@ require (
 	github.com/ironcore-dev/ironcore-net v0.2.4
 	github.com/ironcore-dev/provider-utils v0.0.0-20251010114402-394db8015df4
 	github.com/moby/term v0.5.2
-	github.com/onsi/ginkgo/v2 v2.26.0
+	github.com/onsi/ginkgo/v2 v2.27.2
 	github.com/onsi/gomega v1.38.2
 	github.com/prometheus/client_golang v1.23.2
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/pflag v1.0.10
-	golang.org/x/sync v0.17.0
+	golang.org/x/sync v0.18.0
 	google.golang.org/grpc v1.76.0
 	k8s.io/api v0.33.4
 	k8s.io/apimachinery v0.33.4
 	k8s.io/client-go v0.33.4
 	k8s.io/kubectl v0.33.3
 	k8s.io/utils v0.0.0-20250604170112-4c0f3b243397
-	libvirt.org/go/libvirtxml v1.11008.0
+	libvirt.org/go/libvirtxml v1.11009.0
 	sigs.k8s.io/controller-runtime v0.21.0
 )
 
@@ -104,7 +104,6 @@ require (
 	go.opentelemetry.io/otel v1.37.0 // indirect
 	go.opentelemetry.io/otel/metric v1.37.0 // indirect
 	go.opentelemetry.io/otel/trace v1.37.0 // indirect
-	go.uber.org/automaxprocs v1.6.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
