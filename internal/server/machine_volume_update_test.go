@@ -28,14 +28,20 @@ var _ = Describe("UpdateVolume", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
-					Image: &iri.ImageSpec{
-						Image: osImage,
-					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
-							Name:   "volume-1",
+							Name:   "rootdisk",
 							Device: "oda",
+							LocalDisk: &iri.LocalDisk{
+								Image: &iri.ImageSpec{
+									Image: osImage,
+								},
+							},
+						},
+						{
+							Name:   "volume-1",
+							Device: "odb",
 							Connection: &iri.VolumeConnection{
 								Driver: "ceph",
 								Handle: "dummy",
@@ -117,14 +123,14 @@ var _ = Describe("UpdateVolume", func() {
 			disks = domainXML.Devices.Disks
 			return len(disks)
 		}).Should(Equal(2))
-		Expect(disks[0].Serial).To(HavePrefix("oda"))
+		Expect(disks[1].Serial).To(HavePrefix("odb"))
 
 		By("updating machine volume")
 		updateVolumeResp, err := machineClient.UpdateVolume(ctx, &iri.UpdateVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
 			Volume: &iri.Volume{
 				Name:   "volume-1",
-				Device: "oda",
+				Device: "odb",
 				Connection: &iri.VolumeConnection{
 					Driver: "ceph",
 					Handle: "dummy",
@@ -153,10 +159,11 @@ var _ = Describe("UpdateVolume", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(listResp.Machines).NotTo(BeEmpty())
 			g.Expect(listResp.Machines).Should(HaveLen(1))
-			return listResp.Machines[0].Spec.Volumes[0]
+			g.Expect(listResp.Machines[0].Spec.Volumes).Should(HaveLen(2))
+			return listResp.Machines[0].Spec.Volumes[1]
 		}).Should(SatisfyAll(
 			HaveField("Name", Equal("volume-1")),
-			HaveField("Device", Equal("oda")),
+			HaveField("Device", Equal("odb")),
 			HaveField("Connection.EffectiveStorageBytes", Equal(resource.NewQuantity(2*1024*1024*1024, resource.BinarySI).Value())),
 		))
 	})

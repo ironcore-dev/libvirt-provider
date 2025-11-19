@@ -675,9 +675,8 @@ func (r *MachineReconciler) applyVolume(
 	}); err != nil && !errors.Is(err, ErrAttachedVolumeAlreadyExists) {
 		return "", 0, fmt.Errorf("error ensuring volume is attached: %w", err)
 	}
-
-	//TODO do epsilon comparison
-	if lastVolumeSize != 0 && volumeSize != lastVolumeSize {
+	isBootDisk := desiredVolume.LocalDisk != nil && desiredVolume.LocalDisk.Image != nil
+	if lastVolumeSize != 0 && volumeSize != lastVolumeSize && !isBootDisk {
 		log.V(1).Info("Resize volume", "volumeID", volumeID, "lastSize", lastVolumeSize, "volumeSize", volumeSize)
 		if err := attacher.ResizeVolume(&AttachVolume{
 			Name:   desiredVolume.Name,
@@ -772,6 +771,7 @@ func (a *libvirtVolumeAttacher) providerVolumeToLibvirt(computeVolumeName string
 				File: vol.RawFile,
 			},
 		}
+
 		return disk, nil, nil, nil, nil, nil
 	case vol.CephDisk != nil:
 		var (

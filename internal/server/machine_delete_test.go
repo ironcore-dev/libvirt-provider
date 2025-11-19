@@ -28,17 +28,23 @@ var _ = Describe("DeleteMachine", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
-					Image: &iri.ImageSpec{
-						Image: osImage,
-					},
 					Class: machineClassx3xlarge,
 					Volumes: []*iri.Volume{
 						{
+							Name:   "rootdisk",
+							Device: "oda",
+							LocalDisk: &iri.LocalDisk{
+								Image: &iri.ImageSpec{
+									Image: osImage,
+								},
+							},
+						},
+						{
 							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
+							LocalDisk: &iri.LocalDisk{
 								SizeBytes: emptyDiskSize,
 							},
-							Device: "oda",
+							Device: "odb",
 						},
 					},
 				},
@@ -134,7 +140,7 @@ var _ = Describe("DeleteMachine", func() {
 					Volumes: []*iri.Volume{
 						{
 							Name: "disk-1",
-							EmptyDisk: &iri.EmptyDisk{
+							LocalDisk: &iri.LocalDisk{
 								SizeBytes: emptyDiskSize,
 							},
 							Device: "oda",

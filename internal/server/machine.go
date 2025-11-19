@@ -10,6 +10,7 @@ import (
 	"github.com/go-logr/logr"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"k8s.io/utils/ptr"
 )
 
 func (s *Server) convertMachineToIRIMachine(ctx context.Context, log logr.Logger, machine *api.Machine) (*iri.Machine, error) {
@@ -46,16 +47,8 @@ func (s *Server) getIRIMachineSpec(machine *api.Machine) (*iri.MachineSpec, erro
 		return nil, fmt.Errorf("failed to get power state: %w", err)
 	}
 
-	var imageSpec *iri.ImageSpec
-	if image := machine.Spec.Image; image != nil {
-		imageSpec = &iri.ImageSpec{
-			Image: *image,
-		}
-	}
-
 	spec := &iri.MachineSpec{
 		Power:             power,
-		Image:             imageSpec,
 		Class:             class,
 		IgnitionData:      machine.Spec.Ignition,
 		Volumes:           s.getIRIVolumeSpec(machine),
@@ -68,10 +61,16 @@ func (s *Server) getIRIMachineSpec(machine *api.Machine) (*iri.MachineSpec, erro
 func (s *Server) getIRIVolumeSpec(machine *api.Machine) []*iri.Volume {
 	var volumes []*iri.Volume
 	for _, volume := range machine.Spec.Volumes {
-		var emptyDisk *iri.EmptyDisk
-		if volume.EmptyDisk != nil {
-			emptyDisk = &iri.EmptyDisk{
-				SizeBytes: volume.EmptyDisk.Size,
+		var localDisk *iri.LocalDisk
+		if volume.LocalDisk != nil {
+			localDisk = &iri.LocalDisk{
+				SizeBytes: volume.LocalDisk.Size,
+			}
+
+			if img := volume.LocalDisk.Image; img != nil {
+				localDisk.Image = &iri.ImageSpec{
+					Image: *img,
+				}
 			}
 		}
 
@@ -90,7 +89,7 @@ func (s *Server) getIRIVolumeSpec(machine *api.Machine) []*iri.Volume {
 		volumes = append(volumes, &iri.Volume{
 			Name:       volume.Name,
 			Device:     volume.Device,
-			EmptyDisk:  emptyDisk,
+			LocalDisk:  localDisk,
 			Connection: connection,
 		})
 	}
@@ -239,10 +238,14 @@ func (s *Server) getVolumeFromIRIVolume(iriVolume *iri.Volume) (*api.VolumeSpec,
 		return nil, fmt.Errorf("original volume is nil")
 	}
 
-	var emptyDiskSpec *api.EmptyDiskSpec
-	if emptyDisk := iriVolume.EmptyDisk; emptyDisk != nil {
-		emptyDiskSpec = &api.EmptyDiskSpec{
-			Size: emptyDisk.SizeBytes,
+	var localDiskSpec *api.LocalDiskSpec
+	if localDisk := iriVolume.LocalDisk; localDisk != nil {
+		localDiskSpec = &api.LocalDiskSpec{
+			Size: localDisk.SizeBytes,
+		}
+
+		if img := localDisk.Image; img != nil && img.Image != "" {
+			localDiskSpec.Image = ptr.To(img.Image)
 		}
 	}
 
@@ -261,7 +264,7 @@ func (s *Server) getVolumeFromIRIVolume(iriVolume *iri.Volume) (*api.VolumeSpec,
 	volumeSpec := &api.VolumeSpec{
 		Name:       iriVolume.Name,
 		Device:     iriVolume.Device,
-		EmptyDisk:  emptyDiskSpec,
+		LocalDisk:  localDiskSpec,
 		Connection: connectionSpec,
 	}
 

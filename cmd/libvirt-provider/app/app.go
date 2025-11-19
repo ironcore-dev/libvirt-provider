@@ -33,7 +33,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	volumeplugin "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/ceph"
-	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/emptydisk"
+	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/localdisk"
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/server"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
@@ -265,7 +265,7 @@ func Run(ctx context.Context, opts Options) error {
 	volumePlugins := volumeplugin.NewPluginManager()
 	if err := volumePlugins.InitPlugins(providerHost, []volumeplugin.Plugin{
 		ceph.NewPlugin(),
-		emptydisk.NewPlugin(rawInst),
+		localdisk.NewPlugin(rawInst, imgCache),
 	}); err != nil {
 		setupLog.Error(err, "failed to initialize volume plugin manager")
 		return err
