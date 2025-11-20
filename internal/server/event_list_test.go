@@ -65,7 +65,7 @@ var _ = Describe("ListEvents", func() {
 		Expect(resp.Events).To(ContainElement(
 			HaveField("Spec", SatisfyAll(
 				HaveField("InvolvedObjectMeta.Id", Equal(createResp.Machine.Metadata.Id)),
-				HaveField("Reason", Equal("NoIgnitionData")),
+				HaveField("Reason", Equal("IgnitionDataNotFound")),
 				HaveField("Message", Equal("Machine does not have ignition data")),
 				HaveField("Type", Equal(corev1.EventTypeWarning)),
 			)),
@@ -83,7 +83,7 @@ var _ = Describe("ListEvents", func() {
 		Expect(resp.Events).To(ContainElement(
 			HaveField("Spec", SatisfyAll(
 				HaveField("InvolvedObjectMeta.Id", Equal(createResp.Machine.Metadata.Id)),
-				HaveField("Reason", Equal("NoIgnitionData")),
+				HaveField("Reason", Equal("IgnitionDataNotFound")),
 				HaveField("Message", Equal("Machine does not have ignition data")),
 				HaveField("Type", Equal(corev1.EventTypeWarning)),
 			)),
