@@ -457,6 +457,11 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}
+	defer func() {
+		if err := l.Close(); err != nil {
+			setupLog.Error(err, "failed to close listener")
+		}
+	}()
 
 	setupLog.Info("Starting grpc server", "Address", l.Addr().String())
 	go func() {
