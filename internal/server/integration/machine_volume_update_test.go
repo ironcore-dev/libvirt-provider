@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package server_test
+package integration_test
 
 import (
 	"time"
@@ -16,9 +16,9 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("DetachVolume", func() {
-	It("should correctly detach volume from machine", func(ctx SpecContext) {
-		By("creating a machine with two empty disks and single ceph volume")
+var _ = Describe("UpdateVolume", func() {
+	It("should correctly update machine volume", func(ctx SpecContext) {
+		By("creating a machine with ceph volume")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
@@ -40,22 +40,8 @@ var _ = Describe("DetachVolume", func() {
 							},
 						},
 						{
-							Name: "disk-1",
-							LocalDisk: &iri.LocalDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "odb",
-						},
-						{
-							Name: "disk-2",
-							LocalDisk: &iri.LocalDisk{
-								SizeBytes: emptyDiskSize,
-							},
-							Device: "odc",
-						},
-						{
 							Name:   "volume-1",
-							Device: "odd",
+							Device: "odb",
 							Connection: &iri.VolumeConnection{
 								Driver: "ceph",
 								Handle: "dummy",
@@ -120,21 +106,6 @@ var _ = Describe("DetachVolume", func() {
 		}).Should(SatisfyAll(
 			HaveField("Volumes", ContainElements(
 				&iri.VolumeStatus{
-					Name:   "rootdisk",
-					Handle: "libvirt-provider.ironcore.dev/local-disk/rootdisk",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
-				},
-				&iri.VolumeStatus{
-					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-1",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
-				},
-				&iri.VolumeStatus{
-					Name:   "disk-2",
-					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-2",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
-				},
-				&iri.VolumeStatus{
 					Name:   "volume-1",
 					Handle: "libvirt-provider.ironcore.dev/ceph/libvirt-provider.ironcore.dev/ceph^dummy",
 					State:  iri.VolumeState_VOLUME_ATTACHED,
@@ -142,7 +113,7 @@ var _ = Describe("DetachVolume", func() {
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
 		))
 
-		By("ensuring both the empty disks and a ceph volume is attached to a machine domain")
+		By("ensuring the ceph volume is attached to a machine domain")
 		var disks []libvirtxml.DomainDisk
 		Eventually(func(g Gomega) int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
@@ -151,21 +122,35 @@ var _ = Describe("DetachVolume", func() {
 			g.Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
 			disks = domainXML.Devices.Disks
 			return len(disks)
-		}).Should(Equal(4))
-		Expect(disks[0].Serial).To(HavePrefix("oda"))
+		}).Should(Equal(2))
 		Expect(disks[1].Serial).To(HavePrefix("odb"))
-		Expect(disks[2].Serial).To(HavePrefix("odc"))
 
-		By("detaching empty disk disk-1 from machine")
-		diskDetachResp, err := machineClient.DetachVolume(ctx, &iri.DetachVolumeRequest{
+		By("updating machine volume")
+		updateVolumeResp, err := machineClient.UpdateVolume(ctx, &iri.UpdateVolumeRequest{
 			MachineId: createResp.Machine.Metadata.Id,
-			Name:      "disk-1",
+			Volume: &iri.Volume{
+				Name:   "volume-1",
+				Device: "odb",
+				Connection: &iri.VolumeConnection{
+					Driver: "ceph",
+					Handle: "dummy",
+					Attributes: map[string]string{
+						"image":    cephImage,
+						"monitors": cephMonitors,
+					},
+					SecretData: map[string][]byte{
+						"userID":  []byte(cephUsername),
+						"userKey": []byte(cephUserkey),
+					},
+					EffectiveStorageBytes: resource.NewQuantity(2*1024*1024*1024, resource.BinarySI).Value(),
+				},
+			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(diskDetachResp).NotTo(BeNil())
+		Expect(updateVolumeResp).NotTo(BeNil())
 
-		By("ensuring detached disk and volume have been updated in machine status field")
-		Eventually(func(g Gomega) *iri.MachineStatus {
+		By("ensuring volume has been resized and updated in machine spec field")
+		Eventually(func(g Gomega) *iri.Volume {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
 					Id: createResp.Machine.Metadata.Id,
@@ -174,15 +159,12 @@ var _ = Describe("DetachVolume", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(listResp.Machines).NotTo(BeEmpty())
 			g.Expect(listResp.Machines).Should(HaveLen(1))
-			return listResp.Machines[0].Status
+			g.Expect(listResp.Machines[0].Spec.Volumes).Should(HaveLen(2))
+			return listResp.Machines[0].Spec.Volumes[1]
 		}).Should(SatisfyAll(
-			HaveField("Volumes", ContainElements(
-				&iri.VolumeStatus{
-					Name:   "disk-2",
-					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-2",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
-				})),
-			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
+			HaveField("Name", Equal("volume-1")),
+			HaveField("Device", Equal("odb")),
+			HaveField("Connection.EffectiveStorageBytes", Equal(resource.NewQuantity(2*1024*1024*1024, resource.BinarySI).Value())),
 		))
 	})
 })

@@ -77,6 +77,11 @@ func wellKnownConnectURIs() []libvirt.ConnectURI {
 	}
 
 	uris = append(uris, libvirt.QEMUSystem)
+
+	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
+		uris = append(uris, libvirt.QEMUSession)
+	}
+
 	return uris
 }
 
