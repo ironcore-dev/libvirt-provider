@@ -10,6 +10,13 @@ MKDOCS_IMG=onmetal/libvirt-provider-docs
 LIBVIRT_PROVIDER_BIN=$(LOCALBIN)/libvirt-provider
 LIBVIRT_PROVIDER_BIN_SOURCE=./cmd/libvirt-provider
 
+# LDFLAGS for the build targets
+LDFLAGS ?= -s -w
+VERSION=$(shell git describe --tags --abbrev=0)
+COMMIT=$(shell git log -n1 --format="%h")
+LIBVIRT_VERSION=github.com/ironcore-dev/libvirt-provider/internal/server/version.Version
+LIBVIRT_COMMIT=github.com/ironcore-dev/libvirt-provider/internal/server/version.Commit
+
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -123,7 +130,7 @@ run: manifests generate fmt vet ## Run the binary
 
 .PHONY: docker-build
 docker-build: ## Build docker image with partitionlet
-	$(CONTAINER_TOOL) build $(CONTAINER_BUILDARGS) -t ${IMG} .
+	$(CONTAINER_TOOL) build --build-arg LDFLAGS="${LDFLAGS} -X $(LIBVIRT_VERSION)=$(VERSION) -X $(LIBVIRT_COMMIT)=$(COMMIT)" $(CONTAINER_BUILDARGS) -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
