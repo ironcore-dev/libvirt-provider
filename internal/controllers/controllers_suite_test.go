@@ -75,7 +75,7 @@ func TestControllers(t *testing.T) {
 	SetDefaultConsistentlyDuration(consistentlyDuration)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Machine Controller Suite")
+	RunSpecs(t, "Machine Controller Suite", Label("integration"))
 }
 
 var _ = BeforeSuite(func() {
