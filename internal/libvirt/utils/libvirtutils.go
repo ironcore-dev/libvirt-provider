@@ -39,6 +39,8 @@ func wellKnownSocketPaths() []string {
 
 	if runtime.GOOS == "darwin" && runtime.GOARCH == "arm64" {
 		paths = append(paths, filepath.Join("/", "opt", "homebrew", "var", "run", "libvirt", "libvirt-sock"))
+	} else {
+		paths = append(paths, filepath.Join("/", "var", "run", "libvirt", "libvirt-sock"))
 	}
 
 	return paths

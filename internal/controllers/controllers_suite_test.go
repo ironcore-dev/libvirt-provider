@@ -228,8 +228,6 @@ var _ = BeforeSuite(func() {
 	By("controller setup complete")
 })
 
-// Helper functions for tests
-
 func createMachine(spec api.MachineSpec) (*api.Machine, error) {
 	machine := &api.Machine{
 		Metadata: apiutils.Metadata{
@@ -242,10 +240,6 @@ func createMachine(spec api.MachineSpec) (*api.Machine, error) {
 
 func getMachine(id string) (*api.Machine, error) {
 	return machineStore.Get(context.Background(), id)
-}
-
-func listMachines() ([]*api.Machine, error) {
-	return machineStore.List(context.Background())
 }
 
 func deleteMachine(id string) error {
@@ -264,9 +258,8 @@ func updateMachine(machine *api.Machine) (*api.Machine, error) {
 
 func cleanupMachine(machineID string) func(SpecContext) {
 	return func(ctx SpecContext) {
-		GinkgoWriter.Printf("Deleting machine: ID=%s\n", machineID)
+		By(fmt.Sprintf("cleaning up machine ID=%s", machineID))
 		err := deleteMachine(machineID)
-		GinkgoWriter.Printf("Deleted machine: ID=%s, err=%v\n", machineID, err)
 		Expect(err).To(SatisfyAny(
 			BeNil(),
 			MatchError(ContainSubstring("NotFound")),

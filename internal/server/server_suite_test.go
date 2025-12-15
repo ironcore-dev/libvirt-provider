@@ -95,8 +95,6 @@ var _ = BeforeSuite(func() {
 
 	By("setting up libvirt connection")
 	libvirtOpts := app.LibvirtOptions{
-		Socket:                "", //"/opt/homebrew/var/run/libvirt/libvirt-sock",
-		URI:                   "", //"qemu:///session",
 		PreferredDomainTypes:  []string{"kvm", "qemu"},
 		PreferredMachineTypes: []string{"pc-q35", "pc-i440fx", "virt"},
 		Qcow2Type:             "exec",
