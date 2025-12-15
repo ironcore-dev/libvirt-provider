@@ -30,7 +30,8 @@ var _ = Describe("CreateMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 		DeferCleanup(func() {
-			machineStore.Delete(ctx, createResp.Machine.Metadata.Id)
+			err := machineStore.Delete(ctx, createResp.Machine.Metadata.Id)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("ensuring the correct creation response")
@@ -92,8 +93,9 @@ var _ = Describe("CreateMachine", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
-		DeferCleanup(func(ctx SpecContext) {
-			machineStore.Delete(ctx, createResp.Machine.Metadata.Id)
+		DeferCleanup(func() {
+			err := machineStore.Delete(ctx, createResp.Machine.Metadata.Id)
+			Expect(err).NotTo(HaveOccurred())
 		})
 
 		By("ensuring the correct creation response")
