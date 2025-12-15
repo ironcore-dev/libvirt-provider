@@ -119,10 +119,6 @@ var _ = Describe("CreateMachine", func() {
 			g.Expect(err).NotTo(HaveOccurred())
 			g.Expect(msList).NotTo(BeEmpty())
 			g.Expect(msList).To(HaveLen(1))
-			// for _, m := range msList {
-			// 	GinkgoWriter.Printf("%+v\n", m.Spec.Volumes[0])
-			// 	GinkgoWriter.Printf("%+v\n", m.Spec.NetworkInterfaces[0])
-			// }
 			return msList[0]
 		}).Should(SatisfyAll(
 			HaveField("Spec.MemoryBytes", int64(8589934592)),
