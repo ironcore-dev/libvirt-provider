@@ -20,6 +20,7 @@ COPY hack/ hack/
 ARG TARGETOS
 ARG TARGETARCH
 ARG BUILDPLATFORM
+ARG LDFLAGS
 ENV BUILDARCH=${BUILDPLATFORM##*/}
 
 # Install common dependencies
@@ -33,7 +34,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="-s -w" -a -o libvirt-provider ./cmd/libvirt-provider/main.go
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="${LDFLAGS}" -a -o libvirt-provider ./cmd/libvirt-provider/main.go
 
 
 # Install irictl-machine
