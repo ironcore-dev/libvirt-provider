@@ -222,6 +222,16 @@ var _ = BeforeSuite(func() {
 		}
 	}()
 
+	By("starting image cache")
+	go func() {
+		defer GinkgoRecover()
+		err := imgCache.Start(controllerCtx)
+		if err != nil && controllerCtx.Err() == nil {
+			// Only fail if not cancelled
+			Expect(err).NotTo(HaveOccurred())
+		}
+	}()
+
 	// Wait a bit for controller and events to start
 	time.Sleep(500 * time.Millisecond)
 

@@ -4,6 +4,8 @@
 package controllers_test
 
 import (
+	"time"
+
 	"github.com/digitalocean/go-libvirt"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
@@ -56,8 +58,9 @@ var _ = Describe("MachineController", func() {
 
 		})
 
-		It("should handle machine without boot image, but with volume and network interface", func(ctx SpecContext) {
-			By("creating a machine with volume and network interface")
+		It("should handle machine with boot image and network interface", func(ctx SpecContext) {
+			By("creating a machine with boot image and network interface")
+			image := osImage
 			machine, err := createMachine(api.MachineSpec{
 				Power:       api.PowerStatePowerOn,
 				Cpu:         2,
@@ -66,7 +69,7 @@ var _ = Describe("MachineController", func() {
 					{
 						Name: "disk-1",
 						LocalDisk: &api.LocalDiskSpec{
-							Size: emptyDiskSize,
+							Image: &image,
 						},
 						Device: "oda",
 					},
@@ -97,7 +100,7 @@ var _ = Describe("MachineController", func() {
 			Eventually(func() error {
 				domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID))
 				return err
-			}).Should(Succeed())
+			}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(domainXMLData).NotTo(BeEmpty())
@@ -116,12 +119,11 @@ var _ = Describe("MachineController", func() {
 				return &m.Status
 			}).Should(SatisfyAll(
 				HaveField("ImageRef", BeEmpty()),
-				HaveField("VolumeStatus", ContainElement(api.VolumeStatus{
-					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-1",
-					State:  api.VolumeStateAttached,
-					Size:   emptyDiskSize,
-				})),
+				HaveField("VolumeStatus", ContainElement(SatisfyAll(
+					HaveField("Name", Equal("disk-1")),
+					HaveField("Handle", Equal("libvirt-provider.ironcore.dev/local-disk/disk-1")),
+					HaveField("State", Equal(api.VolumeStateAttached)),
+				))),
 				HaveField("NetworkInterfaceStatus", ContainElement(api.NetworkInterfaceStatus{
 					Name:  "nic-1",
 					State: api.NetworkInterfaceStateAttached,
