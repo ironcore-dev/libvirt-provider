@@ -14,6 +14,7 @@ import (
 
 	"github.com/digitalocean/go-libvirt"
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
+	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
@@ -177,4 +178,21 @@ func isSocketAvailable(socketPath string) error {
 		return nil
 	}
 	return fmt.Errorf("socket %s is not available", socketPath)
+}
+
+func cleanupMachine(machineID string) func(ctx SpecContext) {
+	return func(ctx SpecContext) {
+		Eventually(func(g Gomega) error {
+			_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: machineID})
+			if success, _ := MatchError(ContainSubstring("NotFound")).Match(err); success {
+				return nil
+			}
+			return err
+		}).WithPolling(time.Second).Should(Succeed())
+
+		Eventually(func(g Gomega) bool {
+			_, err := libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
+			return libvirt.IsNotFound(err)
+		}).WithPolling(time.Second).Should(BeTrue())
+	}
 }
