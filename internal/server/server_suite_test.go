@@ -217,17 +217,3 @@ func isSocketAvailable(socketPath string) error {
 	}
 	return fmt.Errorf("socket %s is not available", socketPath)
 }
-
-func cleanupMachine(machineID string) func(SpecContext) {
-	return func(ctx SpecContext) {
-		By(fmt.Sprintf("Cleaning up machine ID=%s", machineID))
-		Eventually(func(g Gomega) error {
-			err := machineStore.Delete(context.Background(), machineID)
-			GinkgoWriter.Printf("Deleting machine ID=%s: err=%v\n", machineID, err)
-			if success, _ := MatchError(ContainSubstring("no such file or directory")).Match(err); success {
-				return nil
-			}
-			return err
-		}).Should(Succeed())
-	}
-}
