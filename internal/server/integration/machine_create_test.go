@@ -33,8 +33,6 @@ var _ = Describe("CreateMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
-		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
-
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
@@ -49,6 +47,18 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.Volumes", BeNil()),
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
+
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				g.Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
@@ -142,7 +152,17 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
 
-		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				g.Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
@@ -231,8 +251,6 @@ var _ = Describe("CreateMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
-		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
-
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
@@ -266,6 +284,18 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.Volumes", BeNil()),
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
+
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				g.Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain
@@ -360,8 +390,6 @@ var _ = Describe("CreateMachine", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
 
-		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
-
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(
 			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
@@ -401,6 +429,18 @@ var _ = Describe("CreateMachine", func() {
 			HaveField("Machine.Status.Volumes", BeNil()),
 			HaveField("Machine.Status.NetworkInterfaces", BeNil()),
 		))
+
+		DeferCleanup(func(ctx SpecContext) {
+			Eventually(func(g Gomega) bool {
+				_, err := machineClient.DeleteMachine(ctx, &iri.DeleteMachineRequest{MachineId: createResp.Machine.Metadata.Id})
+				g.Expect(err).To(SatisfyAny(
+					BeNil(),
+					MatchError(ContainSubstring("NotFound")),
+				))
+				_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
+				return libvirt.IsNotFound(err)
+			}).Should(BeTrue())
+		})
 
 		By("ensuring domain and domain XML is created for machine")
 		var domain libvirt.Domain

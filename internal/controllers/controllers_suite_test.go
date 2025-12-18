@@ -268,22 +268,18 @@ func updateMachine(machine *api.Machine) (*api.Machine, error) {
 
 func cleanupMachine(machineID string) func(SpecContext) {
 	return func(ctx SpecContext) {
-		By(fmt.Sprintf("Cleaning up machine ID=%s", machineID))
-		Eventually(func(g Gomega) error {
-			err := deleteMachine(machineID)
-			GinkgoWriter.Printf("Deleting machine ID=%s: err=%v\n", machineID, err)
-			if success, _ := MatchError(ContainSubstring("no such file or directory")).Match(err); success {
-				return nil
-			}
-			return err
-		}).Should(Succeed())
-
+		By(fmt.Sprintf("cleaning up machine ID=%s", machineID))
+		err := deleteMachine(machineID)
+		Expect(err).To(SatisfyAny(
+			BeNil(),
+			MatchError(ContainSubstring("NotFound")),
+		))
 		Eventually(func(g Gomega) bool {
-			_, err := libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
+			_, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
 			if err != nil {
 				GinkgoWriter.Printf("Checking if domain still exists for machine ID=%s: err=%v\n", machineID, err)
 			}
 			return libvirt.IsNotFound(err)
-		}).WithPolling(time.Second).Should(BeTrue())
+		}).Should(BeTrue())
 	}
 }
