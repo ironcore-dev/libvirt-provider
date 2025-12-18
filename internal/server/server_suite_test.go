@@ -1,26 +1,36 @@
-// SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: 20253 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package server_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
 
-	"github.com/digitalocean/go-libvirt"
-	"github.com/digitalocean/go-libvirt/socket/dialers"
+	"github.com/ironcore-dev/ironcore-image/oci/remote"
+	ocistore "github.com/ironcore-dev/ironcore-image/oci/store"
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/cmd/libvirt-provider/app"
+	"github.com/ironcore-dev/libvirt-provider/internal/host"
+	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
+	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
+	volumeplugin "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
+	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/localdisk"
+	"github.com/ironcore-dev/libvirt-provider/internal/raw"
+	"github.com/ironcore-dev/libvirt-provider/internal/server"
+	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
+	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
+	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
+	hostutils "github.com/ironcore-dev/provider-utils/storeutils/host"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"google.golang.org/grpc"
@@ -51,14 +61,10 @@ const (
 )
 
 var (
-	machineClient      iriv1alpha1.MachineRuntimeClient
-	libvirtConn        *libvirt.Libvirt
-	machineClassesFile *os.File
-	tempDir            string
-	cephMonitors       = os.Getenv("CEPH_MONITORS")
-	cephImage          = os.Getenv("CEPH_IMAGE")
-	cephUsername       = os.Getenv("CEPH_USERNAME")
-	cephUserkey        = os.Getenv("CEPH_USERKEY")
+	machineClient  iriv1alpha1.MachineRuntimeClient
+	machineClasses *mcr.Mcr
+	machineStore   *hostutils.Store[*api.Machine]
+	tempDir        string
 )
 
 func TestServer(t *testing.T) {
@@ -72,11 +78,45 @@ func TestServer(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	log := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
+	logf.SetLogger(log)
 
 	By("starting the app")
 
-	machineClasses := []iriv1alpha1.MachineClass{
+	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
+	pluginOpts.PluginName = "isolated"
+
+	tempDir = GinkgoT().TempDir()
+	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
+
+	rootDir := filepath.Join(tempDir, "libvirt-provider")
+
+	address := filepath.Join(tempDir, "test.sock")
+
+	By("setting up libvirt connection")
+	libvirtOpts := app.LibvirtOptions{
+		PreferredDomainTypes:  []string{"kvm", "qemu"},
+		PreferredMachineTypes: []string{"pc-q35", "pc-i440fx", "virt"},
+		Qcow2Type:             "exec",
+	}
+	libvirt, err := libvirtutils.GetLibvirt(libvirtOpts.Socket, libvirtOpts.Address, libvirtOpts.URI)
+	Expect(err).NotTo(HaveOccurred())
+	DeferCleanup(libvirt.ConnectClose)
+
+	By("setting up the machine store")
+	providerHost, err := host.NewLibvirtAt(rootDir, libvirt)
+	Expect(err).NotTo(HaveOccurred())
+
+	By("setting up the machine store")
+	machineStore, err = hostutils.NewStore[*api.Machine](hostutils.Options[*api.Machine]{
+		NewFunc:        func() *api.Machine { return &api.Machine{} },
+		CreateStrategy: strategy.MachineStrategy,
+		Dir:            providerHost.MachineStoreDir(),
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("setting up the machine class registry")
+	classes := []*iriv1alpha1.MachineClass{
 		{
 			Name: machineClassx3xlarge,
 			Capabilities: &iriv1alpha1.MachineClassCapabilities{
@@ -96,65 +136,68 @@ var _ = BeforeSuite(func() {
 			},
 		},
 	}
-	machineClassData, err := json.Marshal(machineClasses)
+	machineClasses, err = mcr.NewMachineClassRegistry(classes)
 	Expect(err).NotTo(HaveOccurred())
-	machineClassesFile, err = os.CreateTemp(GinkgoT().TempDir(), "machineclasses")
+
+	By("setting up the event store")
+	eventStore := recorder.NewEventStore(log, recorder.EventStoreOptions{
+		MaxEvents:      machineEventMaxEvents,
+		TTL:            machineEventTTL,
+		ResyncInterval: machineEventResyncInterval,
+	})
+
+	By("setting up the volume plugin")
+	platform, err := ocihostutils.Platform()
 	Expect(err).NotTo(HaveOccurred())
-	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
-	DeferCleanup(machineClassesFile.Close)
-	DeferCleanup(os.Remove, machineClassesFile.Name())
 
-	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
-	pluginOpts.PluginName = "isolated"
+	reg, err := remote.DockerRegistryWithPlatform(nil, platform)
+	Expect(err).NotTo(HaveOccurred())
 
-	tempDir = GinkgoT().TempDir()
-	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
+	ociStore, err := ocistore.New(providerHost.ImagesDir())
+	Expect(err).NotTo(HaveOccurred())
 
-	opts := app.Options{
-		Address:                     filepath.Join(tempDir, "test.sock"),
-		BaseURL:                     baseURL,
-		PathSupportedMachineClasses: machineClassesFile.Name(),
-		RootDir:                     filepath.Join(tempDir, "libvirt-provider"),
-		StreamingAddress:            streamingAddress,
-		Servers: app.ServersOptions{
-			Metrics: app.HTTPServerOptions{
-				Addr: metricsAddress,
-			},
-			HealthCheck: app.HTTPServerOptions{
-				Addr: healthCheckAddress,
-			},
-		},
-		Libvirt: app.LibvirtOptions{
-			Socket:                "/var/run/libvirt/libvirt-sock",
-			URI:                   "qemu:///system",
-			PreferredDomainTypes:  []string{"kvm", "qemu"},
-			PreferredMachineTypes: []string{"pc-q35", "pc-i440fx"},
-			Qcow2Type:             "exec",
-		},
-		NicPlugin:                      pluginOpts,
-		GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
-		ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
-		GuestAgent:                     app.GuestAgentOption(api.GuestAgentNone),
-		MachineEventStore: recorder.EventStoreOptions{
-			MaxEvents:      machineEventMaxEvents,
-			TTL:            machineEventTTL,
-			ResyncInterval: machineEventResyncInterval,
-		},
-	}
+	imgCache, err := ociutils.NewLocalCache(log, reg, ociStore, nil)
+	Expect(err).NotTo(HaveOccurred())
 
-	srvCtx, cancel := context.WithCancel(context.Background())
+	rawInst, err := raw.Instance(raw.Default())
+	Expect(err).NotTo(HaveOccurred())
+
+	volumePlugins := volumeplugin.NewPluginManager()
+	err = volumePlugins.InitPlugins(providerHost, []volumeplugin.Plugin{
+		// ceph.NewPlugin(),
+		localdisk.NewPlugin(rawInst, imgCache),
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	By("setting up the network interface plugin")
+	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
+
+	srv, err := server.New(server.Options{
+		BaseURL:         baseURL,
+		Libvirt:         libvirt,
+		MachineStore:    machineStore,
+		EventStore:      eventStore,
+		MachineClasses:  machineClasses,
+		VolumePlugins:   volumePlugins,
+		NetworkPlugins:  nicPlugin,
+		EnableHugepages: false,
+		GuestAgent:      api.GuestAgentNone,
+	})
+	Expect(err).NotTo(HaveOccurred())
+
+	cancelCtx, cancel := context.WithCancel(context.Background())
 	DeferCleanup(cancel)
 
 	go func() {
 		defer GinkgoRecover()
-		Expect(app.Run(srvCtx, opts)).To(Succeed())
+		Expect(app.RunGRPCServer(cancelCtx, log, log, srv, address)).To(Succeed())
 	}()
 
 	Eventually(func() error {
-		return isSocketAvailable(opts.Address)
+		return isSocketAvailable(address)
 	}).WithTimeout(30 * time.Second).WithPolling(500 * time.Millisecond).Should(Succeed())
 
-	address, err := machine.GetAddressWithTimeout(3*time.Second, fmt.Sprintf("unix://%s", opts.Address))
+	address, err = machine.GetAddressWithTimeout(3*time.Second, fmt.Sprintf("unix://%s", address))
 	Expect(err).NotTo(HaveOccurred())
 
 	gconn, err := grpc.NewClient(address, grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -162,12 +205,6 @@ var _ = BeforeSuite(func() {
 	DeferCleanup(gconn.Close)
 
 	machineClient = iriv1alpha1.NewMachineRuntimeClient(gconn)
-
-	c := dialers.NewLocal()
-	libvirtConn = libvirt.NewWithDialer(c)
-	Expect(libvirtConn.Connect()).To(Succeed())
-	Expect(libvirtConn.IsConnected(), BeTrue())
-	DeferCleanup(libvirtConn.ConnectClose)
 })
 
 func isSocketAvailable(socketPath string) error {

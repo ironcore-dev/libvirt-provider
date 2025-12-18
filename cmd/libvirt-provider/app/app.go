@@ -147,7 +147,7 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	// Volume cache policy option
 	fs.StringVar(&o.VolumeCachePolicy, "volume-cache-policy", "none",
 		`Policy to use when creating a remote disk. (one of 'none', 'writeback', 'writethrough', 'directsync', 'unsafe').
-Note: The available options may depend on the hypervisor and libvirt version in use. 
+Note: The available options may depend on the hypervisor and libvirt version in use.
 Please refer to the official documentation for more details: https://libvirt.org/formatdomain.html#hard-drives-floppy-disks-cdroms.`)
 
 	o.NicPlugin = networkinterfaceplugin.NewDefaultOptions()
@@ -410,7 +410,7 @@ func Run(ctx context.Context, opts Options) error {
 
 	g.Go(func() error {
 		setupLog.Info("Starting grpc server")
-		if err := runGRPCServer(ctx, setupLog, log, srv, opts); err != nil {
+		if err := RunGRPCServer(ctx, setupLog, log, srv, opts.Address); err != nil {
 			setupLog.Error(err, "failed to start grpc server")
 			return err
 		}
@@ -438,9 +438,9 @@ func Run(ctx context.Context, opts Options) error {
 	return g.Wait()
 }
 
-func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, srv *server.Server, opts Options) error {
+func RunGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, srv *server.Server, address string) error {
 	setupLog.V(1).Info("Cleaning up any previous socket")
-	if err := common.CleanupSocketIfExists(opts.Address); err != nil {
+	if err := common.CleanupSocketIfExists(address); err != nil {
 		return fmt.Errorf("error cleaning up socket: %w", err)
 	}
 
@@ -452,8 +452,8 @@ func runGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, s
 	)
 	iri.RegisterMachineRuntimeServer(grpcSrv, srv)
 
-	setupLog.V(1).Info("Start listening on unix socket", "Address", opts.Address)
-	l, err := net.Listen("unix", opts.Address)
+	setupLog.V(1).Info("Start listening on unix socket", "Address", address)
+	l, err := net.Listen("unix", address)
 	if err != nil {
 		return fmt.Errorf("failed to listen: %w", err)
 	}

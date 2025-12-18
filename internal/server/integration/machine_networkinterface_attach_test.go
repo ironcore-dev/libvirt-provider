@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package server_test
+package integration_test
 
 import (
 	"time"
@@ -12,12 +12,11 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/api/resource"
 	"libvirt.org/go/libvirtxml"
 )
 
-var _ = Describe("AttachVolume", func() {
-	It("should correctly attach volume to machine", func(ctx SpecContext) {
+var _ = Describe("AttachNetworkInterface", func() {
+	It("should attach a network interface to the machine", func(ctx SpecContext) {
 		By("creating a machine")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -28,7 +27,7 @@ var _ = Describe("AttachVolume", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
-					Class: machineClassx3xlarge,
+					Class: machineClassx2medium,
 					Volumes: []*iri.Volume{
 						{
 							Name:   "rootdisk",
@@ -63,7 +62,7 @@ var _ = Describe("AttachVolume", func() {
 		Eventually(func() error {
 			domain, err = libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(createResp.Machine.Metadata.Id))
 			return err
-		}).Should(Succeed())
+		}).WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).Should(Succeed())
 		domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(domainXMLData).NotTo(BeEmpty())
@@ -75,80 +74,29 @@ var _ = Describe("AttachVolume", func() {
 			return libvirt.DomainState(domainState)
 		}).Should(Equal(libvirt.DomainRunning))
 
-		By("attaching empty disk to a machine")
-		attachLocalDiskResp, err := machineClient.AttachVolume(ctx, &iri.AttachVolumeRequest{
+		By("attaching network interface to the machine")
+		attachNetworkResp, err := machineClient.AttachNetworkInterface(ctx, &iri.AttachNetworkInterfaceRequest{
 			MachineId: createResp.Machine.Metadata.Id,
-			Volume: &iri.Volume{
-				Name: "disk-1",
-				LocalDisk: &iri.LocalDisk{
-					SizeBytes: 5368709120,
-				},
-				Device: "odb",
+			NetworkInterface: &iri.NetworkInterface{
+				Name: "nic-1",
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
-		Expect(attachLocalDiskResp).NotTo(BeNil())
+		Expect(attachNetworkResp).NotTo(BeNil())
 
-		By("ensuring attached empty disk have been updated in machine status field")
-		Eventually(func(g Gomega) *iri.MachineStatus {
-			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
-				Filter: &iri.MachineFilter{
-					Id: createResp.Machine.Metadata.Id,
-				},
-			})
-			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(listResp.Machines).NotTo(BeEmpty())
-			g.Expect(listResp.Machines).Should(HaveLen(1))
-			return listResp.Machines[0].Status
-		}).Should(SatisfyAll(
-			HaveField("Volumes", ContainElements(
-				&iri.VolumeStatus{
-					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-1",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
-				})),
-			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
-		))
-
-		By("attaching volume with connection details to a machine")
-		attachVolumeConnectionResp, err := machineClient.AttachVolume(ctx, &iri.AttachVolumeRequest{
-			MachineId: createResp.Machine.Metadata.Id,
-			Volume: &iri.Volume{
-				Name:   "volume-1",
-				Device: "odc",
-				Connection: &iri.VolumeConnection{
-					Driver: "ceph",
-					Handle: "dummy",
-					Attributes: map[string]string{
-						"image":    cephImage,
-						"monitors": cephMonitors,
-					},
-					SecretData: map[string][]byte{
-						"userID":  []byte(cephUsername),
-						"userKey": []byte(cephUserkey),
-					},
-					EffectiveStorageBytes: resource.NewQuantity(1*1024*1024*1024, resource.BinarySI).Value(),
-				},
-			},
-		})
-		Expect(err).NotTo(HaveOccurred())
-		Expect(attachVolumeConnectionResp).NotTo(BeNil())
-
-		By("ensuring both the disks are attached to a machine domain")
-		var disks []libvirtxml.DomainDisk
+		By("ensuring network interface attached to the machine domain")
+		var interfaces []libvirtxml.DomainInterface
 		Eventually(func(g Gomega) int {
 			domainXMLData, err := libvirtConn.DomainGetXMLDesc(domain, 0)
 			g.Expect(err).NotTo(HaveOccurred())
 			domainXML := &libvirtxml.Domain{}
 			g.Expect(domainXML.Unmarshal(domainXMLData)).Should(Succeed())
-			disks = domainXML.Devices.Disks
-			return len(disks)
-		}).WithTimeout(2 * time.Minute).WithPolling(2 * time.Second).Should(Equal(3))
-		Expect(disks[0].Serial).To(HavePrefix("oda"))
-		Expect(disks[1].Serial).To(HavePrefix("odb"))
-		Expect(disks[2].Serial).To(HavePrefix("odc"))
+			interfaces = domainXML.Devices.Interfaces
+			return len(interfaces)
+		}).Should(Equal(1))
+		Expect(interfaces[0].Alias.Name).To(HaveSuffix("nic-1"))
 
-		By("ensuring attached volume have been updated in machine status field")
+		By("ensuring attached network interface has been updated in the machine status")
 		Eventually(func(g Gomega) *iri.MachineStatus {
 			listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 				Filter: &iri.MachineFilter{
@@ -160,16 +108,10 @@ var _ = Describe("AttachVolume", func() {
 			g.Expect(listResp.Machines).Should(HaveLen(1))
 			return listResp.Machines[0].Status
 		}).Should(SatisfyAll(
-			HaveField("Volumes", ContainElements(
-				&iri.VolumeStatus{
-					Name:   "disk-1",
-					Handle: "libvirt-provider.ironcore.dev/local-disk/disk-1",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
-				},
-				&iri.VolumeStatus{
-					Name:   "volume-1",
-					Handle: "libvirt-provider.ironcore.dev/ceph/libvirt-provider.ironcore.dev/ceph^dummy",
-					State:  iri.VolumeState_VOLUME_ATTACHED,
+			HaveField("NetworkInterfaces", ContainElements(
+				&iri.NetworkInterfaceStatus{
+					Name:  "nic-1",
+					State: iri.NetworkInterfaceState_NETWORK_INTERFACE_ATTACHED,
 				})),
 			HaveField("State", Equal(iri.MachineState_MACHINE_RUNNING)),
 		))

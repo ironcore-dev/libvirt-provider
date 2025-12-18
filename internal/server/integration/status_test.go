@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package server_test
+package integration_test
 
 import (
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
