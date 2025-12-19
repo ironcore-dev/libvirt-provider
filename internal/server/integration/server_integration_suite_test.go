@@ -178,3 +178,20 @@ func isSocketAvailable(socketPath string) error {
 	}
 	return fmt.Errorf("socket %s is not available", socketPath)
 }
+
+func cleanupMachine(machineID string) func(ctx SpecContext) {
+	return func(ctx SpecContext) {
+		Eventually(func(g Gomega) error {
+			_, err := machineClient.DeleteMachine(ctx, &iriv1alpha1.DeleteMachineRequest{MachineId: machineID})
+			if success, _ := MatchError(ContainSubstring("NotFound")).Match(err); success {
+				return nil
+			}
+			return err
+		}).WithPolling(time.Second).Should(Succeed())
+
+		Eventually(func(g Gomega) bool {
+			_, err := libvirtConn.DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machineID))
+			return libvirt.IsNotFound(err)
+		}).WithPolling(time.Second).Should(BeTrue())
+	}
+}
