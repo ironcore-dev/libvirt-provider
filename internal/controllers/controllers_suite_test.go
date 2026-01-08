@@ -5,6 +5,7 @@ package controllers_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -33,6 +34,7 @@ import (
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
 	hostutils "github.com/ironcore-dev/provider-utils/storeutils/host"
+	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
@@ -272,7 +274,7 @@ func cleanupMachine(machineID string) func(SpecContext) {
 		Eventually(func(g Gomega) error {
 			err := deleteMachine(machineID)
 			GinkgoWriter.Printf("Deleting machine ID=%s: err=%v\n", machineID, err)
-			if success, _ := MatchError(ContainSubstring("no such file or directory")).Match(err); success {
+			if errors.Is(err, store.ErrNotFound) {
 				return nil
 			}
 			return err
