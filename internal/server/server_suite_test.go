@@ -76,7 +76,7 @@ func TestServer(t *testing.T) {
 	SetDefaultConsistentlyDuration(consistentlyDuration)
 
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "GRPC Server Suite", Label("integration"))
+	RunSpecs(t, "GRPC Server Suite")
 }
 
 var _ = BeforeSuite(func() {
