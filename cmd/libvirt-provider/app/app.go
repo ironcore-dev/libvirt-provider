@@ -25,6 +25,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/internal/console"
 	"github.com/ironcore-dev/libvirt-provider/internal/controllers"
+	"github.com/ironcore-dev/libvirt-provider/internal/device/nvidia"
 	"github.com/ironcore-dev/libvirt-provider/internal/healthcheck"
 	"github.com/ironcore-dev/libvirt-provider/internal/host"
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
@@ -348,6 +349,12 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	nvidiaPlugin := nvidia.NewNvidiaPlugin(log)
+	if err := nvidiaPlugin.Init(); err != nil {
+		setupLog.Error(err, "failed to initialize nvidia plugin")
+		return err
+	}
+
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
 		Libvirt:         libvirt,
@@ -356,6 +363,7 @@ func Run(ctx context.Context, opts Options) error {
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
+		GPUPlugin:       nvidiaPlugin,
 		EnableHugepages: opts.EnableHugepages,
 		GuestAgent:      opts.GuestAgent.GetAPIGuestAgent(),
 	})

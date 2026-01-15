@@ -14,9 +14,16 @@ import (
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
 )
 
-func calcResources(class *iri.MachineClass) (int64, int64) {
-	//Todo do some magic
-	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
+func (s *Server) calcResources(class *iri.MachineClass) (cpu int64, mem int64, gpuPCI string, err error) {
+	//Todo We still need some magic here
+	if _, ok := class.Capabilities.Resources["nvidia.com/gpu"]; ok {
+		gpuPCI, err = s.gpuPlugin.Claim()
+		if err == nil {
+			return 0, 0, "", fmt.Errorf("failed to claim GPU: %w", err)
+		}
+	}
+
+	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)], gpuPCI, nil
 }
 
 func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
@@ -37,7 +44,10 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	}
 	log.V(2).Info("Validated class")
 
-	cpu, memory := calcResources(class)
+	cpu, memory, gpuPCI, err := s.calcResources(class)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate resources: %w", err)
+	}
 
 	power, err := s.getPowerStateFromIRI(iriMachine.Spec.Power)
 	if err != nil {
@@ -74,6 +84,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			Cpu:               cpu,
 			MemoryBytes:       memory,
 			Volumes:           volumes,
+			GPUPCI:            gpuPCI,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
 			GuestAgent:        s.guestAgent,

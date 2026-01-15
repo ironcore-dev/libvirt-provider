@@ -17,6 +17,7 @@ import (
 	"github.com/ironcore-dev/ironcore/broker/common/request"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/libvirt-provider/internal/device"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
@@ -38,8 +39,9 @@ type Server struct {
 	eventStore   recorder.EventStore
 
 	networkInterfacePlugin providernetworkinterface.Plugin
+	volumePlugins          *volume.PluginManager
+	gpuPlugin              device.Plugin
 
-	volumePlugins  *volume.PluginManager
 	machineClasses MachineClassRegistry
 
 	execRequestCache request.Cache[*iri.ExecRequest]
@@ -66,6 +68,7 @@ type Options struct {
 
 	VolumePlugins   *volume.PluginManager
 	NetworkPlugins  providernetworkinterface.Plugin
+	GPUPlugin       device.Plugin
 	EnableHugepages bool
 	GuestAgent      api.GuestAgent
 }
@@ -92,6 +95,7 @@ func New(opts Options) (*Server, error) {
 		eventStore:             opts.EventStore,
 		volumePlugins:          opts.VolumePlugins,
 		networkInterfacePlugin: opts.NetworkPlugins,
+		gpuPlugin:              opts.GPUPlugin,
 		machineClasses:         opts.MachineClasses,
 		enableHugepages:        opts.EnableHugepages,
 		guestAgent:             opts.GuestAgent,

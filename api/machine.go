@@ -20,8 +20,9 @@ type Machine struct {
 type MachineSpec struct {
 	Power PowerState `json:"power"`
 
-	Cpu         int64 `json:"cpu"`
-	MemoryBytes int64 `json:"memoryBytes"`
+	Cpu         int64  `json:"cpu"`
+	MemoryBytes int64  `json:"memoryBytes"`
+	GPUPCI      string `json:"gpuPCI,omitempty"`
 
 	Ignition []byte `json:"ignition"`
 
