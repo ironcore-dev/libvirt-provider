@@ -601,6 +601,30 @@ func (r *MachineReconciler) domainFor(
 		serialTargetType = "pci-serial"
 	}
 
+	var hostDevs []libvirtxml.DomainHostdev
+	if gpu := machine.Spec.Gpu; gpu != nil {
+		hostDevs = append(hostDevs, libvirtxml.DomainHostdev{
+			Alias: &libvirtxml.DomainAlias{
+				Name: "gpu0",
+			},
+			Managed: "yes",
+			SubsysPCI: &libvirtxml.DomainHostdevSubsysPCI{
+				Source: &libvirtxml.DomainHostdevSubsysPCISource{
+					Address: &libvirtxml.DomainAddressPCI{
+						Domain:   &gpu.Domain,
+						Bus:      &gpu.Bus,
+						Slot:     &gpu.Slot,
+						Function: &gpu.Function,
+					},
+				},
+			},
+			Address: &libvirtxml.DomainAddress{
+				//if not defined, not conflicting pci address will be selected
+				PCI: &libvirtxml.DomainAddressPCI{},
+			},
+		})
+	}
+
 	domainDesc := &libvirtxml.Domain{
 		Name:       machine.GetID(),
 		UUID:       machine.GetID(),
@@ -681,6 +705,7 @@ func (r *MachineReconciler) domainFor(
 					},
 				},
 			},
+			Hostdevs: hostDevs,
 		},
 	}
 

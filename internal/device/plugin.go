@@ -3,8 +3,10 @@
 
 package device
 
+import "github.com/ironcore-dev/libvirt-provider/api"
+
 type Plugin interface {
-	Claim() (string, error)
-	Release(pci string) error
+	Claim() (*api.PCIAddress, error)
+	Release(pciAddress api.PCIAddress) error
 	Init() error
 }

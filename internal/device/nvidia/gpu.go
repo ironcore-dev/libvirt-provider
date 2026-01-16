@@ -8,17 +8,18 @@ import (
 
 	"github.com/NVIDIA/go-nvml/pkg/nvml"
 	"github.com/go-logr/logr"
+	"github.com/ironcore-dev/libvirt-provider/api"
 )
 
 type NvidiaPlugin struct {
 	log     logr.Logger
-	devices map[string]bool
+	devices map[api.PCIAddress]bool
 }
 
 func NewNvidiaPlugin(log logr.Logger) *NvidiaPlugin {
 	return &NvidiaPlugin{
 		log:     log,
-		devices: map[string]bool{},
+		devices: map[api.PCIAddress]bool{},
 	}
 }
 
@@ -50,25 +51,31 @@ func (p *NvidiaPlugin) Init() error {
 			return fmt.Errorf("unable to get pci information of device at index %d: %v", i, nvml.ErrorString(ret))
 		}
 
-		pciAddress := fmt.Sprintf("%s", pciInfo.BusId)
+		pciAddress := api.PCIAddress{
+			Domain: uint(pciInfo.Domain),
+			Bus:    uint(pciInfo.Bus),
+			Slot:   uint(pciInfo.Device),
+			//the last element of the BusId is the function
+			Function: uint(pciInfo.BusId[31]),
+		}
 		p.devices[pciAddress] = false
 	}
 
 	return nil
 }
 
-func (p *NvidiaPlugin) Claim() (string, error) {
+func (p *NvidiaPlugin) Claim() (*api.PCIAddress, error) {
 	for pciAddress, claimed := range p.devices {
 		if !claimed {
 			p.devices[pciAddress] = true
-			return pciAddress, nil
+			return &pciAddress, nil
 		}
 	}
 
-	return "", fmt.Errorf("no more device available")
+	return nil, fmt.Errorf("no more device available")
 }
 
-func (p *NvidiaPlugin) Release(pciAddress string) error {
+func (p *NvidiaPlugin) Release(pciAddress api.PCIAddress) error {
 	if _, ok := p.devices[pciAddress]; !ok {
 		return fmt.Errorf("device not available")
 	}

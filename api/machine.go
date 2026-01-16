@@ -20,9 +20,9 @@ type Machine struct {
 type MachineSpec struct {
 	Power PowerState `json:"power"`
 
-	Cpu         int64  `json:"cpu"`
-	MemoryBytes int64  `json:"memoryBytes"`
-	GPUPCI      string `json:"gpuPCI,omitempty"`
+	Cpu         int64       `json:"cpu"`
+	MemoryBytes int64       `json:"memoryBytes"`
+	Gpu         *PCIAddress `json:"gpu,omitempty"`
 
 	Ignition []byte `json:"ignition"`
 
@@ -32,6 +32,13 @@ type MachineSpec struct {
 	ShutdownAt time.Time `json:"shutdownAt,omitempty"`
 
 	GuestAgent GuestAgent `json:"guestAgent"`
+}
+
+type PCIAddress struct {
+	Domain   uint `json:"domain"`
+	Bus      uint `json:"bus"`
+	Slot     uint `json:"slot"`
+	Function uint `json:"function"`
 }
 
 type GuestAgent string
