@@ -14,14 +14,15 @@ import (
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
 )
 
-func (s *Server) calcResources(class *iri.MachineClass) (cpu int64, mem int64, gpu *api.PCIAddress, err error) {
+func (s *Server) calcResources(log logr.Logger, class *iri.MachineClass) (cpu int64, mem int64, gpu *api.PCIAddress, err error) {
 	//Todo We still need some magic here
 	if _, ok := class.Capabilities.Resources["nvidia.com/gpu"]; ok {
 		//TODO make sure the GPU is released if there is an error later
 		gpu, err = s.gpuPlugin.Claim()
-		if err == nil {
+		if err != nil {
 			return 0, 0, nil, fmt.Errorf("failed to claim GPU: %w", err)
 		}
+		log.V(1).Info("Claimed GPU", "pci", gpu.String())
 	}
 
 	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)], gpu, nil
@@ -45,7 +46,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	}
 	log.V(2).Info("Validated class")
 
-	cpu, memory, gpu, err := s.calcResources(class)
+	cpu, memory, gpu, err := s.calcResources(log, class)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate resources: %w", err)
 	}

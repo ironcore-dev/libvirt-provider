@@ -4,6 +4,7 @@
 package api
 
 import (
+	"fmt"
 	"time"
 
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
@@ -39,6 +40,10 @@ type PCIAddress struct {
 	Bus      uint `json:"bus"`
 	Slot     uint `json:"slot"`
 	Function uint `json:"function"`
+}
+
+func (p PCIAddress) String() string {
+	return fmt.Sprintf("%04x:%02x:%02x.%x", p.Domain, p.Bus, p.Slot, p.Function)
 }
 
 type GuestAgent string

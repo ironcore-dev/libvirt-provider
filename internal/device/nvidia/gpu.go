@@ -51,6 +51,8 @@ func (p *NvidiaPlugin) Init() error {
 			return fmt.Errorf("unable to get pci information of device at index %d: %v", i, nvml.ErrorString(ret))
 		}
 
+		p.log.V(1).Info("Found device", "pci", pciInfo.BusId)
+
 		pciAddress := api.PCIAddress{
 			Domain: uint(pciInfo.Domain),
 			Bus:    uint(pciInfo.Bus),
