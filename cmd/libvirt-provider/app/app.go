@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	claim "command-line-arguments/Users/D054209/.asdf/installs/golang/1.24.11/packages/pkg/mod/github.com/ironcore-dev/provider-utils@v0.0.0-20260122114036-2b9ff73d147e/claimutils/claim/manager.go"
+
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
 	ocistore "github.com/ironcore-dev/ironcore-image/oci/store"
@@ -37,6 +39,8 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/server"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
@@ -348,6 +352,10 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	resClaimer, err := claim.NewResourceClaimer(
+		gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pci.NewReader(log, pci.VendorNvidia, pci.Class3DController), []pci.Address{}),
+	)
+
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
 		Libvirt:         libvirt,
@@ -356,6 +364,7 @@ func Run(ctx context.Context, opts Options) error {
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
+		ResourceClaimer: resClaimer,
 		EnableHugepages: opts.EnableHugepages,
 		GuestAgent:      opts.GuestAgent.GetAPIGuestAgent(),
 	})
