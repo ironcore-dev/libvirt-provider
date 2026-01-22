@@ -29,10 +29,7 @@ var _ = Describe("NetworkInterfaceAttach", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
-		DeferCleanup(func() {
-			err := machineStore.Delete(ctx, createResp.Machine.Metadata.Id)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
 
 		By("ensuring the correct creation response")
 		Expect(createResp).Should(SatisfyAll(

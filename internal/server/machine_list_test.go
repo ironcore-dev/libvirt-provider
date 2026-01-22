@@ -28,10 +28,7 @@ var _ = Describe("ListMachine", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createResp).NotTo(BeNil())
-		DeferCleanup(func() {
-			err := machineStore.Delete(ctx, createResp.Machine.Metadata.Id)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
 
 		createMachineResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
@@ -48,10 +45,7 @@ var _ = Describe("ListMachine", func() {
 		})
 		Expect(err).NotTo(HaveOccurred())
 		Expect(createMachineResp).NotTo(BeNil())
-		DeferCleanup(func() {
-			err := machineStore.Delete(ctx, createMachineResp.Machine.Metadata.Id)
-			Expect(err).NotTo(HaveOccurred())
-		})
+		DeferCleanup(cleanupMachine(createMachineResp.Machine.Metadata.Id))
 
 		By("ensuring the machines gets created in the store")
 		Eventually(func(g Gomega) {
