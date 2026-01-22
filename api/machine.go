@@ -19,6 +19,7 @@ type Machine struct {
 }
 
 type MachineSpec struct {
+	Name  string     `json:"name"`
 	Power PowerState `json:"power"`
 
 	Cpu         int64 `json:"cpu"`
