@@ -11,7 +11,7 @@ require (
 	github.com/ironcore-dev/controller-utils v0.10.0
 	github.com/ironcore-dev/ironcore v0.2.5-0.20251024123813-eecafba97af9
 	github.com/ironcore-dev/ironcore-image v0.2.5
-	github.com/ironcore-dev/ironcore-net v0.2.4
+	github.com/ironcore-dev/ironcore-net v0.2.5-0.20260123094402-a0b32fb0e8ff
 	github.com/ironcore-dev/provider-utils v0.0.0-20251010114402-394db8015df4
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.27.5

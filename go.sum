@@ -167,8 +167,8 @@ github.com/ironcore-dev/ironcore v0.2.5-0.20251024123813-eecafba97af9 h1:QQfXQO7
 github.com/ironcore-dev/ironcore v0.2.5-0.20251024123813-eecafba97af9/go.mod h1:9ATw2BEKZSdtUtNK9sAd+GLrcoxF2iF4Q6S67KqfKow=
 github.com/ironcore-dev/ironcore-image v0.2.5 h1:ImJD3B1p1/JVs5vx7YB3c8dwH/EHyWOcgWUqhTUmsR0=
 github.com/ironcore-dev/ironcore-image v0.2.5/go.mod h1:pQLc+7dzgjYORTpEM9ORM757Vm14EQRju9hsvR8VT/U=
-github.com/ironcore-dev/ironcore-net v0.2.4 h1:r2SqxwStws86KBvxJcK/myRxb946qAZVpPKd1rJzfsQ=
-github.com/ironcore-dev/ironcore-net v0.2.4/go.mod h1:dSn6aWF+bxCIeWJzPjDl5dVTH3Rd7wx1LuTQpYUU4Lg=
+github.com/ironcore-dev/ironcore-net v0.2.5-0.20260123094402-a0b32fb0e8ff h1:tUnwPIllqJSMc581PIul0kH500EzMJoks1xB7zlie9o=
+github.com/ironcore-dev/ironcore-net v0.2.5-0.20260123094402-a0b32fb0e8ff/go.mod h1:jy3F6vLjt+2JMXi39P6NklJ66hJjf12BYEC7eOIy7IA=
 github.com/ironcore-dev/provider-utils v0.0.0-20251010114402-394db8015df4 h1:sRQ/gcL5z3CqcqI+9If8XmgVk9pK4WebZOAMNFYXREQ=
 github.com/ironcore-dev/provider-utils v0.0.0-20251010114402-394db8015df4/go.mod h1:qxuFuJy31Lfu3go5wsGpFGAZwCw1++1EKGJmHG2HbLw=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
