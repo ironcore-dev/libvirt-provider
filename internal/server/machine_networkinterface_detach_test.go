@@ -76,7 +76,7 @@ var _ = Describe("NetworkInterfaceDetach", func() {
 			g.Expect(msList).To(HaveLen(1))
 			return msList[0]
 		}).Should(SatisfyAll(
-			HaveField("Spec.NetworkInterfaces", ContainElements(SatisfyAll(
+			HaveField("Spec.NetworkInterfaces", ConsistOf(SatisfyAll(
 				HaveField("Name", "nic-2"),
 			))),
 		))

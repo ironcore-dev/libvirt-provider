@@ -101,7 +101,7 @@ var _ = Describe("DetachVolume", func() {
 			g.Expect(msList).To(HaveLen(1))
 			return msList[0]
 		}).Should(
-			HaveField("Spec.Volumes", (ContainElements(SatisfyAll(
+			HaveField("Spec.Volumes", (ConsistOf(SatisfyAll(
 				HaveField("Name", "disk-2"),
 				HaveField("Device", "odb"),
 			))),
