@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	claim "command-line-arguments/Users/D054209/.asdf/installs/golang/1.24.11/packages/pkg/mod/github.com/ironcore-dev/provider-utils@v0.0.0-20260122114036-2b9ff73d147e/claimutils/claim/manager.go"
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
 
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
