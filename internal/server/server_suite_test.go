@@ -205,6 +205,7 @@ var _ = BeforeSuite(func() {
 			{Domain: 0, Bus: 3, Slot: 0, Function: 1},
 		}), []pci.Address{}),
 	)
+	Expect(err).ToNot(HaveOccurred())
 
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,

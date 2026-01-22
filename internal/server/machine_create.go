@@ -8,7 +8,6 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
-	"github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
@@ -24,8 +23,8 @@ func calcResources(class *iri.MachineClass) (int64, int64) {
 	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
 }
 
-func filterNvidiaGPUResources(capRes map[string]int64) v1alpha1.ResourceList {
-	nvidiaRes := v1alpha1.ResourceList{}
+func filterNvidiaGPUResources(capRes map[string]int64) corev1alpha1.ResourceList {
+	nvidiaRes := corev1alpha1.ResourceList{}
 	if _, ok := capRes["nvidia.com/gpu"]; ok {
 		nvidiaRes["nvidia.com/gpu"] = *resource.NewQuantity(capRes["nvidia.com/gpu"], resource.DecimalSI)
 	}
