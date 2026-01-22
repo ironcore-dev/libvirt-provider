@@ -28,6 +28,9 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/server"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
@@ -50,7 +53,9 @@ const (
 	consistentlyDuration           = 1 * time.Second
 	probeEveryInterval             = 2 * time.Second
 	machineClassx3xlarge           = "x3-xlarge"
+	machineClassx3xlargegpu        = "x3-xlarge-gpu"
 	machineClassx2medium           = "x2-medium"
+	machineClassx2mediumgpu        = "x2-medium-gpu"
 	osImage                        = "ghcr.io/ironcore-dev/os-images/virtualization/gardenlinux:latest"
 	emptyDiskSize                  = 1024 * 1024 * 1024
 	baseURL                        = "http://localhost:20251"
@@ -129,11 +134,31 @@ var _ = BeforeSuite(func() {
 			},
 		},
 		{
+			Name: machineClassx3xlargegpu,
+			Capabilities: &iriv1alpha1.MachineClassCapabilities{
+				Resources: map[string]int64{
+					string(corev1alpha1.ResourceCPU):    4,
+					string(corev1alpha1.ResourceMemory): 8589934592,
+					"nvidia.com/gpu":                    4,
+				},
+			},
+		},
+		{
 			Name: machineClassx2medium,
 			Capabilities: &iriv1alpha1.MachineClassCapabilities{
 				Resources: map[string]int64{
 					string(corev1alpha1.ResourceCPU):    2,
 					string(corev1alpha1.ResourceMemory): 2147483648,
+				},
+			},
+		},
+		{
+			Name: machineClassx2mediumgpu,
+			Capabilities: &iriv1alpha1.MachineClassCapabilities{
+				Resources: map[string]int64{
+					string(corev1alpha1.ResourceCPU):    2,
+					string(corev1alpha1.ResourceMemory): 2147483648,
+					"nvidia.com/gpu":                    2,
 				},
 			},
 		},
@@ -174,6 +199,13 @@ var _ = BeforeSuite(func() {
 	By("setting up the network interface plugin")
 	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
 
+	resClaimer, err := claim.NewResourceClaimer(
+		gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", NewTestingPCIReader([]pci.Address{
+			{Domain: 0, Bus: 3, Slot: 0, Function: 0},
+			{Domain: 0, Bus: 3, Slot: 0, Function: 1},
+		}), []pci.Address{}),
+	)
+
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
 		Libvirt:         libvirt,
@@ -182,6 +214,7 @@ var _ = BeforeSuite(func() {
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
+		ResourceClaimer: resClaimer,
 		EnableHugepages: false,
 		GuestAgent:      api.GuestAgentNone,
 	})
@@ -231,5 +264,20 @@ func cleanupMachine(machineID string) func(SpecContext) {
 			}
 			return err
 		}).Should(Succeed())
+	}
+}
+
+// TODO move to provider-utils
+type TestingPCIReader struct {
+	pciAddrs []pci.Address
+}
+
+func (t TestingPCIReader) Read() ([]pci.Address, error) {
+	return t.pciAddrs, nil
+}
+
+func NewTestingPCIReader(addrs []pci.Address) *TestingPCIReader {
+	return &TestingPCIReader{
+		pciAddrs: addrs,
 	}
 }

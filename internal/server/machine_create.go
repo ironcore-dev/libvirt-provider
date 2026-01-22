@@ -8,10 +8,15 @@ import (
 	"fmt"
 
 	"github.com/go-logr/logr"
+	"github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func calcResources(class *iri.MachineClass) (int64, int64) {
@@ -19,7 +24,25 @@ func calcResources(class *iri.MachineClass) (int64, int64) {
 	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
 }
 
+func filterNvidiaGPUResources(capRes map[string]int64) v1alpha1.ResourceList {
+	nvidiaRes := v1alpha1.ResourceList{}
+	if _, ok := capRes["nvidia.com/gpu"]; ok {
+		nvidiaRes["nvidia.com/gpu"] = *resource.NewQuantity(capRes["nvidia.com/gpu"], resource.DecimalSI)
+	}
+	return nvidiaRes
+}
+
+func getPCIAddresses(claims claim.Claims) []pci.Address {
+	if gpuClaim, ok := claims["nvidia.com/gpu"]; ok {
+		gpu := gpuClaim.(gpu.Claim)
+		return gpu.PCIAddresses()
+	}
+
+	return []pci.Address{}
+}
+
 func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
+	//TODO cleanup: release GPU claims if other errors occur
 	log.V(2).Info("Getting libvirt machine config")
 
 	switch {
@@ -65,6 +88,11 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}
 
+	gpus, err := s.resourceClaimer.Claim(filterNvidiaGPUResources(class.Capabilities.Resources))
+	if err != nil {
+		return nil, fmt.Errorf("failed to claim GPUs: %w", err)
+	}
+
 	machine := &api.Machine{
 		Metadata: apiutils.Metadata{
 			ID: s.idGen.Generate(),
@@ -76,6 +104,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
+			Gpu:               getPCIAddresses(gpus),
 			GuestAgent:        s.guestAgent,
 		},
 	}

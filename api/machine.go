@@ -7,6 +7,7 @@ import (
 	"time"
 
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"k8s.io/utils/ptr"
 )
 
@@ -27,6 +28,7 @@ type MachineSpec struct {
 
 	Volumes           []*VolumeSpec           `json:"volumes"`
 	NetworkInterfaces []*NetworkInterfaceSpec `json:"networkInterfaces"`
+	Gpu               []pci.Address           `json:"gpu"`
 
 	ShutdownAt time.Time `json:"shutdownAt,omitempty"`
 
