@@ -601,8 +601,6 @@ func (r *MachineReconciler) domainFor(
 		serialTargetType = "pci-serial"
 	}
 
-	hostDevs := clamedGPUsToHostDevs(machine)
-
 	domainDesc := &libvirtxml.Domain{
 		Name:       machine.GetID(),
 		UUID:       machine.GetID(),
@@ -683,7 +681,7 @@ func (r *MachineReconciler) domainFor(
 					},
 				},
 			},
-			Hostdevs: hostDevs,
+			Hostdevs: claimedGPUsToHostDevs(machine),
 		},
 	}
 

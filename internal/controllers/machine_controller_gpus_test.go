@@ -24,7 +24,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		}
 
 		By("converting claimed GPUs to host devices")
-		hostDevs := clamedGPUsToHostDevs(machine)
+		hostDevs := claimedGPUsToHostDevs(machine)
 
 		By("ensuring the correct host devices are returned")
 		Expect(hostDevs).To(HaveLen(2))
@@ -79,7 +79,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		}
 
 		By("converting claimed GPUs to host devices")
-		hostDevs := clamedGPUsToHostDevs(machine)
+		hostDevs := claimedGPUsToHostDevs(machine)
 
 		By("ensuring no host devices are returned")
 		Expect(hostDevs).To(HaveLen(0))
@@ -92,7 +92,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		}
 
 		By("converting claimed GPUs to host devices")
-		hostDevs := clamedGPUsToHostDevs(machine)
+		hostDevs := claimedGPUsToHostDevs(machine)
 
 		By("ensuring no host devices are returned")
 		Expect(hostDevs).To(HaveLen(0))

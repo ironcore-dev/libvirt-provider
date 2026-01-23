@@ -10,7 +10,7 @@ import (
 	"libvirt.org/go/libvirtxml"
 )
 
-func clamedGPUsToHostDevs(machine *api.Machine) []libvirtxml.DomainHostdev {
+func claimedGPUsToHostDevs(machine *api.Machine) []libvirtxml.DomainHostdev {
 	hostDevs := make([]libvirtxml.DomainHostdev, len(machine.Spec.Gpu))
 
 	for i, gpuAddr := range machine.Spec.Gpu {
