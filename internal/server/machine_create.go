@@ -87,7 +87,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}
 
-	gpus, err := s.resourceClaimer.Claim(filterNvidiaGPUResources(class.Capabilities.Resources))
+	gpus, err := s.resourceClaimer.Claim(ctx, filterNvidiaGPUResources(class.Capabilities.Resources))
 	if err != nil {
 		return nil, fmt.Errorf("failed to claim GPUs: %w", err)
 	}

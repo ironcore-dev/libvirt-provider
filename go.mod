@@ -12,7 +12,7 @@ require (
 	github.com/ironcore-dev/ironcore v0.2.5-0.20251024123813-eecafba97af9
 	github.com/ironcore-dev/ironcore-image v0.2.5
 	github.com/ironcore-dev/ironcore-net v0.2.4
-	github.com/ironcore-dev/provider-utils v0.0.0-20260122120717-e09b622231ba
+	github.com/ironcore-dev/provider-utils v0.0.0-20260123100823-d5b21eb21d6d
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0
@@ -39,6 +39,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/containerd/containerd v1.7.30 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
+	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/containerd/platforms v0.2.1 // indirect
 	github.com/creack/pty v1.1.21 // indirect
