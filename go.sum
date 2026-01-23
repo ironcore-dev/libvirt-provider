@@ -169,8 +169,8 @@ github.com/ironcore-dev/ironcore-image v0.2.5 h1:ImJD3B1p1/JVs5vx7YB3c8dwH/EHyWO
 github.com/ironcore-dev/ironcore-image v0.2.5/go.mod h1:pQLc+7dzgjYORTpEM9ORM757Vm14EQRju9hsvR8VT/U=
 github.com/ironcore-dev/ironcore-net v0.2.4 h1:r2SqxwStws86KBvxJcK/myRxb946qAZVpPKd1rJzfsQ=
 github.com/ironcore-dev/ironcore-net v0.2.4/go.mod h1:dSn6aWF+bxCIeWJzPjDl5dVTH3Rd7wx1LuTQpYUU4Lg=
-github.com/ironcore-dev/provider-utils v0.0.0-20260123113646-23f2eaf10b7d h1:/H5IJT+Q51dbr4LLF2ErZZYB/4IeB+Qk5rK+5yqIhko=
-github.com/ironcore-dev/provider-utils v0.0.0-20260123113646-23f2eaf10b7d/go.mod h1:Se6VYgCzzhVjqUGXeHY3NxuNhLrUkq8qNKpgfayGpHk=
+github.com/ironcore-dev/provider-utils v0.0.0-20260123153040-6fc7a00ec1a8 h1:Z8CORRbDTSyMtb/O96/OgSFEAmpo1Fk/nukaDXzqVz8=
+github.com/ironcore-dev/provider-utils v0.0.0-20260123153040-6fc7a00ec1a8/go.mod h1:Se6VYgCzzhVjqUGXeHY3NxuNhLrUkq8qNKpgfayGpHk=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/joshdk/go-junit v1.0.0 h1:S86cUKIdwBHWwA6xCmFlf3RTLfVXYQfvanM5Uh+K6GE=
