@@ -352,9 +352,19 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	pciReader, err := pci.NewReader(log, pci.VendorNvidia, pci.Class3DController)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize PCI reader")
+		return err
+	}
+
 	resClaimer, err := claim.NewResourceClaimer(
-		gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pci.NewReader(log, pci.VendorNvidia, pci.Class3DController), []pci.Address{}),
+		gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, []pci.Address{}),
 	)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize resource claimer")
+		return err
+	}
 
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
