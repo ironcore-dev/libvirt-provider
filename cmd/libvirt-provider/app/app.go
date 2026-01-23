@@ -365,10 +365,6 @@ func Run(ctx context.Context, opts Options) error {
 		setupLog.Error(err, "failed to initialize resource claimer")
 		return err
 	}
-	if err := resClaimer.Start(ctx); err != nil {
-		setupLog.Error(err, "failed to start resource claimer")
-		return err
-	}
 
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
@@ -396,6 +392,15 @@ func Run(ctx context.Context, opts Options) error {
 
 	g.Go(func() error {
 		return runMetricsServer(ctx, setupLog, opts.Servers.Metrics)
+	})
+
+	g.Go(func() error {
+		setupLog.Info("Starting resource claimer")
+		if err := resClaimer.Start(ctx); err != nil {
+			setupLog.Error(err, "failed to start resource claimer")
+			return err
+		}
+		return nil
 	})
 
 	g.Go(func() error {

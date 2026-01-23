@@ -207,8 +207,11 @@ var _ = BeforeSuite(func() {
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	err = resClaimer.Start(context.Background())
-	Expect(err).ToNot(HaveOccurred())
+	go func() {
+		defer GinkgoRecover()
+		err := resClaimer.Start(context.Background())
+		Expect(err).ToNot(HaveOccurred())
+	}()
 
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
