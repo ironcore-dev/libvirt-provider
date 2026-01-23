@@ -365,6 +365,10 @@ func Run(ctx context.Context, opts Options) error {
 		setupLog.Error(err, "failed to initialize resource claimer")
 		return err
 	}
+	if err := resClaimer.Start(ctx); err != nil {
+		setupLog.Error(err, "failed to start resource claimer")
+		return err
+	}
 
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
