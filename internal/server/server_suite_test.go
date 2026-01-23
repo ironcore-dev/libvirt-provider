@@ -200,7 +200,7 @@ var _ = BeforeSuite(func() {
 	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
 
 	resClaimer, err := claim.NewResourceClaimer(
-		gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", NewTestingPCIReader([]pci.Address{
+		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", NewTestingPCIReader([]pci.Address{
 			{Domain: 0, Bus: 3, Slot: 0, Function: 0},
 			{Domain: 0, Bus: 3, Slot: 0, Function: 1},
 		}), []pci.Address{}),

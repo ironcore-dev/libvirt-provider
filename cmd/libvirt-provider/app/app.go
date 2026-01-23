@@ -359,7 +359,7 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	resClaimer, err := claim.NewResourceClaimer(
-		gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, []pci.Address{}),
+		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, []pci.Address{}),
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize resource claimer")
