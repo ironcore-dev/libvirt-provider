@@ -39,6 +39,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/server"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
+	"github.com/ironcore-dev/libvirt-provider/internal/utils"
 	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
 	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
@@ -358,8 +359,14 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	claimedPCIAddrs, err := utils.GetClaimedPCIAddressesFromMachineStore(ctx, machineStore)
+	if err != nil {
+		setupLog.Error(err, "failed to get claimed PCI addresses from machine store")
+		return err
+	}
+
 	resClaimer, err := claim.NewResourceClaimer(
-		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, []pci.Address{}),
+		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, claimedPCIAddrs),
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize resource claimer")
