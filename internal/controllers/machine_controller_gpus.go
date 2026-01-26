@@ -4,9 +4,15 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 
+	"github.com/go-logr/logr"
+	"github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/provider-utils/claimutils/claim"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"libvirt.org/go/libvirtxml"
 )
 
@@ -41,4 +47,18 @@ func claimedGPUsToHostDevs(machine *api.Machine) []libvirtxml.DomainHostdev {
 	}
 
 	return hostDevs
+}
+
+func (r *MachineReconciler) releaseResourceClaims(ctx context.Context, log logr.Logger, pciAddrs []pci.Address) error {
+	log.V(2).Info("Releasing GPU claims", "pciAddresses", pciAddrs)
+	claims := claim.Claims{
+		v1alpha1.ResourceName("nvidia.com/gpu"): gpu.NewGPUClaim(pciAddrs),
+	}
+	err := r.resourceClaimer.Release(ctx, claims)
+	if err != nil {
+		log.Error(err, "Failed to release GPU claims", "pciAddresses", pciAddrs)
+		return err
+	}
+	log.V(2).Info("Successfully released GPU claims", "pciAddresses", pciAddrs)
+	return nil
 }

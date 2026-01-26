@@ -12,7 +12,7 @@ require (
 	github.com/ironcore-dev/ironcore v0.2.5-0.20251024123813-eecafba97af9
 	github.com/ironcore-dev/ironcore-image v0.2.5
 	github.com/ironcore-dev/ironcore-net v0.2.4
-	github.com/ironcore-dev/provider-utils v0.0.0-20260123153040-6fc7a00ec1a8
+	github.com/ironcore-dev/provider-utils v0.0.0-20260126095734-e10d4f178c5f
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.27.5
 	github.com/onsi/gomega v1.39.0

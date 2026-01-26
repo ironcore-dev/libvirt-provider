@@ -317,6 +317,28 @@ func Run(ctx context.Context, opts Options) error {
 
 	eventStore := recorder.NewEventStore(log, opts.MachineEventStore)
 
+	pciReader, err := pci.NewReader(log, pci.VendorNvidia, pci.Class3DController)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize PCI reader")
+		return err
+	}
+
+	claimedPCIAddrs, err := utils.GetClaimedPCIAddressesFromMachineStore(ctx, machineStore)
+	if err != nil {
+		setupLog.Error(err, "failed to get claimed PCI addresses from machine store")
+		return err
+	}
+	setupLog.Info("Recovered claimed PCI addresses from machine store", "addresses", fmt.Sprintf("%v", claimedPCIAddrs))
+
+	startCh := make(chan struct{})
+	resClaimer, err := claim.NewResourceClaimer(
+		log, startCh, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, claimedPCIAddrs),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize resource claimer")
+		return err
+	}
+
 	machineReconciler, err := controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
 		providerHost,
@@ -329,6 +351,7 @@ func Run(ctx context.Context, opts Options) error {
 			Raw:                            rawInst,
 			VolumePluginManager:            volumePlugins,
 			NetworkInterfacePlugin:         nicPlugin,
+			ResourceClaimer:                resClaimer,
 			ResyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 			EnableHugepages:                opts.EnableHugepages,
 			GCVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
@@ -350,27 +373,6 @@ func Run(ctx context.Context, opts Options) error {
 	machineClasses, err := mcr.NewMachineClassRegistry(classes)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize machine class registry")
-		return err
-	}
-
-	pciReader, err := pci.NewReader(log, pci.VendorNvidia, pci.Class3DController)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize PCI reader")
-		return err
-	}
-
-	claimedPCIAddrs, err := utils.GetClaimedPCIAddressesFromMachineStore(ctx, machineStore)
-	if err != nil {
-		setupLog.Error(err, "failed to get claimed PCI addresses from machine store")
-		return err
-	}
-	setupLog.Info("Recovered claimed PCI addresses from machine store", "addresses", fmt.Sprintf("%v", claimedPCIAddrs))
-
-	resClaimer, err := claim.NewResourceClaimer(
-		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, claimedPCIAddrs),
-	)
-	if err != nil {
-		setupLog.Error(err, "failed to initialize resource claimer")
 		return err
 	}
 
@@ -408,6 +410,7 @@ func Run(ctx context.Context, opts Options) error {
 			setupLog.Error(err, "failed to start resource claimer")
 			return err
 		}
+		<-startCh
 		return nil
 	})
 

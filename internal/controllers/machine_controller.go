@@ -27,6 +27,7 @@ import (
 	providervolume "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
+	"github.com/ironcore-dev/provider-utils/claimutils/claim"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
@@ -69,6 +70,7 @@ type MachineReconcilerOptions struct {
 	Raw                            raw.Raw
 	VolumePluginManager            *providervolume.PluginManager
 	NetworkInterfacePlugin         providernetworkinterface.Plugin
+	ResourceClaimer                claim.Claimer
 	VolumeEvents                   event.Source[*api.Machine]
 	ResyncIntervalGarbageCollector time.Duration
 	EnableHugepages                bool
@@ -130,6 +132,7 @@ type MachineReconciler struct {
 
 	volumePluginManager    *providervolume.PluginManager
 	networkInterfacePlugin providernetworkinterface.Plugin
+	resourceClaimer        claim.Claimer
 
 	machines      store.Store[*api.Machine]
 	machineEvents event.Source[*api.Machine]
@@ -195,7 +198,7 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 		r.queue.ShutDown()
 	}()
 
-	for i := 0; i < workerSize; i++ {
+	for range workerSize {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -291,6 +294,11 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 		return fmt.Errorf("failed to remove machine network interfaces: %w", err)
 	}
 	log.V(1).Info("Removed network interfaces")
+
+	if err := r.releaseResourceClaims(ctx, log, machine.Spec.Gpu); err != nil {
+		return fmt.Errorf("failed to release resource claims: %w", err)
+	}
+	log.V(1).Info("Released resource claims")
 
 	if err := os.RemoveAll(r.host.MachineDir(machine.ID)); err != nil {
 		return fmt.Errorf("failed to remove machine directory: %w", err)
