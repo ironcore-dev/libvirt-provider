@@ -364,6 +364,7 @@ func Run(ctx context.Context, opts Options) error {
 		setupLog.Error(err, "failed to get claimed PCI addresses from machine store")
 		return err
 	}
+	setupLog.Info("Recovered claimed PCI addresses from machine store", "addresses", fmt.Sprintf("%v", claimedPCIAddrs))
 
 	resClaimer, err := claim.NewResourceClaimer(
 		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, claimedPCIAddrs),

@@ -89,8 +89,12 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 
 	gpus, err := s.resourceClaimer.Claim(ctx, filterNvidiaGPUResources(class.Capabilities.Resources))
 	if err != nil {
+		log.Error(err, "Failed to claim GPUs")
 		return nil, fmt.Errorf("failed to claim GPUs: %w", err)
 	}
+
+	pciAddrs := getPCIAddresses(gpus)
+	log.V(2).Info("Claimed GPU PCI addresses", "pciAddresses", fmt.Sprintf("%v", pciAddrs))
 
 	machine := &api.Machine{
 		Metadata: apiutils.Metadata{
@@ -103,7 +107,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
-			Gpu:               getPCIAddresses(gpus),
+			Gpu:               pciAddrs,
 			GuestAgent:        s.guestAgent,
 		},
 	}
