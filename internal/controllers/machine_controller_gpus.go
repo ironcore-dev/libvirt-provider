@@ -52,7 +52,7 @@ func claimedGPUsToHostDevs(machine *api.Machine) []libvirtxml.DomainHostdev {
 func (r *MachineReconciler) releaseResourceClaims(ctx context.Context, log logr.Logger, pciAddrs []pci.Address) error {
 	log.V(2).Info("Releasing GPU claims", "pciAddresses", pciAddrs)
 	claims := claim.Claims{
-		v1alpha1.ResourceName("nvidia.com/gpu"): gpu.NewGPUClaim(pciAddrs),
+		v1alpha1.ResourceName(api.NvidiaGPUPlugin): gpu.NewGPUClaim(pciAddrs),
 	}
 	err := r.resourceClaimer.Release(ctx, claims)
 	if err != nil {

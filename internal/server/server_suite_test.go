@@ -139,7 +139,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 				Resources: map[string]int64{
 					string(corev1alpha1.ResourceCPU):    4,
 					string(corev1alpha1.ResourceMemory): 8589934592,
-					"nvidia.com/gpu":                    4,
+					api.NvidiaGPUPlugin:                 4,
 				},
 			},
 		},
@@ -158,7 +158,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 				Resources: map[string]int64{
 					string(corev1alpha1.ResourceCPU):    2,
 					string(corev1alpha1.ResourceMemory): 2147483648,
-					"nvidia.com/gpu":                    2,
+					api.NvidiaGPUPlugin:                 2,
 				},
 			},
 		},
@@ -200,7 +200,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
 
 	resClaimer, err := claim.NewResourceClaimer(
-		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", NewTestingPCIReader([]pci.Address{
+		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, NewTestingPCIReader([]pci.Address{
 			{Domain: 0, Bus: 3, Slot: 0, Function: 0},
 			{Domain: 0, Bus: 3, Slot: 0, Function: 1},
 		}), []pci.Address{}),

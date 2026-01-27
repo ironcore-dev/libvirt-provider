@@ -17,3 +17,8 @@ const (
 const (
 	MachineManager = "libvirt-provider"
 )
+
+const (
+	// NvidiaGPUPlugin is the resource name for NVIDIA GPU devices to be claimed
+	NvidiaGPUPlugin = "nvidia.com/gpu"
+)

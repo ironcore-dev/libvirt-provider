@@ -331,7 +331,7 @@ func Run(ctx context.Context, opts Options) error {
 	setupLog.Info("Recovered claimed PCI addresses from machine store", "addresses", fmt.Sprintf("%v", claimedPCIAddrs))
 
 	resClaimer, err := claim.NewResourceClaimer(
-		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, claimedPCIAddrs),
+		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, pciReader, claimedPCIAddrs),
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize resource claimer")

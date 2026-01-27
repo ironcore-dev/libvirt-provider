@@ -25,14 +25,14 @@ func calcResources(class *iri.MachineClass) (int64, int64) {
 
 func filterNvidiaGPUResources(capRes map[string]int64) corev1alpha1.ResourceList {
 	nvidiaRes := corev1alpha1.ResourceList{}
-	if _, ok := capRes["nvidia.com/gpu"]; ok {
-		nvidiaRes["nvidia.com/gpu"] = *resource.NewQuantity(capRes["nvidia.com/gpu"], resource.DecimalSI)
+	if _, ok := capRes[api.NvidiaGPUPlugin]; ok {
+		nvidiaRes[api.NvidiaGPUPlugin] = *resource.NewQuantity(capRes[api.NvidiaGPUPlugin], resource.DecimalSI)
 	}
 	return nvidiaRes
 }
 
 func getPCIAddresses(claims claim.Claims) []pci.Address {
-	if gpuClaim, ok := claims["nvidia.com/gpu"]; ok {
+	if gpuClaim, ok := claims[api.NvidiaGPUPlugin]; ok {
 		gpu := gpuClaim.(gpu.Claim)
 		return gpu.PCIAddresses()
 	}
