@@ -111,6 +111,7 @@ func NewMachineReconciler(
 		raw:                            opts.Raw,
 		volumePluginManager:            opts.VolumePluginManager,
 		networkInterfacePlugin:         opts.NetworkInterfacePlugin,
+		resourceClaimer:                opts.ResourceClaimer,
 		resyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 		enableHugepages:                opts.EnableHugepages,
 		gcVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
