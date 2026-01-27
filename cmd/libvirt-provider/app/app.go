@@ -330,9 +330,8 @@ func Run(ctx context.Context, opts Options) error {
 	}
 	setupLog.Info("Recovered claimed PCI addresses from machine store", "addresses", fmt.Sprintf("%v", claimedPCIAddrs))
 
-	startCh := make(chan struct{})
 	resClaimer, err := claim.NewResourceClaimer(
-		log, startCh, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, claimedPCIAddrs),
+		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", pciReader, claimedPCIAddrs),
 	)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize resource claimer")
@@ -410,8 +409,7 @@ func Run(ctx context.Context, opts Options) error {
 			setupLog.Error(err, "failed to start resource claimer")
 			return err
 		}
-		<-startCh
-		return nil
+		return resClaimer.WaitUntilStarted(ctx)
 	})
 
 	g.Go(func() error {

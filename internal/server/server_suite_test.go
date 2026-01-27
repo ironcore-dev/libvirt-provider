@@ -84,7 +84,7 @@ func TestServer(t *testing.T) {
 	RunSpecs(t, "GRPC Server Suite", Label("integration"))
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	log := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
 	logf.SetLogger(log)
 
@@ -199,28 +199,19 @@ var _ = BeforeSuite(func() {
 	By("setting up the network interface plugin")
 	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
 
-	startCh := make(chan struct{})
 	resClaimer, err := claim.NewResourceClaimer(
-		log, startCh, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", NewTestingPCIReader([]pci.Address{
+		log, gpu.NewGPUClaimPlugin(log, "nvidia.com/gpu", NewTestingPCIReader([]pci.Address{
 			{Domain: 0, Bus: 3, Slot: 0, Function: 0},
 			{Domain: 0, Bus: 3, Slot: 0, Function: 1},
 		}), []pci.Address{}),
 	)
 	Expect(err).ToNot(HaveOccurred())
 
-	Eventually(func() bool {
-		select {
-		case <-startCh:
-			return true
-		default:
-			return false
-		}
-	}).Should(BeTrue())
-
 	go func() {
 		defer GinkgoRecover()
 		err := resClaimer.Start(context.Background())
 		Expect(err).ToNot(HaveOccurred())
+		Expect(resClaimer.WaitUntilStarted(ctx)).To(BeNil())
 	}()
 
 	srv, err := server.New(server.Options{
