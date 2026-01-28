@@ -82,6 +82,10 @@ func setOptionsDefaults(o *Options) {
 func New(opts Options) (*Server, error) {
 	setOptionsDefaults(&opts)
 
+	if opts.ResourceClaimer == nil {
+		return nil, fmt.Errorf("ResourceClaimer is required")
+	}
+
 	baseURL, err := url.ParseRequestURI(opts.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base url %q: %w", opts.BaseURL, err)

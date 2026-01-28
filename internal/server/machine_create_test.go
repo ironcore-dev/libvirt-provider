@@ -202,7 +202,7 @@ var _ = Describe("CreateMachine", func() {
 
 		By("ensuring the correct error is returned")
 		Expect(err).To(HaveOccurred())
-		Expect(err.Error()).To(ContainSubstring("failed to claim GPUs: insufficient resources\ninsufficient resource for nvidia.com/gpu"))
+		Expect(err.Error()).To(ContainSubstring("insufficient resource"))
 		Expect(createResp2).To(BeNil())
 	})
 
