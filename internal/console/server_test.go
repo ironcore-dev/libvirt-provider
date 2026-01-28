@@ -4,12 +4,15 @@
 package console
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
+	"github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	libvirtserver "github.com/ironcore-dev/libvirt-provider/internal/server"
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -31,8 +34,9 @@ var _ = Describe("HTTP Handler", func() {
 	BeforeEach(func() {
 		var err error
 		server, err = libvirtserver.New(libvirtserver.Options{
-			BaseURL:    baseURL,
-			GuestAgent: api.GuestAgentNone,
+			BaseURL:         baseURL,
+			GuestAgent:      api.GuestAgentNone,
+			ResourceClaimer: &NOOPResourceClaimer{},
 		})
 		Expect(err).ShouldNot(HaveOccurred())
 		router = NewHandler(server, HandlerOptions{})
@@ -56,3 +60,25 @@ var _ = Describe("HTTP Handler", func() {
 		})
 	})
 })
+
+type NOOPResourceClaimer struct{}
+
+// Claim implements [claim.Claimer].
+func (n *NOOPResourceClaimer) Claim(ctx context.Context, resources v1alpha1.ResourceList) (claim.Claims, error) {
+	return nil, nil
+}
+
+// Release implements [claim.Claimer].
+func (n *NOOPResourceClaimer) Release(ctx context.Context, claims claim.Claims) error {
+	return nil
+}
+
+// Start implements [claim.Claimer].
+func (n *NOOPResourceClaimer) Start(ctx context.Context) error {
+	return nil
+}
+
+// WaitUntilStarted implements [claim.Claimer].
+func (n *NOOPResourceClaimer) WaitUntilStarted(ctx context.Context) error {
+	return nil
+}
