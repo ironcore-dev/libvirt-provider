@@ -409,8 +409,13 @@ func Run(ctx context.Context, opts Options) error {
 			setupLog.Error(err, "failed to start resource claimer")
 			return err
 		}
-		return resClaimer.WaitUntilStarted(ctx)
+		return nil
 	})
+
+	if err = resClaimer.WaitUntilStarted(ctx); err != nil {
+		setupLog.Error(err, "failed to wait until resource claimer started")
+		return err
+	}
 
 	g.Go(func() error {
 		setupLog.Info("Starting oci cache")
