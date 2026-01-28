@@ -98,6 +98,10 @@ func NewMachineReconciler(
 		return nil, fmt.Errorf("must specify machine events")
 	}
 
+	if opts.ResourceClaimer == nil {
+		return nil, fmt.Errorf("must specify resource claimer")
+	}
+
 	return &MachineReconciler{
 		log:                            log,
 		queue:                          workqueue.NewTypedRateLimitingQueue[string](workqueue.DefaultTypedControllerRateLimiter[string]()),
