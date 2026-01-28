@@ -85,8 +85,8 @@ var _ = Describe("MachineController with GPUs", func() {
 		Expect(hostDevs).To(HaveLen(0))
 	})
 
-	It("should return empy host devices for nil GPU field", func(ctx SpecContext) {
-		By("creating a machine with nil Gu field")
+	It("should return empty host devices for nil GPU field", func(ctx SpecContext) {
+		By("creating a machine with nil Gpu field")
 		machine := &api.Machine{
 			Spec: api.MachineSpec{},
 		}
