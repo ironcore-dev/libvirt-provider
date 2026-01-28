@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestSync(t *testing.T) {
+func TestUtils(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Utils Suite")
 }

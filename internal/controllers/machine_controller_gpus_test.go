@@ -12,7 +12,7 @@ import (
 )
 
 var _ = Describe("MachineController with GPUs", func() {
-	It("should convert claimed GPUs to libvirt host devices", func(ctx SpecContext) {
+	It("should convert two claimed GPUs to libvirt host devices with correct PCI addresses", func(ctx SpecContext) {
 		By("creating a machine with claimed GPUs")
 		machine := &api.Machine{
 			Spec: api.MachineSpec{
@@ -70,7 +70,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		))
 	})
 
-	It("should convert claimed GPUs to libvirt host devices", func(ctx SpecContext) {
+	It("should return empty host devices for empty GPU slice", func(ctx SpecContext) {
 		By("creating a machine with 0 claimed GPUs")
 		machine := &api.Machine{
 			Spec: api.MachineSpec{
@@ -85,7 +85,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		Expect(hostDevs).To(HaveLen(0))
 	})
 
-	It("should convert claimed GPUs to libvirt host devices", func(ctx SpecContext) {
+	It("should return empy host devices for nil GPU field", func(ctx SpecContext) {
 		By("creating a machine with nil Gu field")
 		machine := &api.Machine{
 			Spec: api.MachineSpec{},

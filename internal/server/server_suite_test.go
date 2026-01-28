@@ -71,6 +71,7 @@ var (
 	machineClient  iriv1alpha1.MachineRuntimeClient
 	machineClasses *mcr.Mcr
 	machineStore   *hostutils.Store[*api.Machine]
+	resClaimer     claim.Claimer
 	tempDir        string
 )
 
@@ -134,16 +135,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 			},
 		},
 		{
-			Name: machineClassx3xlargegpu,
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				Resources: map[string]int64{
-					string(corev1alpha1.ResourceCPU):    4,
-					string(corev1alpha1.ResourceMemory): 8589934592,
-					api.NvidiaGPUPlugin:                 4,
-				},
-			},
-		},
-		{
 			Name: machineClassx2medium,
 			Capabilities: &iriv1alpha1.MachineClassCapabilities{
 				Resources: map[string]int64{
@@ -199,20 +190,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	By("setting up the network interface plugin")
 	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
 
-	resClaimer, err := claim.NewResourceClaimer(
+	resClaimer, err = claim.NewResourceClaimer(
 		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, NewTestingPCIReader([]pci.Address{
 			{Domain: 0, Bus: 3, Slot: 0, Function: 0},
 			{Domain: 0, Bus: 3, Slot: 0, Function: 1},
 		}), []pci.Address{}),
 	)
 	Expect(err).ToNot(HaveOccurred())
-
-	go func() {
-		defer GinkgoRecover()
-		err := resClaimer.Start(context.Background())
-		Expect(err).ToNot(HaveOccurred())
-		Expect(resClaimer.WaitUntilStarted(ctx)).To(BeNil())
-	}()
 
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
@@ -235,6 +219,13 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		defer GinkgoRecover()
 		Expect(app.RunGRPCServer(cancelCtx, log, log, srv, address)).To(Succeed())
 	}()
+
+	go func() {
+		defer GinkgoRecover()
+		Expect(resClaimer.Start(cancelCtx)).To(Succeed())
+	}()
+
+	Expect(resClaimer.WaitUntilStarted(ctx)).To(Succeed())
 
 	Eventually(func() error {
 		return isSocketAvailable(address)
@@ -264,8 +255,33 @@ func isSocketAvailable(socketPath string) error {
 func cleanupMachine(machineID string) func(SpecContext) {
 	return func(ctx SpecContext) {
 		By(fmt.Sprintf("Cleaning up machine ID=%s", machineID))
+
 		Eventually(func(g Gomega) error {
-			err := machineStore.Delete(context.Background(), machineID)
+			// Get machine to release claims
+			m, err := machineStore.Get(ctx, machineID)
+			if errors.Is(err, store.ErrNotFound) {
+				return nil
+			}
+
+			if err != nil {
+				GinkgoWriter.Printf("Getting machine failed ID=%s: err=%v\n", machineID, err)
+				return err
+			}
+
+			// Release GPU claims
+			if len(m.Spec.Gpu) > 0 {
+				GinkgoWriter.Printf("Releasing claims ID=%s: claims=%s", machineID, m.Spec.Gpu)
+				claimer := resClaimer
+				err = claimer.Release(ctx, claim.Claims{
+					api.NvidiaGPUPlugin: gpu.NewGPUClaim(m.Spec.Gpu),
+				})
+				if err != nil {
+					GinkgoWriter.Printf("Releasing claims failed ID=%s: claims=%v, err=%v\n", machineID, m.Spec.Gpu, err)
+					return err
+				}
+			}
+
+			err = machineStore.Delete(ctx, machineID)
 			GinkgoWriter.Printf("Deleting machine ID=%s: err=%v\n", machineID, err)
 			if errors.Is(err, store.ErrNotFound) {
 				return nil
@@ -275,7 +291,6 @@ func cleanupMachine(machineID string) func(SpecContext) {
 	}
 }
 
-// TODO move to provider-utils
 type TestingPCIReader struct {
 	pciAddrs []pci.Address
 }

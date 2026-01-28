@@ -168,7 +168,7 @@ var _ = Describe("CreateMachine", func() {
 	})
 
 	It("should fail to create a machine when not enough GPUs are available", func(ctx SpecContext) {
-		By("creating a machine with GPU class requiring more GPUs than available")
+		By("creating a machine with GPU class claiming all available GPUs")
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
@@ -178,12 +178,32 @@ var _ = Describe("CreateMachine", func() {
 				},
 				Spec: &iri.MachineSpec{
 					Power: iri.Power_POWER_ON,
-					Class: machineClassx3xlargegpu,
+					Class: machineClassx2mediumgpu,
 				},
 			},
 		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
+
+		By("creating a second machine with GPU class when no GPUs are left")
+		createResp2, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
+			Machine: &iri.Machine{
+				Metadata: &irimeta.ObjectMetadata{
+					Labels: map[string]string{
+						"machinepoolletv1alpha1.MachineUIDLabel": "foobar2",
+					},
+				},
+				Spec: &iri.MachineSpec{
+					Power: iri.Power_POWER_ON,
+					Class: machineClassx2mediumgpu,
+				},
+			},
+		})
+
+		By("ensuring the correct error is returned")
 		Expect(err).To(HaveOccurred())
-		Expect(createResp).To(BeNil())
+		Expect(err.Error()).To(ContainSubstring("failed to claim GPUs: insufficient resources\ninsufficient resource for nvidia.com/gpu"))
+		Expect(createResp2).To(BeNil())
 	})
 
 })
