@@ -31,13 +31,16 @@ func filterNvidiaGPUResources(capRes map[string]int64) corev1alpha1.ResourceList
 	return nvidiaRes
 }
 
-func getPCIAddresses(claims claim.Claims) []pci.Address {
+func getPCIAddresses(claims claim.Claims) ([]pci.Address, error) {
 	if gpuClaim, ok := claims[api.NvidiaGPUPlugin]; ok {
-		gpu := gpuClaim.(gpu.Claim)
-		return gpu.PCIAddresses()
+		gpu, ok := gpuClaim.(gpu.Claim)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast GPU claim to gpu.Claim type")
+		}
+		return gpu.PCIAddresses(), nil
 	}
 
-	return []pci.Address{}
+	return []pci.Address{}, nil
 }
 
 func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
@@ -93,7 +96,11 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		return nil, fmt.Errorf("failed to claim GPUs: %w", err)
 	}
 
-	pciAddrs := getPCIAddresses(gpus)
+	pciAddrs, err := getPCIAddresses(gpus)
+	if err != nil {
+		log.Error(err, "Failed to get PCI addresses from GPU claims")
+		return nil, fmt.Errorf("failed to get PCI addresses: %w", err)
+	}
 	log.V(2).Info("Claimed GPU PCI addresses", "pciAddresses", fmt.Sprintf("%v", pciAddrs))
 
 	machine := &api.Machine{
