@@ -694,7 +694,7 @@ func (r *MachineReconciler) domainFor(
 					},
 				},
 			},
-			Hostdevs: claimedGPUsToHostDevs(machine),
+			Hostdevs: ClaimedGPUsToHostDevs(machine),
 		},
 	}
 

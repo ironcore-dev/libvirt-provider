@@ -1,10 +1,11 @@
 // SPDX-FileCopyrightText: 2023 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
-package controllers
+package controllers_test
 
 import (
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/libvirt-provider/internal/controllers"
 	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -24,7 +25,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		}
 
 		By("converting claimed GPUs to host devices")
-		hostDevs := claimedGPUsToHostDevs(machine)
+		hostDevs := controllers.ClaimedGPUsToHostDevs(machine)
 
 		By("ensuring the correct host devices are returned")
 		Expect(hostDevs).To(HaveLen(2))
@@ -79,7 +80,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		}
 
 		By("converting claimed GPUs to host devices")
-		hostDevs := claimedGPUsToHostDevs(machine)
+		hostDevs := controllers.ClaimedGPUsToHostDevs(machine)
 
 		By("ensuring no host devices are returned")
 		Expect(hostDevs).To(HaveLen(0))
@@ -92,7 +93,7 @@ var _ = Describe("MachineController with GPUs", func() {
 		}
 
 		By("converting claimed GPUs to host devices")
-		hostDevs := claimedGPUsToHostDevs(machine)
+		hostDevs := controllers.ClaimedGPUsToHostDevs(machine)
 
 		By("ensuring no host devices are returned")
 		Expect(hostDevs).To(HaveLen(0))
