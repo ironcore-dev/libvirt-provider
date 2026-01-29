@@ -204,6 +204,7 @@ var _ = BeforeSuite(func() {
 			Raw:                            rawInst,
 			VolumePluginManager:            volumePlugins,
 			NetworkInterfacePlugin:         networkPlugin,
+			ResourceClaimer:                resClaimer,
 			ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 			EnableHugepages:                false,
 			GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
