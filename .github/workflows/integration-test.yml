@@ -38,10 +38,14 @@ jobs:
               sudo microceph.ceph osd set $flag
           done
 
-          # Repurpose the ephemeral disk for ceph OSD.
-          sudo swapoff /mnt/swapfile
-          ephemeral_disk="$(findmnt --noheadings --output SOURCE --target /mnt | sed 's/[0-9]\+$//')"
-          sudo microceph disk add --wipe "${ephemeral_disk}"
+          # Create a loop device for Ceph OSD
+          CEPH_OSD_IMG=~/ceph-osd.img
+          CEPH_OSD_SIZE_GIB=10
+
+          dd if=/dev/zero of="$CEPH_OSD_IMG" bs=1M count=$((CEPH_OSD_SIZE_GIB*1024)) status=progress
+          sync
+          LOOP=$(sudo losetup --find --show "$CEPH_OSD_IMG")
+          sudo microceph disk add --wipe "${LOOP}"
           sudo rm -rf /etc/ceph
           sudo ln -s /var/snap/microceph/current/conf/ /etc/ceph
           sudo microceph enable rgw
