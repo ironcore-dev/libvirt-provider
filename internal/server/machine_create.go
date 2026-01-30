@@ -32,12 +32,12 @@ func filterNvidiaGPUResources(capRes map[string]int64) corev1alpha1.ResourceList
 }
 
 func getPCIAddresses(claims claim.Claims) ([]pci.Address, error) {
-	if gpuClaim, ok := claims[api.NvidiaGPUPlugin]; ok {
-		gpu, ok := gpuClaim.(gpu.Claim)
+	if resClaim, ok := claims[api.NvidiaGPUPlugin]; ok {
+		gpuClaim, ok := resClaim.(gpu.Claim)
 		if !ok {
 			return nil, fmt.Errorf("failed to cast GPU claim to gpu.Claim type")
 		}
-		return gpu.PCIAddresses(), nil
+		return gpuClaim.PCIAddresses(), nil
 	}
 
 	return []pci.Address{}, nil
