@@ -17,7 +17,6 @@ var _ = Describe("CreateMachine", func() {
 		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
-					Id: "machine1",
 					Labels: map[string]string{
 						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
 					},
