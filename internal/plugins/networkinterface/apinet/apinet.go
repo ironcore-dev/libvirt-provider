@@ -146,7 +146,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 				Name: p.nodeName,
 			},
 			IPs:      ironcoreIPsToAPInetIPs(spec.Ips),
-			Hostname: machine.Spec.Name,
+			Hostname: spec.HostName,
 		},
 	}
 

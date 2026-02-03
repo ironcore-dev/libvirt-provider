@@ -18,7 +18,6 @@ type Machine struct {
 }
 
 type MachineSpec struct {
-	Name  string     `json:"name"`
 	Power PowerState `json:"power"`
 
 	Cpu         int64 `json:"cpu"`
@@ -106,6 +105,7 @@ type NetworkInterfaceSpec struct {
 	NetworkId  string            `json:"networkId"`
 	Ips        []string          `json:"ips"`
 	Attributes map[string]string `json:"attributes"`
+	HostName   string            `json:"hostName,omitempty"`
 }
 
 type NetworkInterfaceStatus struct {
