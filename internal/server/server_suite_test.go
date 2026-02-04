@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 20253 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package server_test
@@ -270,8 +270,7 @@ func cleanupMachine(machineID string) func(SpecContext) {
 			// Release GPU claims
 			if len(m.Spec.Gpu) > 0 {
 				GinkgoWriter.Printf("Releasing claims ID=%s: claims=%s\n", machineID, m.Spec.Gpu)
-				claimer := resClaimer
-				err = claimer.Release(ctx, claim.Claims{
+				err = resClaimer.Release(ctx, claim.Claims{
 					api.NvidiaGPUPlugin: gpu.NewGPUClaim(m.Spec.Gpu),
 				})
 				if err != nil {
