@@ -43,9 +43,19 @@ func getPCIAddresses(claims claim.Claims) ([]pci.Address, error) {
 	return []pci.Address{}, nil
 }
 
-func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
-	//TODO cleanup: release GPU claims if other errors occur
+func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (retMachine *api.Machine, retErr error) {
 	log.V(2).Info("Getting libvirt machine config")
+
+	var claimedGPUs claim.Claims
+	defer func() {
+		if retErr != nil && claimedGPUs != nil {
+			if err := s.resourceClaimer.Release(ctx, claimedGPUs); err != nil {
+				log.Error(err, "Failed to release GPU claims during cleanup")
+			} else {
+				log.V(2).Info("Successfully released GPU claims during cleanup")
+			}
+		}
+	}()
 
 	switch {
 	case iriMachine == nil:
@@ -90,13 +100,13 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}
 
-	gpus, err := s.resourceClaimer.Claim(ctx, filterNvidiaGPUResources(class.Capabilities.Resources))
+	claimedGPUs, err = s.resourceClaimer.Claim(ctx, filterNvidiaGPUResources(class.Capabilities.Resources))
 	if err != nil {
 		log.Error(err, "Failed to claim GPUs")
 		return nil, fmt.Errorf("failed to claim GPUs: %w", err)
 	}
 
-	pciAddrs, err := getPCIAddresses(gpus)
+	pciAddrs, err := getPCIAddresses(claimedGPUs)
 	if err != nil {
 		log.Error(err, "Failed to get PCI addresses from GPU claims")
 		return nil, fmt.Errorf("failed to get PCI addresses: %w", err)
@@ -129,6 +139,9 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	if err != nil {
 		return nil, fmt.Errorf("failed to create machine: %w", err)
 	}
+
+	// Clear claimedGPUs to prevent cleanup since machine creation succeeded
+	claimedGPUs = nil
 
 	return apiMachine, nil
 }

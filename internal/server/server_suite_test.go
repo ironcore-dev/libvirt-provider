@@ -53,7 +53,6 @@ const (
 	consistentlyDuration           = 1 * time.Second
 	probeEveryInterval             = 2 * time.Second
 	machineClassx3xlarge           = "x3-xlarge"
-	machineClassx3xlargegpu        = "x3-xlarge-gpu"
 	machineClassx2medium           = "x2-medium"
 	machineClassx2mediumgpu        = "x2-medium-gpu"
 	osImage                        = "ghcr.io/ironcore-dev/os-images/virtualization/gardenlinux:latest"
@@ -270,7 +269,7 @@ func cleanupMachine(machineID string) func(SpecContext) {
 
 			// Release GPU claims
 			if len(m.Spec.Gpu) > 0 {
-				GinkgoWriter.Printf("Releasing claims ID=%s: claims=%s", machineID, m.Spec.Gpu)
+				GinkgoWriter.Printf("Releasing claims ID=%s: claims=%s\n", machineID, m.Spec.Gpu)
 				claimer := resClaimer
 				err = claimer.Release(ctx, claim.Claims{
 					api.NvidiaGPUPlugin: gpu.NewGPUClaim(m.Spec.Gpu),

@@ -397,25 +397,23 @@ func Run(ctx context.Context, opts Options) error {
 		Log:     log.WithName("health-check"),
 	}
 
-	g, ctx := errgroup.WithContext(ctx)
-
-	g.Go(func() error {
-		return runMetricsServer(ctx, setupLog, opts.Servers.Metrics)
-	})
-
-	g.Go(func() error {
-		setupLog.Info("Starting resource claimer")
-		if err := resClaimer.Start(ctx); err != nil {
+	setupLog.Info("Starting resource claimer")
+	go func() {
+		if err := resClaimer.Start(ctx); err != nil && ctx.Err() == nil {
 			setupLog.Error(err, "failed to start resource claimer")
-			return err
 		}
-		return nil
-	})
+	}()
 
 	if err = resClaimer.WaitUntilStarted(ctx); err != nil {
 		setupLog.Error(err, "failed to wait until resource claimer started")
 		return err
 	}
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	g.Go(func() error {
+		return runMetricsServer(ctx, setupLog, opts.Servers.Metrics)
+	})
 
 	g.Go(func() error {
 		setupLog.Info("Starting oci cache")
