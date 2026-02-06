@@ -105,6 +105,7 @@ type NetworkInterfaceSpec struct {
 	NetworkId  string            `json:"networkId"`
 	Ips        []string          `json:"ips"`
 	Attributes map[string]string `json:"attributes"`
+	HostName   string            `json:"hostName,omitempty"`
 }
 
 type NetworkInterfaceStatus struct {

@@ -61,6 +61,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			NetworkId:  iriNetworkInterface.NetworkId,
 			Ips:        iriNetworkInterface.Ips,
 			Attributes: iriNetworkInterface.Attributes,
+			HostName:   iriMachine.Metadata.Id,
 		}
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}

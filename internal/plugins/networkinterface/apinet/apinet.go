@@ -145,7 +145,8 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 			NodeRef: corev1.LocalObjectReference{
 				Name: p.nodeName,
 			},
-			IPs: ironcoreIPsToAPInetIPs(spec.Ips),
+			IPs:      ironcoreIPsToAPInetIPs(spec.Ips),
+			Hostname: spec.HostName,
 		},
 	}
 
