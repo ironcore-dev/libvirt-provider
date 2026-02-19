@@ -12,6 +12,10 @@ import (
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func calcResources(class *iri.MachineClass) (int64, int64) {
@@ -19,8 +23,39 @@ func calcResources(class *iri.MachineClass) (int64, int64) {
 	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
 }
 
-func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (*api.Machine, error) {
+func filterNvidiaGPUResources(capRes map[string]int64) corev1alpha1.ResourceList {
+	nvidiaRes := corev1alpha1.ResourceList{}
+	if _, ok := capRes[api.NvidiaGPUPlugin]; ok {
+		nvidiaRes[api.NvidiaGPUPlugin] = *resource.NewQuantity(capRes[api.NvidiaGPUPlugin], resource.DecimalSI)
+	}
+	return nvidiaRes
+}
+
+func getPCIAddresses(claims claim.Claims) ([]pci.Address, error) {
+	if resClaim, ok := claims[api.NvidiaGPUPlugin]; ok {
+		gpuClaim, ok := resClaim.(gpu.Claim)
+		if !ok {
+			return nil, fmt.Errorf("failed to cast GPU claim to gpu.Claim type")
+		}
+		return gpuClaim.PCIAddresses(), nil
+	}
+
+	return []pci.Address{}, nil
+}
+
+func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logger, iriMachine *iri.Machine) (retMachine *api.Machine, retErr error) {
 	log.V(2).Info("Getting libvirt machine config")
+
+	var claimedGPUs claim.Claims
+	defer func() {
+		if retErr != nil && claimedGPUs != nil {
+			if err := s.resourceClaimer.Release(ctx, claimedGPUs); err != nil {
+				log.Error(err, "Failed to release GPU claims during cleanup")
+			} else {
+				log.V(2).Info("Successfully released GPU claims during cleanup")
+			}
+		}
+	}()
 
 	switch {
 	case iriMachine == nil:
@@ -65,6 +100,19 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}
 
+	claimedGPUs, err = s.resourceClaimer.Claim(ctx, filterNvidiaGPUResources(class.Capabilities.Resources))
+	if err != nil {
+		log.Error(err, "Failed to claim GPUs")
+		return nil, fmt.Errorf("failed to claim GPUs: %w", err)
+	}
+
+	pciAddrs, err := getPCIAddresses(claimedGPUs)
+	if err != nil {
+		log.Error(err, "Failed to get PCI addresses from GPU claims")
+		return nil, fmt.Errorf("failed to get PCI addresses: %w", err)
+	}
+	log.V(2).Info("Claimed GPU PCI addresses", "pciAddresses", fmt.Sprintf("%v", pciAddrs))
+
 	machine := &api.Machine{
 		Metadata: apiutils.Metadata{
 			ID: s.idGen.Generate(),
@@ -76,6 +124,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			Volumes:           volumes,
 			Ignition:          iriMachine.Spec.IgnitionData,
 			NetworkInterfaces: networkInterfaces,
+			Gpu:               pciAddrs,
 			GuestAgent:        s.guestAgent,
 		},
 	}
@@ -90,6 +139,9 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 	if err != nil {
 		return nil, fmt.Errorf("failed to create machine: %w", err)
 	}
+
+	// Clear claimedGPUs to prevent cleanup since machine creation succeeded
+	claimedGPUs = nil
 
 	return apiMachine, nil
 }

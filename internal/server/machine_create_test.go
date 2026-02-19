@@ -48,11 +48,9 @@ var _ = Describe("CreateMachine", func() {
 
 		By("ensuring the machine gets created in the store")
 		Eventually(func(g Gomega) *api.Machine {
-			msList, err := machineStore.List(ctx)
+			machine, err := machineStore.Get(ctx, createResp.Machine.Metadata.Id)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(msList).NotTo(BeEmpty())
-			g.Expect(msList).To(HaveLen(1))
-			return msList[0]
+			return machine
 		}).Should(SatisfyAll(
 			HaveField("Spec.MemoryBytes", int64(8589934592)),
 			HaveField("Spec.Cpu", int64(4)),
@@ -117,11 +115,9 @@ var _ = Describe("CreateMachine", func() {
 
 		By("ensuring the machine gets created in the store")
 		Eventually(func(g Gomega) *api.Machine {
-			msList, err := machineStore.List(ctx)
+			machine, err := machineStore.Get(ctx, createResp.Machine.Metadata.Id)
 			g.Expect(err).NotTo(HaveOccurred())
-			g.Expect(msList).NotTo(BeEmpty())
-			g.Expect(msList).To(HaveLen(1))
-			return msList[0]
+			return machine
 		}).Should(SatisfyAll(
 			HaveField("Spec.MemoryBytes", int64(8589934592)),
 			HaveField("Spec.Cpu", int64(4)),
@@ -134,4 +130,80 @@ var _ = Describe("CreateMachine", func() {
 			))),
 		))
 	})
+
+	It("should create a machine with GPU support", func(ctx SpecContext) {
+		By("creating a machine with GPU class")
+		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
+			Machine: &iri.Machine{
+				Metadata: &irimeta.ObjectMetadata{
+					Labels: map[string]string{
+						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
+					},
+				},
+				Spec: &iri.MachineSpec{
+					Power: iri.Power_POWER_ON,
+					Class: machineClassx2mediumgpu,
+				},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(createResp).NotTo(BeNil())
+		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
+
+		By("ensuring the correct creation response")
+		Expect(createResp).Should(SatisfyAll(
+			HaveField("Machine.Metadata.Id", Not(BeEmpty())),
+			HaveField("Machine.Spec.Class", machineClassx2mediumgpu),
+		))
+
+		By("ensuring the machine gets created in the store with GPU")
+		Eventually(func(g Gomega) *api.Machine {
+			machine, err := machineStore.Get(ctx, createResp.Machine.Metadata.Id)
+			g.Expect(err).NotTo(HaveOccurred())
+			return machine
+		}).Should(SatisfyAll(
+			HaveField("Spec.Gpu", Not(BeNil())),
+			HaveField("Spec.Gpu", HaveLen(2)),
+		))
+	})
+
+	It("should fail to create a machine when not enough GPUs are available", func(ctx SpecContext) {
+		By("creating a machine with GPU class claiming all available GPUs")
+		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
+			Machine: &iri.Machine{
+				Metadata: &irimeta.ObjectMetadata{
+					Labels: map[string]string{
+						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
+					},
+				},
+				Spec: &iri.MachineSpec{
+					Power: iri.Power_POWER_ON,
+					Class: machineClassx2mediumgpu,
+				},
+			},
+		})
+		Expect(err).ToNot(HaveOccurred())
+		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
+
+		By("creating a second machine with GPU class when no GPUs are left")
+		createResp2, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
+			Machine: &iri.Machine{
+				Metadata: &irimeta.ObjectMetadata{
+					Labels: map[string]string{
+						"machinepoolletv1alpha1.MachineUIDLabel": "foobar2",
+					},
+				},
+				Spec: &iri.MachineSpec{
+					Power: iri.Power_POWER_ON,
+					Class: machineClassx2mediumgpu,
+				},
+			},
+		})
+
+		By("ensuring the correct error is returned")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("insufficient resource"))
+		Expect(createResp2).To(BeNil())
+	})
+
 })

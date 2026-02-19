@@ -16,6 +16,8 @@ import (
 	"sync"
 	"time"
 
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
+
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
 	ocistore "github.com/ironcore-dev/ironcore-image/oci/store"
@@ -37,6 +39,9 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/server"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
+	"github.com/ironcore-dev/libvirt-provider/internal/utils"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
@@ -312,6 +317,27 @@ func Run(ctx context.Context, opts Options) error {
 
 	eventStore := recorder.NewEventStore(log, opts.MachineEventStore)
 
+	pciReader, err := pci.NewReader(log, pci.VendorNvidia, pci.Class3DController)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize PCI reader")
+		return err
+	}
+
+	claimedPCIAddrs, err := utils.GetClaimedPCIAddressesFromMachineStore(ctx, machineStore)
+	if err != nil {
+		setupLog.Error(err, "failed to get claimed PCI addresses from machine store")
+		return err
+	}
+	setupLog.Info("Recovered claimed PCI addresses from machine store", "addresses", fmt.Sprintf("%v", claimedPCIAddrs))
+
+	resClaimer, err := claim.NewResourceClaimer(
+		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, pciReader, claimedPCIAddrs),
+	)
+	if err != nil {
+		setupLog.Error(err, "failed to initialize resource claimer")
+		return err
+	}
+
 	machineReconciler, err := controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
 		providerHost,
@@ -324,6 +350,7 @@ func Run(ctx context.Context, opts Options) error {
 			Raw:                            rawInst,
 			VolumePluginManager:            volumePlugins,
 			NetworkInterfacePlugin:         nicPlugin,
+			ResourceClaimer:                resClaimer,
 			ResyncIntervalGarbageCollector: opts.ResyncIntervalGarbageCollector,
 			EnableHugepages:                opts.EnableHugepages,
 			GCVMGracefulShutdownTimeout:    opts.GCVMGracefulShutdownTimeout,
@@ -356,6 +383,7 @@ func Run(ctx context.Context, opts Options) error {
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
+		ResourceClaimer: resClaimer,
 		EnableHugepages: opts.EnableHugepages,
 		GuestAgent:      opts.GuestAgent.GetAPIGuestAgent(),
 	})
@@ -367,6 +395,18 @@ func Run(ctx context.Context, opts Options) error {
 	healthCheck := healthcheck.HealthCheck{
 		Libvirt: libvirt,
 		Log:     log.WithName("health-check"),
+	}
+
+	setupLog.Info("Starting resource claimer")
+	go func() {
+		if err := resClaimer.Start(ctx); err != nil && ctx.Err() == nil {
+			setupLog.Error(err, "failed to start resource claimer")
+		}
+	}()
+
+	if err = resClaimer.WaitUntilStarted(ctx); err != nil {
+		setupLog.Error(err, "failed to wait until resource claimer started")
+		return err
 	}
 
 	g, ctx := errgroup.WithContext(ctx)

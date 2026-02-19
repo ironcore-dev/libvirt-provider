@@ -12,6 +12,9 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ironcore-dev/provider-utils/claimutils/claim"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+
 	"github.com/digitalocean/go-libvirt"
 	"github.com/google/uuid"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
@@ -29,6 +32,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
@@ -68,6 +72,7 @@ var (
 	tempDir           string
 	controllerCtx     context.Context
 	controllerCancel  context.CancelFunc
+	resClaimer        claim.Claimer
 )
 
 func TestControllers(t *testing.T) {
@@ -180,6 +185,12 @@ var _ = BeforeSuite(func() {
 	}
 	Expect(networkPlugin.Init(providerHost)).To(Succeed())
 
+	By("setting up resource claimer")
+	resClaimer, err = claim.NewResourceClaimer(
+		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, NewTestingPCIReader([]pci.Address{}), []pci.Address{}),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
 	By("creating machine controller")
 	machineController, err = controllers.NewMachineReconciler(
 		log.WithName("machine-controller"),
@@ -193,6 +204,7 @@ var _ = BeforeSuite(func() {
 			Raw:                            rawInst,
 			VolumePluginManager:            volumePlugins,
 			NetworkInterfacePlugin:         networkPlugin,
+			ResourceClaimer:                resClaimer,
 			ResyncIntervalGarbageCollector: resyncGarbageCollectorInterval,
 			EnableHugepages:                false,
 			GCVMGracefulShutdownTimeout:    gracefulShutdownTimeout,
@@ -287,5 +299,19 @@ func cleanupMachine(machineID string) func(SpecContext) {
 			}
 			return libvirt.IsNotFound(err)
 		}).WithPolling(time.Second).Should(BeTrue())
+	}
+}
+
+type TestingPCIReader struct {
+	pciAddrs []pci.Address
+}
+
+func (t TestingPCIReader) Read() ([]pci.Address, error) {
+	return t.pciAddrs, nil
+}
+
+func NewTestingPCIReader(addrs []pci.Address) *TestingPCIReader {
+	return &TestingPCIReader{
+		pciAddrs: addrs,
 	}
 }

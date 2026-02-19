@@ -19,7 +19,7 @@ var _ = Describe("ListMachine", func() {
 			Machine: &iri.Machine{
 				Metadata: &irimeta.ObjectMetadata{
 					Labels: map[string]string{
-						"foo": "bar",
+						"foo": "listbar",
 					},
 				},
 				Spec: &iri.MachineSpec{
@@ -77,7 +77,7 @@ var _ = Describe("ListMachine", func() {
 		listResp, err := machineClient.ListMachines(ctx, &iri.ListMachinesRequest{
 			Filter: &iri.MachineFilter{
 				LabelSelector: map[string]string{
-					"foo": "bar",
+					"foo": "listbar",
 				},
 			},
 		})

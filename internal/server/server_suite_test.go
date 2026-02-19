@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: 20253 SAP SE or an SAP affiliate company and IronCore contributors
+// SPDX-FileCopyrightText: 2025 SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
 package server_test
@@ -28,6 +28,9 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/server"
 	"github.com/ironcore-dev/libvirt-provider/internal/strategy"
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
+	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
+	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
@@ -51,6 +54,7 @@ const (
 	probeEveryInterval             = 2 * time.Second
 	machineClassx3xlarge           = "x3-xlarge"
 	machineClassx2medium           = "x2-medium"
+	machineClassx2mediumgpu        = "x2-medium-gpu"
 	osImage                        = "ghcr.io/ironcore-dev/os-images/virtualization/gardenlinux:latest"
 	emptyDiskSize                  = 1024 * 1024 * 1024
 	baseURL                        = "http://localhost:20251"
@@ -66,6 +70,7 @@ var (
 	machineClient  iriv1alpha1.MachineRuntimeClient
 	machineClasses *mcr.Mcr
 	machineStore   *hostutils.Store[*api.Machine]
+	resClaimer     claim.Claimer
 	tempDir        string
 )
 
@@ -79,7 +84,7 @@ func TestServer(t *testing.T) {
 	RunSpecs(t, "GRPC Server Suite", Label("integration"))
 }
 
-var _ = BeforeSuite(func() {
+var _ = BeforeSuite(func(ctx SpecContext) {
 	log := zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true))
 	logf.SetLogger(log)
 
@@ -137,6 +142,16 @@ var _ = BeforeSuite(func() {
 				},
 			},
 		},
+		{
+			Name: machineClassx2mediumgpu,
+			Capabilities: &iriv1alpha1.MachineClassCapabilities{
+				Resources: map[string]int64{
+					string(corev1alpha1.ResourceCPU):    2,
+					string(corev1alpha1.ResourceMemory): 2147483648,
+					api.NvidiaGPUPlugin:                 2,
+				},
+			},
+		},
 	}
 	machineClasses, err = mcr.NewMachineClassRegistry(classes)
 	Expect(err).NotTo(HaveOccurred())
@@ -174,6 +189,14 @@ var _ = BeforeSuite(func() {
 	By("setting up the network interface plugin")
 	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
 
+	resClaimer, err = claim.NewResourceClaimer(
+		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, NewTestingPCIReader([]pci.Address{
+			{Domain: 0, Bus: 3, Slot: 0, Function: 0},
+			{Domain: 0, Bus: 3, Slot: 0, Function: 1},
+		}), []pci.Address{}),
+	)
+	Expect(err).ToNot(HaveOccurred())
+
 	srv, err := server.New(server.Options{
 		BaseURL:         baseURL,
 		Libvirt:         libvirt,
@@ -182,6 +205,7 @@ var _ = BeforeSuite(func() {
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
 		NetworkPlugins:  nicPlugin,
+		ResourceClaimer: resClaimer,
 		EnableHugepages: false,
 		GuestAgent:      api.GuestAgentNone,
 	})
@@ -194,6 +218,13 @@ var _ = BeforeSuite(func() {
 		defer GinkgoRecover()
 		Expect(app.RunGRPCServer(cancelCtx, log, log, srv, address)).To(Succeed())
 	}()
+
+	go func() {
+		defer GinkgoRecover()
+		Expect(resClaimer.Start(cancelCtx)).To(Succeed())
+	}()
+
+	Expect(resClaimer.WaitUntilStarted(ctx)).To(Succeed())
 
 	Eventually(func() error {
 		return isSocketAvailable(address)
@@ -223,13 +254,51 @@ func isSocketAvailable(socketPath string) error {
 func cleanupMachine(machineID string) func(SpecContext) {
 	return func(ctx SpecContext) {
 		By(fmt.Sprintf("Cleaning up machine ID=%s", machineID))
+
 		Eventually(func(g Gomega) error {
-			err := machineStore.Delete(context.Background(), machineID)
+			// Get machine to release claims
+			m, err := machineStore.Get(ctx, machineID)
+			if errors.Is(err, store.ErrNotFound) {
+				return nil
+			}
+
+			if err != nil {
+				GinkgoWriter.Printf("Getting machine failed ID=%s: err=%v\n", machineID, err)
+				return err
+			}
+
+			// Release GPU claims
+			if len(m.Spec.Gpu) > 0 {
+				GinkgoWriter.Printf("Releasing claims ID=%s: claims=%s\n", machineID, m.Spec.Gpu)
+				err = resClaimer.Release(ctx, claim.Claims{
+					api.NvidiaGPUPlugin: gpu.NewGPUClaim(m.Spec.Gpu),
+				})
+				if err != nil {
+					GinkgoWriter.Printf("Releasing claims failed ID=%s: claims=%v, err=%v\n", machineID, m.Spec.Gpu, err)
+					return err
+				}
+			}
+
+			err = machineStore.Delete(ctx, machineID)
 			GinkgoWriter.Printf("Deleting machine ID=%s: err=%v\n", machineID, err)
 			if errors.Is(err, store.ErrNotFound) {
 				return nil
 			}
 			return err
 		}).Should(Succeed())
+	}
+}
+
+type TestingPCIReader struct {
+	pciAddrs []pci.Address
+}
+
+func (t TestingPCIReader) Read() ([]pci.Address, error) {
+	return t.pciAddrs, nil
+}
+
+func NewTestingPCIReader(addrs []pci.Address) *TestingPCIReader {
+	return &TestingPCIReader{
+		pciAddrs: addrs,
 	}
 }

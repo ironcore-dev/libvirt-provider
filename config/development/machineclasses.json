@@ -1,23 +1,30 @@
 [
   {
-    "name": "extra-huge",
+    "name": "gpu",
     "capabilities": {
-      "cpu_millis": 2000,
-      "memory_bytes": 16106127361
+      "resources": {
+        "cpu": 4,
+        "memory": 8589934592,
+        "nvidia.com/gpu": 1
+      }
     }
   },
   {
     "name": "t3-small",
     "capabilities": {
-      "cpu_millis": 2000,
-      "memory_bytes": 2147483648
+      "resources": {
+        "cpu": 2,
+        "memory": 2147483648
+      }
     }
   },
   {
     "name": "x3-xlarge",
     "capabilities": {
-      "cpu_millis": 4000,
-      "memory_bytes": 8589934592
+      "resources": {
+        "cpu": 4,
+        "memory": 8589934592
+      }
     }
   }
 ]

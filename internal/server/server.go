@@ -20,6 +20,7 @@ import (
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
+	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -39,8 +40,9 @@ type Server struct {
 
 	networkInterfacePlugin providernetworkinterface.Plugin
 
-	volumePlugins  *volume.PluginManager
-	machineClasses MachineClassRegistry
+	volumePlugins   *volume.PluginManager
+	machineClasses  MachineClassRegistry
+	resourceClaimer claim.Claimer
 
 	execRequestCache request.Cache[*iri.ExecRequest]
 	activeConsoles   sync.Map
@@ -66,6 +68,7 @@ type Options struct {
 
 	VolumePlugins   *volume.PluginManager
 	NetworkPlugins  providernetworkinterface.Plugin
+	ResourceClaimer claim.Claimer
 	EnableHugepages bool
 	GuestAgent      api.GuestAgent
 }
@@ -79,6 +82,10 @@ func setOptionsDefaults(o *Options) {
 func New(opts Options) (*Server, error) {
 	setOptionsDefaults(&opts)
 
+	if opts.ResourceClaimer == nil {
+		return nil, fmt.Errorf("ResourceClaimer is required")
+	}
+
 	baseURL, err := url.ParseRequestURI(opts.BaseURL)
 	if err != nil {
 		return nil, fmt.Errorf("invalid base url %q: %w", opts.BaseURL, err)
@@ -90,6 +97,7 @@ func New(opts Options) (*Server, error) {
 		libvirt:                opts.Libvirt,
 		machineStore:           opts.MachineStore,
 		eventStore:             opts.EventStore,
+		resourceClaimer:        opts.ResourceClaimer,
 		volumePlugins:          opts.VolumePlugins,
 		networkInterfacePlugin: opts.NetworkPlugins,
 		machineClasses:         opts.MachineClasses,

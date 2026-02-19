@@ -169,8 +169,10 @@ github.com/ironcore-dev/ironcore-image v0.3.0 h1:K4nTfvYk/3iPMJCXDeKlqFHoMcPpo0J
 github.com/ironcore-dev/ironcore-image v0.3.0/go.mod h1:DDCwFPMQ+KqKcM4NSctdIx7ArAF+bOF/EbwNd5b3hlg=
 github.com/ironcore-dev/ironcore-net v0.2.4 h1:r2SqxwStws86KBvxJcK/myRxb946qAZVpPKd1rJzfsQ=
 github.com/ironcore-dev/ironcore-net v0.2.4/go.mod h1:dSn6aWF+bxCIeWJzPjDl5dVTH3Rd7wx1LuTQpYUU4Lg=
-github.com/ironcore-dev/provider-utils v0.0.0-20251010114402-394db8015df4 h1:sRQ/gcL5z3CqcqI+9If8XmgVk9pK4WebZOAMNFYXREQ=
-github.com/ironcore-dev/provider-utils v0.0.0-20251010114402-394db8015df4/go.mod h1:qxuFuJy31Lfu3go5wsGpFGAZwCw1++1EKGJmHG2HbLw=
+github.com/ironcore-dev/provider-utils v0.0.0-20260126095734-e10d4f178c5f h1:C2Qh9xHu0HK/Vgf3ni3FBbhsh9AL0lTGvH9bzITQRG8=
+github.com/ironcore-dev/provider-utils v0.0.0-20260126095734-e10d4f178c5f/go.mod h1:Se6VYgCzzhVjqUGXeHY3NxuNhLrUkq8qNKpgfayGpHk=
+github.com/ironcore-dev/provider-utils v0.0.0-20260127115859-8d108ef8e4b4 h1:d8bABd4w70/iX1Fff4qaGyGWCNk1XJRyJUQOEFKCJa4=
+github.com/ironcore-dev/provider-utils v0.0.0-20260127115859-8d108ef8e4b4/go.mod h1:Se6VYgCzzhVjqUGXeHY3NxuNhLrUkq8qNKpgfayGpHk=
 github.com/josharian/intern v1.0.0 h1:vlS4z54oSdjm0bgjRigI+G1HpF+tI+9rE5LLzOg8HmY=
 github.com/josharian/intern v1.0.0/go.mod h1:5DoeVV0s6jJacbCEi61lwdGj/aVlrQvzHFFd8Hwg//Y=
 github.com/joshdk/go-junit v1.0.0 h1:S86cUKIdwBHWwA6xCmFlf3RTLfVXYQfvanM5Uh+K6GE=
@@ -262,8 +264,8 @@ github.com/prometheus/common v0.66.1/go.mod h1:gcaUsgf3KfRSwHY4dIMXLPV0K/Wg1oZ8+
 github.com/prometheus/procfs v0.0.0-20181005140218-185b4288413d/go.mod h1:c3At6R/oaqEKCNdg8wHV1ftS6bRYblBhIjjI8uT2IGk=
 github.com/prometheus/procfs v0.0.2/go.mod h1:TjEm7ze935MbeOT/UhFTIMYKhuLP4wbCsTZCD3I8kEA=
 github.com/prometheus/procfs v0.0.3/go.mod h1:4A/X28fw3Fc593LaREMrKMqOKvUAntwMDaekg4FpcdQ=
-github.com/prometheus/procfs v0.16.1 h1:hZ15bTNuirocR6u0JZ6BAHHmwS1p8B4P6MRqxtzMyRg=
-github.com/prometheus/procfs v0.16.1/go.mod h1:teAbpZRB1iIAJYREa1LsoWUXykVXA1KlTmWl8x/U+Is=
+github.com/prometheus/procfs v0.19.2 h1:zUMhqEW66Ex7OXIiDkll3tl9a1ZdilUOd/F6ZXw4Vws=
+github.com/prometheus/procfs v0.19.2/go.mod h1:M0aotyiemPhBCM0z5w87kL22CxfcH05ZpYlu+b4J7mw=
 github.com/redis/go-redis/extra/rediscmd/v9 v9.0.5 h1:EaDatTxkdHG+U3Bk4EUr+DZ7fOGwTfezUiUJMaIcaho=
 github.com/redis/go-redis/extra/rediscmd/v9 v9.0.5/go.mod h1:fyalQWdtzDBECAQFBJuQe5bzQ02jGd5Qcbgb97Flm7U=
 github.com/redis/go-redis/extra/redisotel/v9 v9.0.5 h1:EfpWLLCyXw8PSM2/XNJLjI3Pb27yVE+gIAfeqp8LUCc=
