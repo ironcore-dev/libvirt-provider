@@ -41,6 +41,8 @@ spec:
             - name: LIBVIRT_PROVIDER_DIR
               value: "/var/lib/libvirt-provider"
             - name: LIBVIRT_GROUP
+              value: "libvirt"
+            - name: LIBVIRT_QEMU_USER
               value: "libvirt-qemu"
             - name: DEPENDENCIES
               value: "libvirt-daemon-system libvirt-clients ovmf ceph-common"
@@ -57,12 +59,24 @@ spec:
                   echo "Error: $(LIBVIRT_GROUP) group does not exist."
                   exit 1
               fi
-              if ! getent group $(USER_GROUP); then
-                  echo "Error: $(LIBVIRT_GROUP) group does not exist."
+              if ! getent group $(LIBVIRT_QEMU_GROUP); then
+                  echo "Error: $(LIBVIRT_QEMU_GROUP) group does not exist."
                   exit 1
               fi
               if ! id -u $(USER); then
                   echo "Error: $(USER) user does not exist."
+                  exit 1
+              fi
+              if ! getent group $(USER_GROUP); then
+                  echo "Error: $(USER_GROUP) group does not exist."
+                  exit 1
+              fi
+              if ! id -nG $(USER) | grep -qw $(LIBVIRT_GROUP); then
+                  echo "Error: $(USER) is not a member of $(LIBVIRT_GROUP) group."
+                  exit 1
+              fi
+              if ! id -nG $(LIBVIRT_QEMU_USER) | grep -qw $(USER_GROUP); then
+                  echo "Error: $(LIBVIRT_QEMU_USER) is not a member of $(USER_GROUP) group."
                   exit 1
               fi
               if [ ! -d "$(LIBVIRT_PROVIDER_DIR)" ]; then
