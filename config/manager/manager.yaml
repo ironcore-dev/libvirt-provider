@@ -44,6 +44,8 @@ spec:
               value: "libvirt"
             - name: LIBVIRT_QEMU_USER
               value: "libvirt-qemu"
+            - name: LIBVIRT_QEMU_GROUP
+              value: "libvirt-qemu"
             - name: DEPENDENCIES
               value: "libvirt-daemon-system libvirt-clients ovmf ceph-common"
           args:
