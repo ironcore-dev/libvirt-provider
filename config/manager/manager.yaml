@@ -57,27 +57,27 @@ spec:
                   exit 1
                 fi
               done
-              if ! getent group $(LIBVIRT_GROUP); then
+              if ! getent group $(LIBVIRT_GROUP) > /dev/null; then
                   echo "Error: $(LIBVIRT_GROUP) group does not exist."
                   exit 1
               fi
-              if ! getent group $(LIBVIRT_QEMU_GROUP); then
+              if ! getent group $(LIBVIRT_QEMU_GROUP) > /dev/null; then
                   echo "Error: $(LIBVIRT_QEMU_GROUP) group does not exist."
                   exit 1
               fi
-              if ! id -u $(USER); then
+              if ! id -u $(USER) > /dev/null; then
                   echo "Error: $(USER) user does not exist."
                   exit 1
               fi
-              if ! getent group $(USER_GROUP); then
+              if ! getent group $(USER_GROUP) > /dev/null; then
                   echo "Error: $(USER_GROUP) group does not exist."
                   exit 1
               fi
-              if ! id -nG $(USER) | grep -qw $(LIBVIRT_GROUP); then
+              if ! id -nG $(USER) 2>/dev/null | grep -qw $(LIBVIRT_GROUP); then
                   echo "Error: $(USER) is not a member of $(LIBVIRT_GROUP) group."
                   exit 1
               fi
-              if ! id -nG $(LIBVIRT_QEMU_USER) | grep -qw $(USER_GROUP); then
+              if ! id -nG $(LIBVIRT_QEMU_USER) 2>/dev/null | grep -qw $(USER_GROUP); then
                   echo "Error: $(LIBVIRT_QEMU_USER) is not a member of $(USER_GROUP) group."
                   exit 1
               fi
