@@ -24,7 +24,7 @@ spec:
         control-plane: controller-manager
     spec:
       initContainers:
-        - name: create-libvirt-user
+        - name: check-prerequisites
           image: ubuntu
           securityContext:
             privileged: true
@@ -83,6 +83,18 @@ spec:
               fi
               if [ ! -d "$(LIBVIRT_PROVIDER_DIR)" ]; then
                   echo "Error: $(LIBVIRT_PROVIDER_DIR) directory does not exist."
+                  exit 1
+              fi
+              if [ "$(stat -c '%U' $(LIBVIRT_PROVIDER_DIR))" != "$(USER)" ]; then
+                  echo "Error: $(LIBVIRT_PROVIDER_DIR) is not owned by $(USER)."
+                  exit 1
+              fi
+              if [ "$(stat -c '%G' $(LIBVIRT_PROVIDER_DIR))" != "$(USER_GROUP)" ]; then
+                  echo "Error: $(LIBVIRT_PROVIDER_DIR) group is not $(USER_GROUP)."
+                  exit 1
+              fi
+              if [ "$(stat -c '%a' $(LIBVIRT_PROVIDER_DIR))" != "755" ]; then
+                  echo "Error: $(LIBVIRT_PROVIDER_DIR) permissions are not 0755."
                   exit 1
               fi
           volumeMounts:
@@ -183,7 +195,7 @@ spec:
         - name: libvirt-provider
           hostPath:
             path: /var/lib/libvirt-provider
-            type: DirectoryOrCreate
+            type: Directory
         - name: lib-modules
           hostPath:
             path: /lib/modules
