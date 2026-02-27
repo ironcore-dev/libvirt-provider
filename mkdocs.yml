@@ -59,6 +59,8 @@ nav:
   - Development Guide:
       - Local Setup: development/dev_setup.md
       - Documentation: development/dev_docs.md
+  - Configuration:
+      - Ignition: config/ignition.md
 
 extra:
   social:
