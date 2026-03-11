@@ -2,6 +2,8 @@ module github.com/ironcore-dev/libvirt-provider
 
 go 1.24.1
 
+toolchain go1.26.1
+
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c
