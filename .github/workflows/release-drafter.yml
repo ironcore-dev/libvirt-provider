@@ -22,7 +22,7 @@ jobs:
     steps:
       # Labels PRs based on branch, title, files, and body patterns
       - uses: release-drafter/release-drafter/autolabeler@v7
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         with:
           config-name: release-drafter.yml
           token: ${{ secrets.GITHUB_TOKEN }}
