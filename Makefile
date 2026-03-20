@@ -87,11 +87,11 @@ vet: ## Run go vet against code.
 
 .PHONY: lint
 lint: golangci-lint ## Run golangci-lint against code.
-	CGO_ENABLED=1 $(GOLANGCI_LINT) run
+	$(GOLANGCI_LINT) run
 
 .PHONY: lint-fix
 lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
-	CGO_ENABLED=1 $(GOLANGCI_LINT) run --fix
+	$(GOLANGCI_LINT) run --fix
 
 .PHONY: check
 check: manifests generate fmt check-license lint test ## Generate manifests, code, lint, check licenses, test
@@ -119,7 +119,7 @@ clean-docs: ## Remove all local mkdocs Docker images (cleanup).
 
 .PHONY: build
 build: manifests generate fmt vet add-license lint ## Build the binary
-	CGO_ENABLED=1 go build -o $(LIBVIRT_PROVIDER_BIN) $(LIBVIRT_PROVIDER_BIN_SOURCE)
+	go build -o $(LIBVIRT_PROVIDER_BIN) $(LIBVIRT_PROVIDER_BIN_SOURCE)
 
 .PHONY: run
 run: manifests generate fmt vet ## Run the binary

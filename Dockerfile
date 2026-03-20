@@ -39,13 +39,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="${LDFLAGS}" -a -o libvirt-provider ./cmd/libvirt-provider/main.go
+    GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="${LDFLAGS}" -a -o libvirt-provider ./cmd/libvirt-provider/main.go
 
 
 # Install irictl-machine
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on \
+    GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on \
     go install github.com/ironcore-dev/ironcore/irictl-machine/cmd/irictl-machine@main
 
 # Ensure the binary is in a common location
