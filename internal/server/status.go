@@ -25,12 +25,12 @@ func (s *Server) Status(ctx context.Context, req *iri.StatusRequest) (*iri.Statu
 	machineClassList := s.machineClasses.List()
 
 	var machineClassStatus []*iri.MachineClassStatus
-	for _, machineClass := range machineClassList {
-		quantity := mcr.GetQuantity(machineClass, host)
+	for _, class := range machineClassList {
+		quantity := mcr.GetQuantity(class, host)
 
-		log.V(2).Info("MachineClass info", "class", machineClass.Name, "quantity", quantity)
+		log.V(2).Info("MachineClass info", "class", class.Name, "quantity", quantity)
 		machineClassStatus = append(machineClassStatus, &iri.MachineClassStatus{
-			MachineClass: machineClass,
+			MachineClass: toIRIMachineClass(class),
 			Quantity:     quantity,
 		})
 	}
@@ -39,4 +39,13 @@ func (s *Server) Status(ctx context.Context, req *iri.StatusRequest) (*iri.Statu
 	return &iri.StatusResponse{
 		MachineClassStatus: machineClassStatus,
 	}, nil
+}
+
+func toIRIMachineClass(c *mcr.MachineClass) *iri.MachineClass {
+	return &iri.MachineClass{
+		Name: c.Name,
+		Capabilities: &iri.MachineClassCapabilities{
+			Resources: c.Resources,
+		},
+	}
 }

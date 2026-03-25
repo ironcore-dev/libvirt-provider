@@ -5,7 +5,6 @@ package integration_test
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
-	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
@@ -34,7 +32,6 @@ const (
 	pollingInterval                = 50 * time.Millisecond
 	gracefulShutdownTimeout        = 60 * time.Second
 	resyncGarbageCollectorInterval = 5 * time.Second
-	resyncVolumeSizeInterval       = 1 * time.Minute
 	consistentlyDuration           = 1 * time.Second
 	probeEveryInterval             = 2 * time.Second
 	machineClassx3xlarge           = "x3-xlarge"
@@ -76,28 +73,23 @@ var _ = BeforeSuite(func() {
 
 	By("starting the app")
 
-	machineClasses := []iriv1alpha1.MachineClass{
-		{
-			Name: machineClassx3xlarge,
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				Resources: map[string]int64{
-					string(corev1alpha1.ResourceCPU):    4,
-					string(corev1alpha1.ResourceMemory): 8589934592,
-				},
-			},
-		},
-		{
-			Name: machineClassx2medium,
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				Resources: map[string]int64{
-					string(corev1alpha1.ResourceCPU):    2,
-					string(corev1alpha1.ResourceMemory): 2147483648,
-				},
-			},
-		},
-	}
-	machineClassData, err := json.Marshal(machineClasses)
-	Expect(err).NotTo(HaveOccurred())
+	machineClassData := []byte(`
+- apiVersion: compute.ironcore.dev/v1alpha1
+  kind: MachineClass
+  metadata:
+    name: x3-xlarge
+  capabilities:
+    cpu: "4"
+    memory: 8Gi
+- apiVersion: compute.ironcore.dev/v1alpha1
+  kind: MachineClass
+  metadata:
+    name: x2-medium
+  capabilities:
+    cpu: "2"
+    memory: 2Gi
+`)
+	var err error
 	machineClassesFile, err = os.CreateTemp(GinkgoT().TempDir(), "machineclasses")
 	Expect(err).NotTo(HaveOccurred())
 	Expect(os.WriteFile(machineClassesFile.Name(), machineClassData, 0600)).To(Succeed())
