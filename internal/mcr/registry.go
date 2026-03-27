@@ -12,7 +12,6 @@ import (
 
 	computev1alpha1 "github.com/ironcore-dev/ironcore/api/compute/v1alpha1"
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
-	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -30,27 +29,28 @@ type MachineClass struct {
 }
 
 func LoadMachineClasses(reader io.Reader) ([]*MachineClass, error) {
-	var fileClasses []computev1alpha1.MachineClass
-	if err := yaml.NewYAMLOrJSONDecoder(reader, 4096).Decode(&fileClasses); err != nil {
+	var machineClasses []computev1alpha1.MachineClass
+	if err := yaml.NewYAMLOrJSONDecoder(reader, 4096).Decode(&machineClasses); err != nil {
 		return nil, fmt.Errorf("unable to unmarshal machine classes: %w", err)
 	}
 
-	classes := make([]*MachineClass, 0, len(fileClasses))
-	for i, fc := range fileClasses {
-		if fc.Name == "" {
+	classes := make([]*MachineClass, 0, len(machineClasses))
+	for i, mc := range machineClasses {
+		if mc.Name == "" {
 			return nil, fmt.Errorf("machine class at index %d has empty name", i)
 		}
-		cpuQty := fc.Capabilities[corev1alpha1.ResourceCPU]
-		memQty := fc.Capabilities[corev1alpha1.ResourceMemory]
-		resources := map[string]int64{
-			ResourceCPU:    cpuQty.Value(),
-			ResourceMemory: memQty.Value(),
+		resources := make(map[string]int64, len(mc.Capabilities))
+		for k, v := range mc.Capabilities {
+			resources[string(k)] = v.Value()
 		}
-		if gpu, ok := fc.Capabilities[api.NvidiaGPUPlugin]; ok {
-			resources[api.NvidiaGPUPlugin] = gpu.Value()
+		if cpuQty, ok := mc.Capabilities[corev1alpha1.ResourceCPU]; ok {
+			resources[ResourceCPU] = cpuQty.Value()
+		}
+		if memQty, ok := mc.Capabilities[corev1alpha1.ResourceMemory]; ok {
+			resources[ResourceMemory] = memQty.Value()
 		}
 		classes = append(classes, &MachineClass{
-			Name:      fc.Name,
+			Name:      mc.Name,
 			Resources: resources,
 		})
 	}
