@@ -18,9 +18,10 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
+// TODO drop if cpu and memory is handled by resource manager
 const (
-	ResourceCPU    = "cpu"
-	ResourceMemory = "memory"
+	ResourceCPU    = string(corev1alpha1.ResourceCPU)
+	ResourceMemory = string(corev1alpha1.ResourceMemory)
 )
 
 type MachineClass struct {
@@ -42,12 +43,6 @@ func LoadMachineClasses(reader io.Reader) ([]*MachineClass, error) {
 		resources := make(map[string]int64, len(mc.Capabilities))
 		for k, v := range mc.Capabilities {
 			resources[string(k)] = v.Value()
-		}
-		if cpuQty, ok := mc.Capabilities[corev1alpha1.ResourceCPU]; ok {
-			resources[ResourceCPU] = cpuQty.Value()
-		}
-		if memQty, ok := mc.Capabilities[corev1alpha1.ResourceMemory]; ok {
-			resources[ResourceMemory] = memQty.Value()
 		}
 		classes = append(classes, &MachineClass{
 			Name:      mc.Name,
