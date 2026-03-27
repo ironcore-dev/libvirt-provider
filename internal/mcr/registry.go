@@ -42,6 +42,9 @@ func LoadMachineClasses(reader io.Reader) ([]*MachineClass, error) {
 		}
 		resources := make(map[string]int64, len(mc.Capabilities))
 		for k, v := range mc.Capabilities {
+			if v.Value() <= 0 {
+				return nil, fmt.Errorf("machine class %q has non-positive value for capability %q", mc.Name, k)
+			}
 			resources[string(k)] = v.Value()
 		}
 		classes = append(classes, &MachineClass{
