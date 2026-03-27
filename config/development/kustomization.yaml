@@ -19,7 +19,7 @@ resources:
 
 configMapGenerator:
 - files:
-  - machineclasses.json
+  - machineclasses.yaml
   name: machineclasses
 
 patches:

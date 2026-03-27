@@ -93,4 +93,4 @@ jobs:
 
       - name: Run integration tests
         # Starting a new instance of the Bash shell to reflect the added permissions
-        run: sudo -H -E -u $USER bash -c 'make integration-tests'
+        run: sudo -H -E -u $USER bash -c 'GOTOOLCHAIN=auto make integration-tests'

@@ -11,6 +11,7 @@ import (
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
 	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
 	"github.com/ironcore-dev/provider-utils/claimutils/gpu"
@@ -18,9 +19,9 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-func calcResources(class *iri.MachineClass) (int64, int64) {
+func calcResources(class *mcr.MachineClass) (int64, int64) {
 	//Todo do some magic
-	return class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)], class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
+	return class.Resources[mcr.ResourceCPU], class.Resources[mcr.ResourceMemory]
 }
 
 func filterNvidiaGPUResources(capRes map[string]int64) corev1alpha1.ResourceList {
@@ -100,7 +101,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}
 
-	claimedGPUs, err = s.resourceClaimer.Claim(ctx, filterNvidiaGPUResources(class.Capabilities.Resources))
+	claimedGPUs, err = s.resourceClaimer.Claim(ctx, filterNvidiaGPUResources(class.Resources))
 	if err != nil {
 		log.Error(err, "Failed to claim GPUs")
 		return nil, fmt.Errorf("failed to claim GPUs: %w", err)
