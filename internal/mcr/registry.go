@@ -18,7 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-// TODO drop if cpu and memory is handled by resource manager
+// TODO drop once cpu and memory is handled by resource manager
 const (
 	ResourceCPU    = string(corev1alpha1.ResourceCPU)
 	ResourceMemory = string(corev1alpha1.ResourceMemory)
