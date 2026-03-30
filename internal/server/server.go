@@ -17,6 +17,7 @@ import (
 	"github.com/ironcore-dev/ironcore/broker/common/request"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
+	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
@@ -113,8 +114,8 @@ func (s *Server) loggerFrom(ctx context.Context, keysWithValues ...interface{}) 
 }
 
 type MachineClassRegistry interface {
-	Get(volumeClassName string) (*iri.MachineClass, bool)
-	List() []*iri.MachineClass
+	Get(volumeClassName string) (*mcr.MachineClass, bool)
+	List() []*mcr.MachineClass
 }
 
 func (s *Server) buildURL(method string, token string) string {
