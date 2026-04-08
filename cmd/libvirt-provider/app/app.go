@@ -276,7 +276,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	nicPlugin, nicPluginCleanup, err := opts.NicPlugin.NetworkInterfacePlugin()
+	nicPlugin, nicConfigCtrl, nicPluginCleanup, err := opts.NicPlugin.NetworkInterfacePlugin(ctx)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize network plugin")
 		return err
@@ -410,6 +410,12 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
+
+	if nicConfigCtrl != nil {
+		g.Go(func() error {
+			return nicConfigCtrl.Start(ctx)
+		})
+	}
 
 	g.Go(func() error {
 		return runMetricsServer(ctx, setupLog, opts.Servers.Metrics)

@@ -51,10 +51,7 @@ const (
 	gracefulShutdownTimeout        = 0 * time.Second
 	resyncGarbageCollectorInterval = 5 * time.Second
 	consistentlyDuration           = 1 * time.Second
-	machineClassx3xlarge           = "x3-xlarge"
-	machineClassx2medium           = "x2-medium"
 	osImage                        = "ghcr.io/ironcore-dev/os-images/virtualization/gardenlinux:latest"
-	emptyDiskSize                  = 1024 * 1024 * 1024
 	machineEventMaxEvents          = 1000
 	machineEventTTL                = 10 * time.Second
 	machineEventResyncInterval     = 2 * time.Second
@@ -175,10 +172,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("setting up network interface plugin")
+	var cleanup func()
+	pluginCtx, pluginCancel := context.WithCancel(context.Background())
+	DeferCleanup(pluginCancel)
+
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
-	var cleanup func()
-	networkPlugin, cleanup, err = pluginOpts.NetworkInterfacePlugin()
+
+	networkPlugin, _, cleanup, err = pluginOpts.NetworkInterfacePlugin(pluginCtx)
 	Expect(err).NotTo(HaveOccurred())
 	if cleanup != nil {
 		DeferCleanup(cleanup)

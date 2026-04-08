@@ -1,24 +1,22 @@
-apiVersion: compute.ironcore.dev/v1alpha1
-kind: MachineClass
-metadata:
-  name: gpu
-capabilities:
-  cpu: "4"
-  memory: 8Gi
-  nvidia.com/gpu: "1"
----
-apiVersion: compute.ironcore.dev/v1alpha1
-kind: MachineClass
-metadata:
-  name: t3-small
-capabilities:
-  cpu: "2"
-  memory: 2Gi
----
-apiVersion: compute.ironcore.dev/v1alpha1
-kind: MachineClass
-metadata:
-  name: x3-xlarge
-capabilities:
-  cpu: "4"
-  memory: 8Gi
+- apiVersion: compute.ironcore.dev/v1alpha1
+  kind: MachineClass
+  metadata:
+    name: gpu
+  capabilities:
+    cpu: "4"
+    memory: 8Gi
+    nvidia.com/gpu: "1"
+- apiVersion: compute.ironcore.dev/v1alpha1
+  kind: MachineClass
+  metadata:
+    name: t3-small
+  capabilities:
+    cpu: "2"
+    memory: 2Gi
+- apiVersion: compute.ironcore.dev/v1alpha1
+  kind: MachineClass
+  metadata:
+    name: x3-xlarge
+  capabilities:
+    cpu: "4"
+    memory: 8Gi

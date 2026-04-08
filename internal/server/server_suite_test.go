@@ -172,7 +172,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("setting up the network interface plugin")
-	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
+	nicPlugin, _, cleanup, err := pluginOpts.NetworkInterfacePlugin(ctx)
+	Expect(err).NotTo(HaveOccurred())
+	if cleanup != nil {
+		DeferCleanup(cleanup)
+	}
 
 	resClaimer, err = claim.NewResourceClaimer(
 		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, NewTestingPCIReader([]pci.Address{
