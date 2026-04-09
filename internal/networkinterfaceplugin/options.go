@@ -4,9 +4,11 @@
 package networkinterfaceplugin
 
 import (
+	"context"
 	"fmt"
 	"sort"
 
+	"github.com/ironcore-dev/ironcore/utils/client/config"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/spf13/pflag"
 )
@@ -14,7 +16,7 @@ import (
 type TypeOptions interface {
 	PluginName() string
 	AddFlags(fs *pflag.FlagSet)
-	NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error)
+	NetworkInterfacePlugin(ctx context.Context) (providernetworkinterface.Plugin, config.Controller, func(), error)
 }
 
 type TypeOptionsRegistry struct {
@@ -104,18 +106,13 @@ func (o *Options) AddFlags(fs *pflag.FlagSet) {
 	})
 }
 
-func (o *Options) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
+func (o *Options) NetworkInterfacePlugin(ctx context.Context) (providernetworkinterface.Plugin, config.Controller, func(), error) {
 	pluginOpts, err := o.registry.PluginTypeOptsByName(o.PluginName)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	nicPlugin, cleanup, err := pluginOpts.NetworkInterfacePlugin()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return nicPlugin, cleanup, nil
+	return pluginOpts.NetworkInterfacePlugin(ctx)
 }
 
 var (

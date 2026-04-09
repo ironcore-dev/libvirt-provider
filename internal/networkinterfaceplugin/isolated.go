@@ -4,6 +4,9 @@
 package networkinterfaceplugin
 
 import (
+	"context"
+
+	"github.com/ironcore-dev/ironcore/utils/client/config"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface/isolated"
 	"github.com/spf13/pflag"
@@ -12,14 +15,14 @@ import (
 
 type isolatedOptions struct{}
 
-func (o *isolatedOptions) AddFlags(fs *pflag.FlagSet) {}
+func (o *isolatedOptions) AddFlags(_ *pflag.FlagSet) {}
 
 func (o *isolatedOptions) PluginName() string {
 	return "isolated"
 }
 
-func (o *isolatedOptions) NetworkInterfacePlugin() (providernetworkinterface.Plugin, func(), error) {
-	return isolated.NewPlugin(), nil, nil
+func (o *isolatedOptions) NetworkInterfacePlugin(_ context.Context) (providernetworkinterface.Plugin, config.Controller, func(), error) {
+	return isolated.NewPlugin(), nil, nil, nil
 }
 
 func init() {
