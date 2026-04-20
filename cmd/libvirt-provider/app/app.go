@@ -233,7 +233,7 @@ func Run(ctx context.Context, opts Options) error {
 	}
 	setupLog.Info("Current platform", "architecture", platform.Architecture)
 
-	reg, err := remote.DockerRegistryWithPlatform(nil, platform)
+	reg, err := remote.DockerRegistryWithPlatform(platform)
 	if err != nil {
 		setupLog.Error(err, "failed to initialize registry")
 		return err
