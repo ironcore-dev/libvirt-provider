@@ -146,8 +146,8 @@ github.com/ironcore-dev/ironcore-image v0.4.0 h1:TC+xAoW6v0565Ipw1nIY0xEzRWutQc3
 github.com/ironcore-dev/ironcore-image v0.4.0/go.mod h1:x00OzVU7Ip0zq1Zt2/UFMfEblfrlECtJJFhzRzvpbNE=
 github.com/ironcore-dev/ironcore-net v0.2.4 h1:r2SqxwStws86KBvxJcK/myRxb946qAZVpPKd1rJzfsQ=
 github.com/ironcore-dev/ironcore-net v0.2.4/go.mod h1:dSn6aWF+bxCIeWJzPjDl5dVTH3Rd7wx1LuTQpYUU4Lg=
-github.com/ironcore-dev/provider-utils v0.0.0-20260127115859-8d108ef8e4b4 h1:d8bABd4w70/iX1Fff4qaGyGWCNk1XJRyJUQOEFKCJa4=
-github.com/ironcore-dev/provider-utils v0.0.0-20260127115859-8d108ef8e4b4/go.mod h1:Se6VYgCzzhVjqUGXeHY3NxuNhLrUkq8qNKpgfayGpHk=
+github.com/ironcore-dev/provider-utils v0.0.0-20260420150206-639a4bf5422f h1:ap9lru5ZiCTBZ7TEG/YpUiLuWLMb7DF4EY8m5KDfoIk=
+github.com/ironcore-dev/provider-utils v0.0.0-20260420150206-639a4bf5422f/go.mod h1:pvy5bWNvhrgsn3lN/5a24AZ60JzLdAxX2iRcihtScbs=
 github.com/joshdk/go-junit v1.0.0 h1:S86cUKIdwBHWwA6xCmFlf3RTLfVXYQfvanM5Uh+K6GE=
 github.com/joshdk/go-junit v1.0.0/go.mod h1:TiiV0PqkaNfFXjEiyjWM3XXrhVyCa1K4Zfga6W52ung=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
