@@ -1,5 +1,5 @@
 # Build the libvirt-provider binary
-FROM --platform=$BUILDPLATFORM golang:1.26.1-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.2-bookworm AS builder
 
 # Prevent Go from downloading a different toolchain at build time.
 # The Docker image IS the toolchain — if go.mod requires something newer,
