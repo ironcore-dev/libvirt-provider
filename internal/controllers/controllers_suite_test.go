@@ -151,7 +151,7 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 	GinkgoWriter.Printf("Platform: %s\n", platform.Architecture)
 
-	reg, err := remote.DockerRegistryWithPlatform(nil, platform)
+	reg, err := remote.DockerRegistryWithPlatform(platform)
 	Expect(err).NotTo(HaveOccurred())
 
 	ociStore, err := ocistore.New(providerHost.ImagesDir())
