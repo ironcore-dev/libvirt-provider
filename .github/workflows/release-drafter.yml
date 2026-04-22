@@ -5,7 +5,7 @@ on:
     branches:
       - main
       - release-**
-  pull_request_target:
+  pull_request:
     types: [ opened, reopened, synchronize ]
   workflow_dispatch:
 
@@ -22,13 +22,14 @@ jobs:
     steps:
       # Labels PRs based on branch, title, files, and body patterns
       - uses: release-drafter/release-drafter/autolabeler@v7
-        if: github.event_name == 'pull_request_target'
+        if: github.event_name == 'pull_request'
         with:
           config-name: release-drafter.yml
           token: ${{ secrets.GITHUB_TOKEN }}
       # Drafts your next Release notes as Pull Requests are merged into "main"
       # or a release branch
       - uses: release-drafter/release-drafter@v7
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
         with:
           config-name: release-drafter.yml
           token: ${{ secrets.GITHUB_TOKEN }}
