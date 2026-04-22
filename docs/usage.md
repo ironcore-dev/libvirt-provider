@@ -46,7 +46,7 @@ libvirt-provider -h
 
 The following flags are required for the application to run properly:
 
-`--supported-machine-classes` (Path to the supported machine classes file). Sample `machine-classes.json` can be found [here](../config/development/machineclasses.json).
+`--supported-machine-classes` (Path to the supported machine classes file). Sample `machineclasses.yaml` can be found [here](../config/development/machineclasses.yaml).
 
 ---
 

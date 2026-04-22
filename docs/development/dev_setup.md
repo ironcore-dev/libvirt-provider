@@ -69,7 +69,7 @@
       --address=<local-path>/iri-machinebroker.sock
     ```
 
-    Sample `machine-classes.json` can be found [here](../../config/development/machineclasses.json).
+    Sample `machineclasses.yaml` can be found [here](../../config/development/machineclasses.yaml).
 
 ## Interact with the `libvirt-provider`
 

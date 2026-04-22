@@ -14,7 +14,6 @@ import (
 
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
 	ocistore "github.com/ironcore-dev/ironcore-image/oci/store"
-	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
 	iriv1alpha1 "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/ironcore/iri/remote/machine"
 	"github.com/ironcore-dev/libvirt-provider/api"
@@ -45,25 +44,17 @@ import (
 )
 
 const (
-	eventuallyTimeout              = 80 * time.Second
-	pollingInterval                = 50 * time.Millisecond
-	gracefulShutdownTimeout        = 60 * time.Second
-	resyncGarbageCollectorInterval = 5 * time.Second
-	resyncVolumeSizeInterval       = 1 * time.Minute
-	consistentlyDuration           = 1 * time.Second
-	probeEveryInterval             = 2 * time.Second
-	machineClassx3xlarge           = "x3-xlarge"
-	machineClassx2medium           = "x2-medium"
-	machineClassx2mediumgpu        = "x2-medium-gpu"
-	osImage                        = "ghcr.io/ironcore-dev/os-images/virtualization/gardenlinux:latest"
-	emptyDiskSize                  = 1024 * 1024 * 1024
-	baseURL                        = "http://localhost:20251"
-	streamingAddress               = "127.0.0.1:20251"
-	healthCheckAddress             = "127.0.0.1:20252"
-	metricsAddress                 = "" // disable metrics server for integration tests
-	machineEventMaxEvents          = 1000
-	machineEventTTL                = 10 * time.Second
-	machineEventResyncInterval     = 2 * time.Second
+	eventuallyTimeout          = 80 * time.Second
+	pollingInterval            = 50 * time.Millisecond
+	consistentlyDuration       = 1 * time.Second
+	machineClassx3xlarge       = "x3-xlarge"
+	machineClassx2medium       = "x2-medium"
+	machineClassx2mediumgpu    = "x2-medium-gpu"
+	emptyDiskSize              = 1024 * 1024 * 1024
+	baseURL                    = "http://localhost:20251"
+	machineEventMaxEvents      = 1000
+	machineEventTTL            = 10 * time.Second
+	machineEventResyncInterval = 2 * time.Second
 )
 
 var (
@@ -123,33 +114,27 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("setting up the machine class registry")
-	classes := []*iriv1alpha1.MachineClass{
+	classes := []*mcr.MachineClass{
 		{
 			Name: machineClassx3xlarge,
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				Resources: map[string]int64{
-					string(corev1alpha1.ResourceCPU):    4,
-					string(corev1alpha1.ResourceMemory): 8589934592,
-				},
+			Resources: map[string]int64{
+				mcr.ResourceCPU:    4,
+				mcr.ResourceMemory: 8589934592,
 			},
 		},
 		{
 			Name: machineClassx2medium,
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				Resources: map[string]int64{
-					string(corev1alpha1.ResourceCPU):    2,
-					string(corev1alpha1.ResourceMemory): 2147483648,
-				},
+			Resources: map[string]int64{
+				mcr.ResourceCPU:    2,
+				mcr.ResourceMemory: 2147483648,
 			},
 		},
 		{
 			Name: machineClassx2mediumgpu,
-			Capabilities: &iriv1alpha1.MachineClassCapabilities{
-				Resources: map[string]int64{
-					string(corev1alpha1.ResourceCPU):    2,
-					string(corev1alpha1.ResourceMemory): 2147483648,
-					api.NvidiaGPUPlugin:                 2,
-				},
+			Resources: map[string]int64{
+				mcr.ResourceCPU:     2,
+				mcr.ResourceMemory:  2147483648,
+				api.NvidiaGPUPlugin: 2,
 			},
 		},
 	}
@@ -167,7 +152,7 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	platform, err := ocihostutils.Platform()
 	Expect(err).NotTo(HaveOccurred())
 
-	reg, err := remote.DockerRegistryWithPlatform(nil, platform)
+	reg, err := remote.DockerRegistryWithPlatform(platform)
 	Expect(err).NotTo(HaveOccurred())
 
 	ociStore, err := ocistore.New(providerHost.ImagesDir())
@@ -187,7 +172,11 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("setting up the network interface plugin")
-	nicPlugin, _, _ := pluginOpts.NetworkInterfacePlugin()
+	nicPlugin, _, cleanup, err := pluginOpts.NetworkInterfacePlugin(ctx)
+	Expect(err).NotTo(HaveOccurred())
+	if cleanup != nil {
+		DeferCleanup(cleanup)
+	}
 
 	resClaimer, err = claim.NewResourceClaimer(
 		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, NewTestingPCIReader([]pci.Address{

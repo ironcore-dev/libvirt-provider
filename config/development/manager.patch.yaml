@@ -24,7 +24,7 @@ spec:
             - "--address"
             - "/var/lib/libvirt-provider/iri.sock"
             - "--supported-machine-classes"
-            - "/etc/libvirt-provider/machineclasses.json"
+            - "/etc/libvirt-provider/machineclasses.yaml"
             - "--network-interface-plugin-name"
             - "isolated"
             - "--libvirt-provider-dir"

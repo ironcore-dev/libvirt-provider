@@ -57,44 +57,44 @@ spec:
                   exit 1
                 fi
               done
-              if ! getent group $(LIBVIRT_GROUP) > /dev/null; then
-                  echo "Error: $(LIBVIRT_GROUP) group does not exist."
+              if ! getent group ${LIBVIRT_GROUP} > /dev/null; then
+                  echo "Error: ${LIBVIRT_GROUP} group does not exist."
                   exit 1
               fi
-              if ! getent group $(LIBVIRT_QEMU_GROUP) > /dev/null; then
-                  echo "Error: $(LIBVIRT_QEMU_GROUP) group does not exist."
+              if ! getent group ${LIBVIRT_QEMU_GROUP} > /dev/null; then
+                  echo "Error: ${LIBVIRT_QEMU_GROUP} group does not exist."
                   exit 1
               fi
-              if ! id -u $(USER) > /dev/null; then
-                  echo "Error: $(USER) user does not exist."
+              if ! id -u ${USER} > /dev/null; then
+                  echo "Error: ${USER} user does not exist."
                   exit 1
               fi
-              if ! getent group $(USER_GROUP) > /dev/null; then
-                  echo "Error: $(USER_GROUP) group does not exist."
+              if ! getent group ${USER_GROUP} > /dev/null; then
+                  echo "Error: ${USER_GROUP} group does not exist."
                   exit 1
               fi
-              if ! id -nG $(USER) 2>/dev/null | grep -qw $(LIBVIRT_GROUP); then
-                  echo "Error: $(USER) is not a member of $(LIBVIRT_GROUP) group."
+              if ! id -nG ${USER} 2>/dev/null | grep -qw ${LIBVIRT_GROUP}; then
+                  echo "Error: ${USER} is not a member of ${LIBVIRT_GROUP} group."
                   exit 1
               fi
-              if ! id -nG $(LIBVIRT_QEMU_USER) 2>/dev/null | grep -qw $(USER_GROUP); then
-                  echo "Error: $(LIBVIRT_QEMU_USER) is not a member of $(USER_GROUP) group."
+              if ! id -nG ${LIBVIRT_QEMU_USER} 2>/dev/null | grep -qw ${USER_GROUP}; then
+                  echo "Error: ${LIBVIRT_QEMU_USER} is not a member of ${USER_GROUP} group."
                   exit 1
               fi
-              if [ ! -d "$(LIBVIRT_PROVIDER_DIR)" ]; then
-                  echo "Error: $(LIBVIRT_PROVIDER_DIR) directory does not exist."
+              if [ ! -d "${LIBVIRT_PROVIDER_DIR}" ]; then
+                  echo "Error: ${LIBVIRT_PROVIDER_DIR} directory does not exist."
                   exit 1
               fi
-              if [ "$(stat -c '%U' $(LIBVIRT_PROVIDER_DIR))" != "$(USER)" ]; then
-                  echo "Error: $(LIBVIRT_PROVIDER_DIR) is not owned by $(USER)."
+              if [ "$(stat -c '%U' ${LIBVIRT_PROVIDER_DIR})" != "${USER}" ]; then
+                  echo "Error: ${LIBVIRT_PROVIDER_DIR} is not owned by ${USER}."
                   exit 1
               fi
-              if [ "$(stat -c '%G' $(LIBVIRT_PROVIDER_DIR))" != "$(USER_GROUP)" ]; then
-                  echo "Error: $(LIBVIRT_PROVIDER_DIR) group is not $(USER_GROUP)."
+              if [ "$(stat -c '%G' ${LIBVIRT_PROVIDER_DIR})" != "${USER_GROUP}" ]; then
+                  echo "Error: ${LIBVIRT_PROVIDER_DIR} group is not ${USER_GROUP}."
                   exit 1
               fi
-              if [ "$(stat -c '%a' $(LIBVIRT_PROVIDER_DIR))" != "755" ]; then
-                  echo "Error: $(LIBVIRT_PROVIDER_DIR) permissions are not 0755."
+              if [ "$(stat -c '%a' ${LIBVIRT_PROVIDER_DIR})" != "755" ]; then
+                  echo "Error: ${LIBVIRT_PROVIDER_DIR} permissions are not 0755."
                   exit 1
               fi
           volumeMounts:

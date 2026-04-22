@@ -124,7 +124,7 @@ build: manifests generate fmt vet add-license lint ## Build the binary
 .PHONY: run
 run: manifests generate fmt vet ## Run the binary
 	go run $(LIBVIRT_PROVIDER_BIN_SOURCE)/main.go \
-		--supported-machine-classes config/development/machineclasses.json \
+		--supported-machine-classes config/development/machineclasses.yaml \
 		--network-interface-plugin-name isolated \
 		--address iri.sock
 

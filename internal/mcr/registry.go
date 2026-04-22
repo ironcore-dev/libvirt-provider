@@ -10,35 +10,64 @@ import (
 	"math"
 	"os"
 
+	computev1alpha1 "github.com/ironcore-dev/ironcore/api/compute/v1alpha1"
 	corev1alpha1 "github.com/ironcore-dev/ironcore/api/core/v1alpha1"
-	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/shirou/gopsutil/v4/cpu"
 	"github.com/shirou/gopsutil/v4/mem"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/yaml"
 )
 
-func LoadMachineClasses(reader io.Reader) ([]*iri.MachineClass, error) {
-	var classList []*iri.MachineClass
-	if err := yaml.NewYAMLOrJSONDecoder(reader, 4096).Decode(&classList); err != nil {
+// TODO drop once cpu and memory is handled by resource manager
+const (
+	ResourceCPU    = string(corev1alpha1.ResourceCPU)
+	ResourceMemory = string(corev1alpha1.ResourceMemory)
+)
+
+type MachineClass struct {
+	Name      string
+	Resources map[string]int64
+}
+
+func LoadMachineClasses(reader io.Reader) ([]*MachineClass, error) {
+	var machineClasses []computev1alpha1.MachineClass
+	if err := yaml.NewYAMLOrJSONDecoder(reader, 4096).Decode(&machineClasses); err != nil {
 		return nil, fmt.Errorf("unable to unmarshal machine classes: %w", err)
 	}
 
-	return classList, nil
+	classes := make([]*MachineClass, 0, len(machineClasses))
+	for i, mc := range machineClasses {
+		if mc.Name == "" {
+			return nil, fmt.Errorf("machine class at index %d has empty name", i)
+		}
+		resources := make(map[string]int64, len(mc.Capabilities))
+		for k, v := range mc.Capabilities {
+			if v.Value() <= 0 {
+				return nil, fmt.Errorf("machine class %q has non-positive value for capability %q", mc.Name, k)
+			}
+			resources[string(k)] = v.Value()
+		}
+		classes = append(classes, &MachineClass{
+			Name:      mc.Name,
+			Resources: resources,
+		})
+	}
+	return classes, nil
 }
 
-func LoadMachineClassesFile(filename string) ([]*iri.MachineClass, error) {
+func LoadMachineClassesFile(filename string) ([]*MachineClass, error) {
 	file, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open machine class file (%s): %w", filename, err)
 	}
+	defer file.Close()
 
 	return LoadMachineClasses(file)
 }
 
-func NewMachineClassRegistry(classes []*iri.MachineClass) (*Mcr, error) {
+func NewMachineClassRegistry(classes []*MachineClass) (*Mcr, error) {
 	registry := Mcr{
-		classes: map[string]*iri.MachineClass{},
+		classes: map[string]*MachineClass{},
 	}
 
 	for _, class := range classes {
@@ -52,26 +81,25 @@ func NewMachineClassRegistry(classes []*iri.MachineClass) (*Mcr, error) {
 }
 
 type Mcr struct {
-	classes map[string]*iri.MachineClass
+	classes map[string]*MachineClass
 }
 
-func (m *Mcr) Get(machineClassName string) (*iri.MachineClass, bool) {
+func (m *Mcr) Get(machineClassName string) (*MachineClass, bool) {
 	class, found := m.classes[machineClassName]
 	return class, found
 }
 
-func (m *Mcr) List() []*iri.MachineClass {
-	var classes []*iri.MachineClass
+func (m *Mcr) List() []*MachineClass {
+	var classes []*MachineClass
 	for name := range m.classes {
-		class := m.classes[name]
-		classes = append(classes, class)
+		classes = append(classes, m.classes[name])
 	}
 	return classes
 }
 
-func GetQuantity(class *iri.MachineClass, host *Host) int64 {
-	cpuRatio := host.Cpu.Value() / class.Capabilities.Resources[string(corev1alpha1.ResourceCPU)]
-	memoryRatio := host.Mem.Value() / class.Capabilities.Resources[string(corev1alpha1.ResourceMemory)]
+func GetQuantity(class *MachineClass, host *Host) int64 {
+	cpuRatio := host.Cpu.Value() / class.Resources[ResourceCPU]
+	memoryRatio := host.Mem.Value() / class.Resources[ResourceMemory]
 
 	return int64(math.Min(float64(cpuRatio), float64(memoryRatio)))
 }

@@ -340,10 +340,23 @@ func (r *MachineReconciler) deleteMachine(ctx context.Context, log logr.Logger, 
 		return r.shutdownMachine(log, machine, domain)
 	}
 
-	return false, r.destroyDomain(log, machine, domain)
+	return false, r.forceShutdownMachine(log, machine, domain)
 }
 
-func (r *MachineReconciler) destroyDomain(log logr.Logger, machine *api.Machine, domain libvirt.Domain) error {
+func (r *MachineReconciler) forceShutdownMachine(log logr.Logger, machine *api.Machine, domain libvirt.Domain) error {
+	state, err := r.getMachineState(machine.ID)
+	if err != nil {
+		if libvirt.IsNotFound(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to get machine state: %w", err)
+	}
+
+	if state == api.MachineStateTerminated {
+		log.V(1).Info("Domain already shut off, skipping destroy")
+		return nil
+	}
+
 	// DomainDestroyFlags is a blocking operation, and its synchronous nature may pose potential performance issues in the future.
 	// During test involving 26 empty disks, the function call took a maximum of 1 second to complete.
 	if err := r.host.Libvirt().DomainDestroyFlags(domain, libvirt.DomainDestroyGraceful); err != nil {
