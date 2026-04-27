@@ -25,10 +25,14 @@ func NewPlugin() providernetworkinterface.Plugin {
 	return &plugin{}
 }
 
-func (p *plugin) Init(host providerhost.LibvirtHost) error {
+func (p *plugin) Init(ctx context.Context, host providerhost.LibvirtHost) error {
 	p.host = host
 	return nil
 }
+
+func (p *plugin) AddEventHandler(handler providernetworkinterface.EventHandler) {}
+
+func (p *plugin) RemoveEventHandler(handler providernetworkinterface.EventHandler) {}
 
 func (p *plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*providernetworkinterface.NetworkInterface, error) {
 	if err := os.MkdirAll(p.host.MachineNetworkInterfaceDir(machine.ID, spec.Name), perm); err != nil {

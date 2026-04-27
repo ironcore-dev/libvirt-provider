@@ -286,8 +286,7 @@ func Run(ctx context.Context, opts Options) error {
 	}
 
 	setupLog.Info("Initializing network interface plugin")
-
-	if err := nicPlugin.Init(providerHost); err != nil {
+	if err := nicPlugin.Init(ctx, providerHost); err != nil {
 		setupLog.Error(err, "failed to initialize network plugin")
 		return err
 	}

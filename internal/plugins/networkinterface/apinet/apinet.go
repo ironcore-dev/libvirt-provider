@@ -12,8 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"time"
 
+	"github.com/go-logr/logr"
 	"github.com/google/uuid"
 
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
@@ -26,8 +26,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/apimachinery/pkg/runtime"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
+	"k8s.io/client-go/rest"
+	toolscache "k8s.io/client-go/tools/cache"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -39,22 +44,29 @@ const (
 	perm         = 0o777
 	filePerm     = 0o666
 	pluginAPInet = "apinet"
+
+	labelMachineID = "libvirt-provider.ironcore.dev/machine-id"
 )
 
-type Plugin struct {
-	nodeName        string
-	host            providerhost.LibvirtHost
-	apinetClient    client.Client
-	pollingInterval time.Duration
-	pollingDuration time.Duration
+var watcherScheme = runtime.NewScheme()
+
+func init() {
+	utilruntime.Must(clientgoscheme.AddToScheme(watcherScheme))
+	utilruntime.Must(apinetv1alpha1.AddToScheme(watcherScheme))
 }
 
-func NewPlugin(nodeName string, client client.Client, duration, interval time.Duration) providernetworkinterface.Plugin {
+type Plugin struct {
+	nodeName      string
+	host          providerhost.LibvirtHost
+	apinetClient  client.Client
+	restConfig    *rest.Config
+	eventHandlers []providernetworkinterface.EventHandler
+}
+
+func NewPlugin(nodeName string, restCfg *rest.Config) providernetworkinterface.Plugin {
 	return &Plugin{
-		nodeName:        nodeName,
-		apinetClient:    client,
-		pollingDuration: duration,
-		pollingInterval: interval,
+		nodeName:   nodeName,
+		restConfig: restCfg,
 	}
 }
 
@@ -62,9 +74,36 @@ func GetAPInetPlugin() *Plugin {
 	return &Plugin{}
 }
 
-func (p *Plugin) Init(host providerhost.LibvirtHost) error {
+func (p *Plugin) Init(ctx context.Context, host providerhost.LibvirtHost) error {
 	p.host = host
+
+	apinetClient, err := client.New(p.restConfig, client.Options{Scheme: watcherScheme})
+	if err != nil {
+		return fmt.Errorf("error creating apinet client: %w", err)
+	}
+	p.apinetClient = apinetClient
+
+	go p.runWatcher(ctx)
 	return nil
+}
+
+func (p *Plugin) AddEventHandler(handler providernetworkinterface.EventHandler) {
+	p.eventHandlers = append(p.eventHandlers, handler)
+}
+
+func (p *Plugin) RemoveEventHandler(handler providernetworkinterface.EventHandler) {
+	for i, h := range p.eventHandlers {
+		if h == handler {
+			p.eventHandlers = append(p.eventHandlers[:i], p.eventHandlers[i+1:]...)
+			return
+		}
+	}
+}
+
+func (p *Plugin) notifyEventHandlers(machineID string) {
+	for _, h := range p.eventHandlers {
+		h.HandleNICEvent(machineID)
+	}
 }
 
 func ironcoreIPsToAPInetIPs(ips []string) []apinet.IP {
@@ -137,6 +176,9 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: apinetNamespace,
 			Name:      p.APInetNicName(machine.ID, spec.Name),
+			Labels: map[string]string{
+				labelMachineID: machine.ID,
+			},
 		},
 		Spec: apinetv1alpha1.NetworkInterfaceSpec{
 			NetworkRef: corev1.LocalObjectReference{
@@ -158,51 +200,10 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 	if err != nil {
 		return nil, fmt.Errorf("error getting host device: %w", err)
 	}
-	if hostDev != nil {
-		log.V(1).Info("Host device is ready", "HostDevice", hostDev)
-		return &providernetworkinterface.NetworkInterface{
-			Handle: provider.GetNetworkInterfaceID(
-				apinetNic.Namespace,
-				apinetNic.Name,
-				apinetNic.Spec.NodeRef.Name,
-				apinetNic.UID,
-			),
-			HostDevice: hostDev,
-		}, nil
-	}
 
-	if direct != nil {
-		log.V(1).Info("Direct device is ready", "Direct", direct)
-		return &providernetworkinterface.NetworkInterface{
-			Handle: provider.GetNetworkInterfaceID(
-				apinetNic.Namespace,
-				apinetNic.Name,
-				apinetNic.Spec.NodeRef.Name,
-				apinetNic.UID,
-			),
-			Direct: direct,
-		}, nil
-	}
-
-	log.V(1).Info("Waiting for apinet network interface to become ready")
-	apinetNicKey := client.ObjectKeyFromObject(apinetNic)
-	if err := wait.PollUntilContextTimeout(ctx, p.pollingInterval, p.pollingDuration, true, func(ctx context.Context) (done bool, err error) {
-		if err := p.apinetClient.Get(ctx, apinetNicKey, apinetNic); err != nil {
-			return false, fmt.Errorf("error getting apinet nic %s: %w", apinetNicKey, err)
-		}
-
-		hostDev, direct, err = getHostDevice(apinetNic)
-		if err != nil {
-			return false, fmt.Errorf("error getting host device: %w", err)
-		}
-		return hostDev != nil || direct != nil, nil
-	}); err != nil {
-		return nil, fmt.Errorf("error waiting for nic to become ready: %w", err)
-	}
-
-	// Fetch the updated object to get the ID or any other updated fields
-	if err := p.apinetClient.Get(ctx, apinetNicKey, apinetNic); err != nil {
-		return nil, fmt.Errorf("error fetching updated apinet network interface: %w", err)
+	if hostDev == nil && direct == nil {
+		log.V(1).Info("APINet NIC not ready yet, will be requeued by watcher")
+		return nil, providernetworkinterface.ErrNotReady
 	}
 
 	return &providernetworkinterface.NetworkInterface{
@@ -283,43 +284,154 @@ func (p *Plugin) Delete(ctx context.Context, computeNicName, machineID string) e
 		return os.RemoveAll(p.host.MachineNetworkInterfaceDir(machineID, computeNicName))
 	}
 
-	apinetNicKey := client.ObjectKey{
-		Namespace: cfg.Namespace,
-		Name:      p.APInetNicName(machineID, computeNicName),
-	}
-	log = log.WithValues("APInetNetworkInterfaceKey", apinetNicKey)
-
-	if err := p.apinetClient.Delete(ctx, &apinetv1alpha1.NetworkInterface{
+	apinetNic := &apinetv1alpha1.NetworkInterface{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: apinetNicKey.Namespace,
-			Name:      apinetNicKey.Name,
+			Namespace: cfg.Namespace,
+			Name:      p.APInetNicName(machineID, computeNicName),
 		},
-	}); err != nil {
-		if !apierrors.IsNotFound(err) {
-			return fmt.Errorf("error deleting apinet network interface %s: %w", apinetNicKey, err)
-		}
+	}
+	log = log.WithValues("APInetNetworkInterface", client.ObjectKeyFromObject(apinetNic))
 
-		log.V(1).Info("APInet network interface is already gone, removing network interface directory")
-		return os.RemoveAll(p.host.MachineNetworkInterfaceDir(machineID, computeNicName))
+	if err := p.apinetClient.Delete(ctx, apinetNic); err != nil && !apierrors.IsNotFound(err) {
+		return fmt.Errorf("error deleting apinet network interface: %w", err)
 	}
 
-	log.V(1).Info("Waiting until apinet network interface is gone")
-	if err := wait.PollUntilContextTimeout(ctx, 50*time.Millisecond, 10*time.Second, true, func(ctx context.Context) (done bool, err error) {
-		if err := p.apinetClient.Get(ctx, apinetNicKey, &apinetv1alpha1.NetworkInterface{}); err != nil {
-			if !apierrors.IsNotFound(err) {
-				return false, fmt.Errorf("error getting apinet network interface %s: %w", apinetNicKey, err)
-			}
-			return true, nil
-		}
-		return false, nil
-	}); err != nil {
-		return fmt.Errorf("error waiting for apinet network interface %s to be gone: %w", apinetNicKey, err)
-	}
-
-	log.V(1).Info("APInet network interface is gone, removing network interface dir")
+	log.V(1).Info("APInet network interface delete requested, removing network interface dir")
 	return os.RemoveAll(p.host.MachineNetworkInterfaceDir(machineID, computeNicName))
 }
 
 func (p *Plugin) Name() string {
 	return pluginAPInet
+}
+
+func (p *Plugin) runWatcher(ctx context.Context) {
+	log := ctrl.Log.WithName("apinet-watcher")
+
+	c, err := cache.New(p.restConfig, cache.Options{
+		Scheme: watcherScheme,
+		ByObject: map[client.Object]cache.ByObject{
+			&apinetv1alpha1.NetworkInterface{}: {},
+		},
+	})
+	if err != nil {
+		log.Error(err, "Failed to create informer cache")
+		return
+	}
+
+	informer, err := c.GetInformer(ctx, &apinetv1alpha1.NetworkInterface{})
+	if err != nil {
+		log.Error(err, "Failed to get informer")
+		return
+	}
+
+	if _, err := informer.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
+		UpdateFunc: func(oldObj, newObj interface{}) {
+			p.handleNICUpdate(log, oldObj, newObj)
+		},
+		DeleteFunc: func(obj interface{}) {
+			p.handleNICDelete(log, obj)
+		},
+	}); err != nil {
+		log.Error(err, "Failed to add event handler")
+		return
+	}
+
+	go func() {
+		if err := c.Start(ctx); err != nil {
+			log.Error(err, "Informer cache stopped with error")
+		}
+	}()
+
+	if !c.WaitForCacheSync(ctx) {
+		log.Error(fmt.Errorf("cache sync failed"), "Failed to sync informer cache")
+		return
+	}
+	log.Info("Informer cache synced, enqueuing machines for NIC reconciliation")
+
+	p.enqueueNICMachines(ctx, log, c)
+
+	<-ctx.Done()
+}
+
+func (p *Plugin) handleNICUpdate(log logr.Logger, oldObj, newObj interface{}) {
+	newNic, ok := newObj.(*apinetv1alpha1.NetworkInterface)
+	if !ok {
+		return
+	}
+
+	if newNic.Spec.NodeRef.Name != p.nodeName {
+		return
+	}
+
+	oldNic, ok := oldObj.(*apinetv1alpha1.NetworkInterface)
+	if !ok {
+		return
+	}
+
+	if oldNic.Status.State == newNic.Status.State {
+		return
+	}
+
+	machineID := newNic.Labels[labelMachineID]
+	if machineID == "" {
+		return
+	}
+
+	log.V(1).Info("NIC state changed, requeueing machine", "machineID", machineID, "nic", newNic.Name, "oldState", oldNic.Status.State, "newState", newNic.Status.State)
+	p.notifyEventHandlers(machineID)
+}
+
+func (p *Plugin) handleNICDelete(log logr.Logger, obj interface{}) {
+	nic, ok := obj.(*apinetv1alpha1.NetworkInterface)
+	if !ok {
+		return
+	}
+
+	if nic.Spec.NodeRef.Name != p.nodeName {
+		return
+	}
+
+	machineID := nic.Labels[labelMachineID]
+	if machineID == "" {
+		log.V(2).Info("Ignoring NIC delete without machine-id label", "name", nic.Name, "namespace", nic.Namespace)
+		return
+	}
+
+	log.V(1).Info("NIC deleted, requeueing machine", "machineID", machineID, "nic", nic.Name)
+	p.notifyEventHandlers(machineID)
+}
+
+func (p *Plugin) enqueueNICMachines(ctx context.Context, log logr.Logger, c cache.Cache) {
+	nicList := &apinetv1alpha1.NetworkInterfaceList{}
+	if err := c.List(ctx, nicList); err != nil {
+		log.Error(err, "Failed to list NICs")
+		return
+	}
+
+	for i := range nicList.Items {
+		nic := &nicList.Items[i]
+		if nic.Spec.NodeRef.Name != p.nodeName {
+			continue
+		}
+
+		machineID := nic.Labels[labelMachineID]
+		if machineID == "" {
+			continue
+		}
+
+		if _, err := os.Stat(p.host.MachineDir(machineID)); err != nil {
+			if !os.IsNotExist(err) {
+				log.Error(err, "Failed to stat machine directory", "machineID", machineID)
+				continue
+			}
+			log.V(1).Info("Deleting stale APINet NIC", "machineID", machineID, "nic", nic.Name, "namespace", nic.Namespace)
+			if err := p.apinetClient.Delete(ctx, nic); err != nil && !apierrors.IsNotFound(err) {
+				log.Error(err, "Failed to delete stale NIC", "nic", nic.Name, "namespace", nic.Namespace)
+			}
+			continue
+		}
+
+		log.V(1).Info("Enqueuing machine", "machineID", machineID, "nic", nic.Name)
+		p.notifyEventHandlers(machineID)
+	}
 }
