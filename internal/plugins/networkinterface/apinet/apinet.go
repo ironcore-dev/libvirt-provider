@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
 
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
@@ -60,6 +61,7 @@ type Plugin struct {
 	host          providerhost.LibvirtHost
 	apinetClient  client.Client
 	restConfig    *rest.Config
+	mu            sync.RWMutex
 	eventHandlers []providernetworkinterface.EventHandler
 }
 
@@ -88,10 +90,14 @@ func (p *Plugin) Init(ctx context.Context, host providerhost.LibvirtHost) error 
 }
 
 func (p *Plugin) AddEventHandler(handler providernetworkinterface.EventHandler) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	p.eventHandlers = append(p.eventHandlers, handler)
 }
 
 func (p *Plugin) RemoveEventHandler(handler providernetworkinterface.EventHandler) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
 	for i, h := range p.eventHandlers {
 		if h == handler {
 			p.eventHandlers = append(p.eventHandlers[:i], p.eventHandlers[i+1:]...)
@@ -101,6 +107,8 @@ func (p *Plugin) RemoveEventHandler(handler providernetworkinterface.EventHandle
 }
 
 func (p *Plugin) notifyEventHandlers(machineID string) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 	for _, h := range p.eventHandlers {
 		h.HandleNICEvent(machineID)
 	}
