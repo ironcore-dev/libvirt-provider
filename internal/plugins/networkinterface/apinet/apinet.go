@@ -382,6 +382,10 @@ func (p *Plugin) handleNICUpdate(log logr.Logger, oldObj, newObj interface{}) {
 }
 
 func (p *Plugin) handleNICDelete(log logr.Logger, obj interface{}) {
+	if d, ok := obj.(toolscache.DeletedFinalStateUnknown); ok {
+		obj = d.Obj
+	}
+
 	nic, ok := obj.(*apinetv1alpha1.NetworkInterface)
 	if !ok {
 		return

@@ -217,9 +217,6 @@ func (r *MachineReconciler) reconcileDesiredNetworkInterface(
 	nic *api.NetworkInterfaceSpec,
 ) (*mountedNetworkInterface, error) {
 	providerNic, err := r.networkInterfacePlugin.Apply(ctx, nic, machine)
-	if errors.Is(err, providernetworkinterface.ErrNotReady) {
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}
