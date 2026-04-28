@@ -85,7 +85,9 @@ func (p *Plugin) Init(ctx context.Context, host providerhost.LibvirtHost) error 
 	}
 	p.apinetClient = apinetClient
 
-	go p.runWatcher(ctx)
+	if err := p.startWatcher(ctx); err != nil {
+		return fmt.Errorf("error starting NIC watcher: %w", err)
+	}
 	return nil
 }
 
@@ -312,7 +314,7 @@ func (p *Plugin) Name() string {
 	return pluginAPInet
 }
 
-func (p *Plugin) runWatcher(ctx context.Context) {
+func (p *Plugin) startWatcher(ctx context.Context) error {
 	log := ctrl.Log.WithName("apinet-watcher")
 
 	c, err := cache.New(p.restConfig, cache.Options{
@@ -322,14 +324,12 @@ func (p *Plugin) runWatcher(ctx context.Context) {
 		},
 	})
 	if err != nil {
-		log.Error(err, "Failed to create informer cache")
-		return
+		return fmt.Errorf("failed to create informer cache: %w", err)
 	}
 
 	informer, err := c.GetInformer(ctx, &apinetv1alpha1.NetworkInterface{})
 	if err != nil {
-		log.Error(err, "Failed to get informer")
-		return
+		return fmt.Errorf("failed to get informer: %w", err)
 	}
 
 	if _, err := informer.AddEventHandler(toolscache.ResourceEventHandlerFuncs{
@@ -340,8 +340,7 @@ func (p *Plugin) runWatcher(ctx context.Context) {
 			p.handleNICDelete(log, obj)
 		},
 	}); err != nil {
-		log.Error(err, "Failed to add event handler")
-		return
+		return fmt.Errorf("failed to add event handler: %w", err)
 	}
 
 	go func() {
@@ -351,14 +350,15 @@ func (p *Plugin) runWatcher(ctx context.Context) {
 	}()
 
 	if !c.WaitForCacheSync(ctx) {
-		log.Error(fmt.Errorf("cache sync failed"), "Failed to sync informer cache")
-		return
+		return fmt.Errorf("failed to sync informer cache")
 	}
 	log.Info("Informer cache synced, enqueuing machines for NIC reconciliation")
 
-	p.enqueueNICMachines(ctx, log, c)
+	if err := p.enqueueNICMachines(ctx, log, c); err != nil {
+		return err
+	}
 
-	<-ctx.Done()
+	return nil
 }
 
 func (p *Plugin) handleNICUpdate(log logr.Logger, oldObj, newObj interface{}) {
@@ -413,11 +413,10 @@ func (p *Plugin) handleNICDelete(log logr.Logger, obj interface{}) {
 	p.notifyEventHandlers(machineID)
 }
 
-func (p *Plugin) enqueueNICMachines(ctx context.Context, log logr.Logger, c cache.Cache) {
+func (p *Plugin) enqueueNICMachines(ctx context.Context, log logr.Logger, c cache.Cache) error {
 	nicList := &apinetv1alpha1.NetworkInterfaceList{}
 	if err := c.List(ctx, nicList); err != nil {
-		log.Error(err, "Failed to list NICs")
-		return
+		return fmt.Errorf("failed to list NICs: %w", err)
 	}
 
 	for i := range nicList.Items {
@@ -446,4 +445,6 @@ func (p *Plugin) enqueueNICMachines(ctx context.Context, log logr.Logger, c cach
 		log.V(1).Info("Enqueuing machine", "machineID", machineID, "nic", nic.Name)
 		p.notifyEventHandlers(machineID)
 	}
+
+	return nil
 }
