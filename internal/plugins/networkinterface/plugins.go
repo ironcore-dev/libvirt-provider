@@ -31,7 +31,6 @@ type Plugin interface {
 	Name() string
 	Init(ctx context.Context, host providerhost.LibvirtHost) error
 	AddEventHandler(handler EventHandler)
-	RemoveEventHandler(handler EventHandler)
 
 	Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*NetworkInterface, error)
 	Delete(ctx context.Context, computeNicName string, machineID string) error
