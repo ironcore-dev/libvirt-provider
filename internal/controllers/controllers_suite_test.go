@@ -184,7 +184,7 @@ var _ = BeforeSuite(func() {
 	if cleanup != nil {
 		DeferCleanup(cleanup)
 	}
-	Expect(networkPlugin.Init(providerHost)).To(Succeed())
+	Expect(networkPlugin.Init(pluginCtx, providerHost)).To(Succeed())
 
 	By("setting up resource claimer")
 	resClaimer, err = claim.NewResourceClaimer(

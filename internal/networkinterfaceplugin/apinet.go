@@ -8,7 +8,6 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"fmt"
-	"time"
 
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
 	networkingv1alpha1 "github.com/ironcore-dev/ironcore/api/networking/v1alpha1"
@@ -21,7 +20,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var scheme = runtime.NewScheme()
@@ -32,9 +30,7 @@ func init() {
 }
 
 type apinetOptions struct {
-	APInetNodeName  string
-	PollingDuration time.Duration
-	PollingInterval time.Duration
+	APInetNodeName string
 
 	GetConfigOptions config.GetConfigOptions
 }
@@ -45,8 +41,6 @@ func (o *apinetOptions) PluginName() string {
 
 func (o *apinetOptions) AddFlags(fs *pflag.FlagSet) {
 	fs.StringVar(&o.APInetNodeName, "apinet-node-name", "", "APInet node name")
-	fs.DurationVar(&o.PollingDuration, "apinet-polling-duration", 30*time.Second, "Duration to poll for apinet network interface readiness")
-	fs.DurationVar(&o.PollingInterval, "apinet-polling-interval", 1*time.Second, "Interval between apinet network interface readiness polls")
 	o.GetConfigOptions.BindFlags(fs, config.WithNamePrefix("apinet-"))
 }
 
@@ -80,12 +74,7 @@ func (o *apinetOptions) NetworkInterfacePlugin(ctx context.Context) (
 		return nil, nil, nil, fmt.Errorf("error getting apinet config: %w", err)
 	}
 
-	apinetClient, err := client.New(cfg, client.Options{Scheme: scheme})
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("error creating apinet client: %w", err)
-	}
-
-	return apinet.NewPlugin(o.APInetNodeName, apinetClient, o.PollingDuration, o.PollingInterval), configCtrl, nil, nil
+	return apinet.NewPlugin(o.APInetNodeName, cfg), configCtrl, nil, nil
 }
 
 func init() {

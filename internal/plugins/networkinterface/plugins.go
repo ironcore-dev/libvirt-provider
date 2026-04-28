@@ -5,14 +5,32 @@ package networkinterface
 
 import (
 	"context"
+	"errors"
 
 	"github.com/ironcore-dev/libvirt-provider/api"
 	providerhost "github.com/ironcore-dev/libvirt-provider/internal/host"
 )
 
+var ErrNotReady = errors.New("network interface not ready")
+
+type EventHandler interface {
+	HandleNICEvent(machineID string)
+}
+
+type EventHandlerFuncs struct {
+	HandleNICEventFunc func(machineID string)
+}
+
+func (l EventHandlerFuncs) HandleNICEvent(machineID string) {
+	if l.HandleNICEventFunc != nil {
+		l.HandleNICEventFunc(machineID)
+	}
+}
+
 type Plugin interface {
 	Name() string
-	Init(host providerhost.LibvirtHost) error
+	Init(ctx context.Context, host providerhost.LibvirtHost) error
+	AddEventHandler(handler EventHandler)
 
 	Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*NetworkInterface, error)
 	Delete(ctx context.Context, computeNicName string, machineID string) error

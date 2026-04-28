@@ -164,19 +164,26 @@ func (r *MachineReconciler) attachDetachNetworkInterfaces(
 		mountedNic, err := r.reconcileDesiredNetworkInterface(ctx, machine, domain, mountedNics, desiredNic)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("[network interface %s] error reconciling: %w", nicName, err))
-		} else {
-			log.V(1).Info("Successfully reconciled desired network interface", "NetworkInterfaceName", nicName)
-			mountedNics[nicName] = *mountedNic
-			nicStates = append(nicStates, api.NetworkInterfaceStatus{
-				Name:   nicName,
-				Handle: mountedNic.networkInterface.Handle,
-				State:  api.NetworkInterfaceStateAttached,
-			})
+			continue
 		}
+		if mountedNic == nil {
+			continue
+		}
+		log.V(1).Info("Successfully reconciled desired network interface", "NetworkInterfaceName", nicName)
+		mountedNics[nicName] = *mountedNic
+		nicStates = append(nicStates, api.NetworkInterfaceStatus{
+			Name:   nicName,
+			Handle: mountedNic.networkInterface.Handle,
+			State:  api.NetworkInterfaceStateAttached,
+		})
 	}
 
 	for nicName, machineNic := range machineNicByName {
 		if _, ok := mountedNics[nicName]; ok {
+			continue
+		}
+		if _, ok := desiredNics[nicName]; ok {
+			log.V(1).Info("Skipping not ready NICs", "NetworkInterfaceName", nicName)
 			continue
 		}
 

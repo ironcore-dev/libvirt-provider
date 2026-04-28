@@ -173,6 +173,13 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 		},
 	})
 
+	r.networkInterfacePlugin.AddEventHandler(providernetworkinterface.EventHandlerFuncs{
+		HandleNICEventFunc: func(machineID string) {
+			log.V(1).Info("NIC event: Requeue machine", "Machine", machineID)
+			r.queue.Add(machineID)
+		},
+	})
+
 	imgEventReg, err := r.machineEvents.AddHandler(event.HandlerFunc[*api.Machine](func(evt event.Event[*api.Machine]) {
 		r.queue.Add(evt.Object.ID)
 	}))
