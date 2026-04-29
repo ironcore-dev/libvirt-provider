@@ -39,13 +39,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="${LDFLAGS}" -a -o libvirt-provider ./cmd/libvirt-provider/main.go
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on go build -ldflags="${LDFLAGS}" -a -o libvirt-provider ./cmd/libvirt-provider/main.go
 
 
 # Install irictl-machine
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
-    GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on \
+    CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH GO111MODULE=on \
     go install github.com/ironcore-dev/ironcore/irictl-machine/cmd/irictl-machine@main
 
 # Ensure the binary is in a common location
@@ -59,7 +59,7 @@ RUN if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
 FROM busybox:1.37.0-uclibc AS busybox
 
 # Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
-FROM gcr.io/distroless/base-debian11  AS libvirt-provider
+FROM gcr.io/distroless/static-debian13  AS libvirt-provider
 
 WORKDIR /
 COPY --from=busybox /bin/sh /bin/sh
