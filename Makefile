@@ -104,6 +104,16 @@ test: manifests generate fmt vet envtest ## Run tests. Some test depend on Linux
 integration-tests: ## Run integration tests against code. For dependencies, refer to the integration-test workflow.
 	go run github.com/onsi/ginkgo/v2/ginkgo run -r --label-filter="integration" -coverprofile cover.out
 
+##@ IronCore-in-a-Box Integration Tests
+
+.PHONY: iiab-tests
+iiab-tests: ## Run ironcore-in-a-box integration tests with local libvirt-provider
+	hack/iiab-tests.sh all
+
+.PHONY: iiab-clean
+iiab-clean: ## Remove iiab clone and kind cluster
+	hack/iiab-tests.sh clean
+
 ##@ Documentation
 
 .PHONY: start-docs
