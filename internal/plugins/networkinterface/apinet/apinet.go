@@ -20,6 +20,7 @@ import (
 	apinetv1alpha1 "github.com/ironcore-dev/ironcore-net/api/core/v1alpha1"
 	apinet "github.com/ironcore-dev/ironcore-net/apimachinery/api/net"
 	"github.com/ironcore-dev/ironcore-net/apinetlet/provider"
+	apinetv1alpha1Apply "github.com/ironcore-dev/ironcore-net/client-go/applyconfigurations/core/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	providerhost "github.com/ironcore-dev/libvirt-provider/internal/host"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
@@ -167,33 +168,26 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		return nil, err
 	}
 
-	apinetNic := &apinetv1alpha1.NetworkInterface{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: apinetv1alpha1.SchemeGroupVersion.String(),
-			Kind:       "NetworkInterface",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Namespace: apinetNamespace,
-			Name:      p.APInetNicName(machine.ID, spec.Name),
-			Labels: map[string]string{
-				labelMachineID: machine.ID,
-			},
-		},
-		Spec: apinetv1alpha1.NetworkInterfaceSpec{
-			NetworkRef: corev1.LocalObjectReference{
-				Name: apinetNetworkName,
-			},
-			NodeRef: corev1.LocalObjectReference{
-				Name: p.nodeName,
-			},
-			IPs:      ironcoreIPsToAPInetIPs(spec.Ips),
-			Hostname: spec.HostName,
-		},
+	apinetNicApply := apinetv1alpha1Apply.NetworkInterface(p.APInetNicName(machine.ID, spec.Name), apinetNamespace).
+		WithAPIVersion(apinetv1alpha1.SchemeGroupVersion.String()).
+		WithKind("NetworkInterface").
+		WithLabels(map[string]string{
+			labelMachineID: machine.ID,
+		}).WithSpec(apinetv1alpha1Apply.NetworkInterfaceSpec().WithNetworkRef(corev1.LocalObjectReference{
+		Name: apinetNetworkName,
+	}).WithNodeRef(corev1.LocalObjectReference{
+		Name: p.nodeName,
+	}).WithIPs(ironcoreIPsToAPInetIPs(spec.Ips)...).WithHostname(spec.HostName))
+
+	log.V(1).Info("Applying APINet network interface")
+	if err := p.apinetClient.Apply(ctx, apinetNicApply, client.ForceOwnership, fieldOwner); err != nil {
+		return nil, fmt.Errorf("error applying apinet network interface: %w", err)
 	}
 
-	log.V(1).Info("Applying apinet nic")
-	if err := p.apinetClient.Patch(ctx, apinetNic, client.Apply, fieldOwner, client.ForceOwnership); err != nil {
-		return nil, fmt.Errorf("error applying apinet network interface: %w", err)
+	apinetNic := &apinetv1alpha1.NetworkInterface{}
+	apinetNicKey := client.ObjectKey{Name: *apinetNicApply.GetName(), Namespace: *apinetNicApply.GetNamespace()}
+	if err := p.apinetClient.Get(ctx, apinetNicKey, apinetNic); err != nil {
+		return nil, fmt.Errorf("error getting apinet network interface: %w", err)
 	}
 
 	hostDev, direct, err := getHostDevice(apinetNic)
