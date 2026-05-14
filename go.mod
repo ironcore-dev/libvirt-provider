@@ -1,6 +1,6 @@
 module github.com/ironcore-dev/libvirt-provider
 
-go 1.25.0
+go 1.25.1
 
 toolchain go1.26.2
 
@@ -11,7 +11,7 @@ require (
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.11.0
-	github.com/ironcore-dev/ironcore v0.3.0
+	github.com/ironcore-dev/ironcore v0.3.1-0.20260505063813-db456bba7245
 	github.com/ironcore-dev/ironcore-image v0.4.0
 	github.com/ironcore-dev/ironcore-net v0.3.0
 	github.com/ironcore-dev/provider-utils v0.0.0-20260420150206-639a4bf5422f
@@ -24,13 +24,13 @@ require (
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/sync v0.20.0
 	google.golang.org/grpc v1.81.0
-	k8s.io/api v0.34.6
-	k8s.io/apimachinery v0.34.6
-	k8s.io/client-go v0.34.6
-	k8s.io/kubectl v0.34.1
-	k8s.io/utils v0.0.0-20251002143259-bc988d571ff4
+	k8s.io/api v0.35.3
+	k8s.io/apimachinery v0.35.3
+	k8s.io/client-go v0.35.3
+	k8s.io/kubectl v0.35.3
+	k8s.io/utils v0.0.0-20260108192941-914a6e750570
 	libvirt.org/go/libvirtxml v1.12002.0
-	sigs.k8s.io/controller-runtime v0.22.3
+	sigs.k8s.io/controller-runtime v0.23.3
 )
 
 require (
@@ -72,7 +72,6 @@ require (
 	github.com/go-openapi/swag/typeutils v0.25.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -132,16 +131,16 @@ require (
 	google.golang.org/protobuf v1.36.11 // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiextensions-apiserver v0.34.1 // indirect
-	k8s.io/apiserver v0.34.6 // indirect
-	k8s.io/cli-runtime v0.34.1 // indirect
-	k8s.io/component-base v0.34.6 // indirect
+	k8s.io/apiextensions-apiserver v0.35.3 // indirect
+	k8s.io/apiserver v0.35.3 // indirect
+	k8s.io/cli-runtime v0.35.3 // indirect
+	k8s.io/component-base v0.35.3 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
-	k8s.io/kube-openapi v0.0.0-20250910181357-589584f1c912 // indirect
+	k8s.io/kube-openapi v0.0.0-20260127142750-a19766b6e2d4 // indirect
 	oras.land/oras-go/v2 v2.6.0 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.33.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.0 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.2-0.20260122202528-d9cc6641c482 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )
