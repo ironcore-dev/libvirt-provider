@@ -16,14 +16,14 @@ require (
 	github.com/ironcore-dev/ironcore-net v0.3.0
 	github.com/ironcore-dev/provider-utils v0.0.0-20260420150206-639a4bf5422f
 	github.com/moby/term v0.5.2
-	github.com/onsi/ginkgo/v2 v2.28.3
-	github.com/onsi/gomega v1.40.0
+	github.com/onsi/ginkgo/v2 v2.29.0
+	github.com/onsi/gomega v1.41.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/shirou/gopsutil/v4 v4.26.4
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/sync v0.20.0
-	google.golang.org/grpc v1.81.0
+	google.golang.org/grpc v1.81.1
 	k8s.io/api v0.34.6
 	k8s.io/apimachinery v0.34.6
 	k8s.io/client-go v0.34.6
