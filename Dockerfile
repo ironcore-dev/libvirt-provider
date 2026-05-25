@@ -56,7 +56,7 @@ RUN if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
     fi
 
 
-FROM busybox:1.37.0-uclibc AS busybox
+FROM busybox:1.38.0-uclibc AS busybox
 
 # Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
 FROM gcr.io/distroless/static-debian13  AS libvirt-provider
