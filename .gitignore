@@ -33,3 +33,6 @@ dev/
 charts/
 apiserver.local.config/
 default.etcd/
+
+# IronCore-in-a-Box integration tests
+.iiab/

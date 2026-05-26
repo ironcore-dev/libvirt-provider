@@ -1,0 +1,19 @@
+name: IronCore-in-a-Box Tests
+
+on:
+  pull_request:
+    types: [assigned, opened, synchronize, reopened]
+    paths-ignore:
+      - 'docs/**'
+      - '**/*.md'
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out libvirt-provider
+        uses: actions/checkout@v6
+      - name: Install test dependencies
+        run: sudo apt-get update && sudo apt-get install -yqq sshpass
+      - name: Run iiab tests
+        run: make iiab-tests
