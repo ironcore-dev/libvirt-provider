@@ -168,6 +168,11 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		return nil, err
 	}
 
+	var hostName string
+	if machine.Spec.GuestConfig != nil {
+		hostName = machine.Spec.GuestConfig.HostName
+	}
+
 	apinetNicApply := apinetv1alpha1Apply.NetworkInterface(p.APInetNicName(machine.ID, spec.Name), apinetNamespace).
 		WithAPIVersion(apinetv1alpha1.SchemeGroupVersion.String()).
 		WithKind("NetworkInterface").
@@ -177,7 +182,7 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		Name: apinetNetworkName,
 	}).WithNodeRef(corev1.LocalObjectReference{
 		Name: p.nodeName,
-	}).WithIPs(ironcoreIPsToAPInetIPs(spec.Ips)...).WithHostname(spec.HostName))
+	}).WithIPs(ironcoreIPsToAPInetIPs(spec.Ips)...).WithHostname(hostName))
 
 	log.V(1).Info("Applying APINet network interface")
 	if err := p.apinetClient.Apply(ctx, apinetNicApply, client.ForceOwnership, fieldOwner); err != nil {

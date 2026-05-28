@@ -33,9 +33,16 @@ type MachineSpec struct {
 	ShutdownAt time.Time `json:"shutdownAt,omitempty"`
 
 	GuestAgent GuestAgent `json:"guestAgent"`
+
+	// GuestConfig contains an optional guest OS level configuration for the machine.
+	GuestConfig *MachineGuestConfig `json:"guestConfig,omitempty"`
 }
 
 type GuestAgent string
+
+type MachineGuestConfig struct {
+	HostName string `json:"hostName,omitempty"`
+}
 
 const (
 	GuestAgentNone GuestAgent = "None"
@@ -107,7 +114,6 @@ type NetworkInterfaceSpec struct {
 	NetworkId  string            `json:"networkId"`
 	Ips        []string          `json:"ips"`
 	Attributes map[string]string `json:"attributes"`
-	HostName   string            `json:"hostName,omitempty"`
 }
 
 type NetworkInterfaceStatus struct {
