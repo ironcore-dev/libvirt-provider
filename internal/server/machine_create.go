@@ -90,6 +90,13 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 		volumes = append(volumes, volumeSpec)
 	}
 
+	var guestConfig *api.MachineGuestConfig
+	if iriMachine.Spec.GetGuestConfig() != nil {
+		guestConfig = &api.MachineGuestConfig{
+			HostName: iriMachine.Spec.GuestConfig.Hostname,
+		}
+	}
+
 	var networkInterfaces []*api.NetworkInterfaceSpec
 	for _, iriNetworkInterface := range iriMachine.Spec.NetworkInterfaces {
 		networkInterfaceSpec := &api.NetworkInterfaceSpec{
@@ -127,6 +134,7 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 			NetworkInterfaces: networkInterfaces,
 			Gpu:               pciAddrs,
 			GuestAgent:        s.guestAgent,
+			GuestConfig:       guestConfig,
 		},
 	}
 
