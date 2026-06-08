@@ -1,5 +1,5 @@
 # Build the libvirt-provider binary
-FROM --platform=$BUILDPLATFORM golang:1.26.3-bookworm AS builder
+FROM --platform=$BUILDPLATFORM golang:1.26.4-bookworm AS builder
 
 # Prevent Go from downloading a different toolchain at build time.
 # The Docker image IS the toolchain — if go.mod requires something newer,
@@ -56,7 +56,7 @@ RUN if [ "$TARGETARCH" = "$BUILDARCH" ]; then \
     fi
 
 
-FROM busybox:1.37.0-uclibc AS busybox
+FROM busybox:1.38.0-uclibc AS busybox
 
 # Since we're leveraging apt to pull in dependencies, we use `gcr.io/distroless/base` because it includes glibc.
 FROM gcr.io/distroless/static-debian13  AS libvirt-provider
