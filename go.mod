@@ -10,19 +10,19 @@ require (
 	github.com/go-chi/chi/v5 v5.3.0
 	github.com/go-logr/logr v1.4.3
 	github.com/google/uuid v1.6.0
-	github.com/ironcore-dev/controller-utils v0.11.1-0.20260416072254-416d8be454e4
-	github.com/ironcore-dev/ironcore v0.3.1-0.20260512064631-3efeaee6c3b0
+	github.com/ironcore-dev/controller-utils v0.12.0
+	github.com/ironcore-dev/ironcore v0.4.1
 	github.com/ironcore-dev/ironcore-image v0.4.0
-	github.com/ironcore-dev/ironcore-net v0.3.1-0.20260526082723-dd702be8b943
+	github.com/ironcore-dev/ironcore-net v0.4.0
 	github.com/ironcore-dev/provider-utils v0.0.0-20260420150206-639a4bf5422f
 	github.com/moby/term v0.5.2
-	github.com/onsi/ginkgo/v2 v2.29.0
-	github.com/onsi/gomega v1.41.0
+	github.com/onsi/ginkgo/v2 v2.30.0
+	github.com/onsi/gomega v1.42.0
 	github.com/prometheus/client_golang v1.23.2
 	github.com/shirou/gopsutil/v4 v4.26.5
 	github.com/spf13/cobra v1.10.2
 	github.com/spf13/pflag v1.0.10
-	golang.org/x/sync v0.20.0
+	golang.org/x/sync v0.21.0
 	google.golang.org/grpc v1.81.1
 	k8s.io/api v0.35.3
 	k8s.io/apimachinery v0.35.3
@@ -120,7 +120,7 @@ require (
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/net v0.53.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/term v0.42.0 // indirect
 	golang.org/x/text v0.36.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
