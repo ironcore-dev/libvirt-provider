@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out libvirt-provider
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
       - name: Install test dependencies
         run: sudo apt-get update && sudo apt-get install -yqq sshpass
       - name: Run iiab tests
