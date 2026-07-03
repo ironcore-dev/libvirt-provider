@@ -12,6 +12,7 @@ import (
 	apiutils "github.com/ironcore-dev/provider-utils/apiutils/api"
 	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	hostutils "github.com/ironcore-dev/provider-utils/storeutils/host"
+	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 )
@@ -25,6 +26,9 @@ var _ = Describe("Claims Utils", func() {
 				NewFunc:        func() *api.Machine { return &api.Machine{} },
 				CreateStrategy: strategy.MachineStrategy,
 				Dir:            filepath.Join(tempDir, "store", "machines"),
+				FieldIndexers: map[string]store.IndexerFunc[*api.Machine]{
+					api.MachineSpecHasGpuField: api.SetupMachineSpecHasGpuFieldIndexer,
+				},
 			})
 			Expect(err).NotTo(HaveOccurred())
 
