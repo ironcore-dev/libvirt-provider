@@ -157,18 +157,16 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 
 	r.imageCache.AddListener(ociutils.ListenerFuncs{
 		HandlePullDoneFunc: func(evt ociutils.PullDoneEvent) {
-			machines, err := r.machines.List(ctx)
+			machines, err := r.machines.List(ctx, store.MatchingFields{api.MachineSpecImageField: evt.Ref})
 			if err != nil {
 				log.Error(err, "failed to list machine")
 				return
 			}
 
 			for _, machine := range machines {
-				if api.IsImageReferenced(machine, evt.Ref) {
-					r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "ImagePullSucceeded", "PullImage", "Pulled image %s", evt.Ref)
-					log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
-					r.queue.Add(machine.ID)
-				}
+				r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "ImagePullSucceeded", "PullImage", "Pulled image %s", evt.Ref)
+				log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
+				r.queue.Add(machine.ID)
 			}
 		},
 	})
@@ -262,14 +260,14 @@ func (r *MachineReconciler) startEnqueueMachineByLibvirtEvent(ctx context.Contex
 func (r *MachineReconciler) startGarbageCollector(ctx context.Context, log logr.Logger) {
 	wait.UntilWithContext(ctx, func(ctx context.Context) {
 		log.V(1).Info("starting garbage-collector loop")
-		machines, err := r.machines.List(ctx)
+		machines, err := r.machines.List(ctx, store.MatchingFields{api.MachineMetadataDeletedField: "true"})
 		if err != nil {
 			log.Error(err, "failed to list machines")
 			return
 		}
 
 		for _, machine := range machines {
-			if !slices.Contains(machine.Finalizers, MachineFinalizer) || machine.DeletedAt == nil {
+			if !slices.Contains(machine.Finalizers, MachineFinalizer) {
 				continue
 			}
 
