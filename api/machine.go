@@ -12,17 +12,9 @@ import (
 )
 
 const (
-	MachineSpecHasGpuField      = "spec.hasGpu"
 	MachineMetadataDeletedField = "metadata.deleted"
 	MachineSpecImageField       = "spec.image"
 )
-
-func SetupMachineSpecHasGpuFieldIndexer(m *Machine) string {
-	if len(m.Spec.Gpu) > 0 {
-		return "true"
-	}
-	return "false"
-}
 
 func SetupMachineMetadataDeletedFieldIndexer(m *Machine) string {
 	if m.DeletedAt != nil {
