@@ -56,6 +56,7 @@ var _ = Describe("ListEvents", func() {
 			HaveField("Spec", SatisfyAll(
 				HaveField("InvolvedObjectMeta.Id", Equal(createResp.Machine.Metadata.Id)),
 				HaveField("Reason", Equal("IgnitionDataNotFound")),
+				HaveField("Action", Equal("SetIgnition")),
 				HaveField("Message", Equal("Machine does not have ignition data")),
 				HaveField("Type", Equal(corev1.EventTypeWarning)),
 			)),
@@ -74,6 +75,7 @@ var _ = Describe("ListEvents", func() {
 			HaveField("Spec", SatisfyAll(
 				HaveField("InvolvedObjectMeta.Id", Equal(createResp.Machine.Metadata.Id)),
 				HaveField("Reason", Equal("IgnitionDataNotFound")),
+				HaveField("Action", Equal("SetIgnition")),
 				HaveField("Message", Equal("Machine does not have ignition data")),
 				HaveField("Type", Equal(corev1.EventTypeWarning)),
 			)),
