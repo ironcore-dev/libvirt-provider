@@ -36,7 +36,7 @@ const (
 	probeEveryInterval             = 2 * time.Second
 	machineClassx3xlarge           = "x3-xlarge"
 	machineClassx2medium           = "x2-medium"
-	osImage                        = "ghcr.io/ironcore-dev/os-images/virtualization/gardenlinux:latest"
+	osImage                        = "ghcr.io/ironcore-dev/gardenlinux/gardener:2150.4.0-kvm"
 	emptyDiskSize                  = 1024 * 1024 * 1024
 	baseURL                        = "http://localhost:20251"
 	streamingAddress               = "127.0.0.1:20251"

@@ -51,7 +51,7 @@ const (
 	gracefulShutdownTimeout        = 0 * time.Second
 	resyncGarbageCollectorInterval = 5 * time.Second
 	consistentlyDuration           = 1 * time.Second
-	osImage                        = "ghcr.io/ironcore-dev/os-images/virtualization/gardenlinux:latest"
+	osImage                        = "ghcr.io/ironcore-dev/gardenlinux/gardener:2150.4.0-kvm"
 	machineEventMaxEvents          = 1000
 	machineEventTTL                = 10 * time.Second
 	machineEventResyncInterval     = 2 * time.Second
