@@ -11,6 +11,7 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"libvirt.org/go/libvirtxml"
 )
 
 var _ = Describe("MachineController", func() {
@@ -56,6 +57,17 @@ var _ = Describe("MachineController", func() {
 				g.Expect(m.Status.State).To(Equal(api.MachineStateRunning))
 			}).Should(Succeed())
 
+			By("ensuring the console output is mirrored to a log file")
+			domainXML := &libvirtxml.Domain{}
+			Expect(domainXML.Unmarshal(domainXMLData)).To(Succeed())
+			Expect(domainXML.Devices).NotTo(BeNil())
+			Expect(domainXML.Devices.Serials).To(HaveLen(1))
+			consoleLog := domainXML.Devices.Serials[0].Log
+			Expect(consoleLog).NotTo(BeNil())
+			Expect(consoleLog.File).To(Equal(providerHost.MachineConsoleLogFile(machine.ID)))
+			Expect(consoleLog.Append).To(Equal("on"))
+			Expect(providerHost.MachineLogsDir(machine.ID)).To(BeADirectory())
+			Eventually(providerHost.MachineConsoleLogFile(machine.ID)).Should(BeAnExistingFile())
 		})
 
 		It("should handle machine with boot image and network interface", func(ctx SpecContext) {

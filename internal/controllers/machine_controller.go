@@ -689,6 +689,13 @@ func (r *MachineReconciler) domainFor(
 					Target: &libvirtxml.DomainSerialTarget{
 						Type: serialTargetType,
 					},
+					// Always mirror the serial console output to a host-side log file,
+					// so early boot logs can be inspected for troubleshooting. The
+					// interactive pty console stays usable alongside the log.
+					Log: &libvirtxml.DomainChardevLog{
+						File:   r.host.MachineConsoleLogFile(machine.ID),
+						Append: "on",
+					},
 				},
 			},
 			Consoles: []libvirtxml.DomainConsole{
