@@ -25,6 +25,8 @@ const (
 	DefaultMachineRootFSFile           = "rootfs"
 	DefaultMachinePluginsDir           = "plugins"
 	DefaultMachineNetworkInterfacesDir = "networkinterfaces"
+	DefaultMachineLogsDir              = "logs"
+	DefaultMachineConsoleLogFile       = "console.log"
 )
 
 type Paths interface {
@@ -50,6 +52,9 @@ type Paths interface {
 
 	MachineNetworkInterfacesDir(machineUID string) string
 	MachineNetworkInterfaceDir(machineUID string, networkInterfaceName string) string
+
+	MachineLogsDir(machineUID string) string
+	MachineConsoleLogFile(machineUID string) string
 
 	MachineIgnitionsDir(machineUID string) string
 	MachineIgnitionFile(machineUID string) string
@@ -125,6 +130,14 @@ func (p *paths) MachineNetworkInterfacesDir(machineUID string) string {
 
 func (p *paths) MachineNetworkInterfaceDir(machineUID string, networkInterfaceName string) string {
 	return filepath.Join(p.MachineNetworkInterfacesDir(machineUID), networkInterfaceName)
+}
+
+func (p *paths) MachineLogsDir(machineUID string) string {
+	return filepath.Join(p.MachineDir(machineUID), DefaultMachineLogsDir)
+}
+
+func (p *paths) MachineConsoleLogFile(machineUID string) string {
+	return filepath.Join(p.MachineLogsDir(machineUID), DefaultMachineConsoleLogFile)
 }
 
 func (p *paths) MachineIgnitionsDir(machineUID string) string {
@@ -224,6 +237,9 @@ func MakeMachineDirs(paths Paths, machineUID string) error {
 	}
 	if err := os.MkdirAll(paths.MachineNetworkInterfacesDir(machineUID), os.ModePerm); err != nil {
 		return fmt.Errorf("error creating machine network interfaces directory: %w", err)
+	}
+	if err := os.MkdirAll(paths.MachineLogsDir(machineUID), os.ModePerm); err != nil {
+		return fmt.Errorf("error creating machine logs directory: %w", err)
 	}
 	return nil
 }
