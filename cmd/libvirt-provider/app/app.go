@@ -302,6 +302,7 @@ func Run(ctx context.Context, opts Options) error {
 			api.MachineSpecImageField:       api.SetupMachineSpecImageFieldIndexer,
 			api.MachineSpecHasGpuField:      api.SetupMachineSpecHasGpuFieldIndexer,
 		},
+		Log: log.WithName("machine-store"),
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize machine store")
