@@ -301,6 +301,7 @@ func Run(ctx context.Context, opts Options) error {
 			api.MachineMetadataDeletedField: api.SetupMachineMetadataDeletedFieldIndexer,
 			api.MachineSpecImageField:       api.SetupMachineSpecImageFieldIndexer,
 		},
+		Log: log.WithName("machine-store"),
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize machine store")
