@@ -17,6 +17,7 @@ import (
 	"time"
 
 	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
+	"github.com/ironcore-dev/provider-utils/storeutils/store"
 
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
@@ -296,6 +297,12 @@ func Run(ctx context.Context, opts Options) error {
 		NewFunc:        func() *api.Machine { return &api.Machine{} },
 		CreateStrategy: strategy.MachineStrategy,
 		Dir:            providerHost.MachineStoreDir(),
+		FieldIndexers: map[string]store.IndexerFunc[*api.Machine]{
+			api.MachineMetadataDeletedField: api.SetupMachineMetadataDeletedFieldIndexer,
+			api.MachineSpecImageField:       api.SetupMachineSpecImageFieldIndexer,
+			api.MachineSpecHasGpuField:      api.SetupMachineSpecHasGpuFieldIndexer,
+		},
+		Log: log.WithName("machine-store"),
 	})
 	if err != nil {
 		setupLog.Error(err, "failed to initialize machine store")
