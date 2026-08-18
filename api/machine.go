@@ -11,6 +11,25 @@ import (
 	"k8s.io/utils/ptr"
 )
 
+const (
+	MachineMetadataDeletedField = "metadata.deleted"
+	MachineSpecImageField       = "spec.image"
+)
+
+func SetupMachineMetadataDeletedFieldIndexer(m *Machine) string {
+	if m.DeletedAt != nil {
+		return "true"
+	}
+	return "false"
+}
+
+func SetupMachineSpecImageFieldIndexer(m *Machine) string {
+	if img := HasBootImage(m); img != nil {
+		return *img
+	}
+	return ""
+}
+
 type Machine struct {
 	apiutils.Metadata `json:"metadata,omitempty"`
 

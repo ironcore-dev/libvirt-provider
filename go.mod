@@ -14,7 +14,7 @@ require (
 	github.com/ironcore-dev/ironcore v0.4.3
 	github.com/ironcore-dev/ironcore-image v0.5.0
 	github.com/ironcore-dev/ironcore-net v0.4.2
-	github.com/ironcore-dev/provider-utils v0.0.0-20260706064412-a5700fe459b6
+	github.com/ironcore-dev/provider-utils v0.0.0-20260806131116-2fea71480579
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.32.1
 	github.com/onsi/gomega v1.42.1
@@ -40,7 +40,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cenkalti/backoff/v5 v5.0.3 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
-	github.com/containerd/containerd v1.7.33 // indirect
+	github.com/containerd/containerd v1.7.34 // indirect
 	github.com/containerd/errdefs v1.0.0 // indirect
 	github.com/containerd/errdefs/pkg v0.3.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect

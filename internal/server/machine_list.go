@@ -32,17 +32,13 @@ func (s *Server) getLibvirtMachine(ctx context.Context, id string) (*api.Machine
 }
 
 func (s *Server) listMachines(ctx context.Context, log logr.Logger) ([]*iri.Machine, error) {
-	machines, err := s.machineStore.List(ctx)
+	machines, err := s.machineStore.List(ctx, store.MatchingLabels{api.ManagerLabel: api.MachineManager})
 	if err != nil {
 		return nil, fmt.Errorf("error listing machines: %w", err)
 	}
 
 	var res []*iri.Machine
 	for _, machine := range machines {
-		if !api.IsManagedBy(machine, api.MachineManager) {
-			continue
-		}
-
 		iriMachine, err := s.convertMachineToIRIMachine(ctx, log, machine)
 		if err != nil {
 			return nil, err
