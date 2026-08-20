@@ -1,9 +1,6 @@
 # Image URL to use all building/pushing image targets
 IMG ?= controller:latest
 
-# ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.28
-
 # Docker image name for the mkdocs based local development setup
 MKDOCS_IMG=onmetal/libvirt-provider-docs
 
@@ -187,9 +184,12 @@ ADDLICENSE ?= $(LOCALBIN)/addlicense-$(ADDLICENSE_VERSION)
 
 ## Tool Versions
 KUSTOMIZE_VERSION ?= v5.7.1
-CONTROLLER_TOOLS_VERSION ?= v0.20.0
-ENVTEST_VERSION ?= release-0.23
-GOLANGCI_LINT_VERSION ?= v2.6
+CONTROLLER_TOOLS_VERSION ?= v0.21.0
+# ENVTEST_VERSION is the controller-runtime release branch for setup-envtest (i.e. release-0.24).
+ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
+# ENVTEST_K8S_VERSION is the Kubernetes version for envtest binaries (i.e. 1.36.0).
+ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d.%d",$$3, $$2}')
+GOLANGCI_LINT_VERSION ?= v2.12
 ADDLICENSE_VERSION ?= v1.1.1
 
 .PHONY: kustomize

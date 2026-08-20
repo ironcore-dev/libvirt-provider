@@ -10,10 +10,10 @@ require (
 	github.com/go-chi/chi/v5 v5.3.1
 	github.com/go-logr/logr v1.4.4
 	github.com/google/uuid v1.6.0
-	github.com/ironcore-dev/controller-utils v0.12.0
-	github.com/ironcore-dev/ironcore v0.4.3
+	github.com/ironcore-dev/controller-utils v0.13.0
+	github.com/ironcore-dev/ironcore v0.5.1-0.20260804090802-d4dab327b377
 	github.com/ironcore-dev/ironcore-image v0.5.0
-	github.com/ironcore-dev/ironcore-net v0.4.2
+	github.com/ironcore-dev/ironcore-net v0.4.3-0.20260817123615-52bda7a5d7bb
 	github.com/ironcore-dev/provider-utils v0.0.0-20260806131116-2fea71480579
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.32.1
@@ -24,13 +24,14 @@ require (
 	github.com/spf13/pflag v1.0.10
 	golang.org/x/sync v0.22.0
 	google.golang.org/grpc v1.83.0
-	k8s.io/api v0.35.3
-	k8s.io/apimachinery v0.35.3
-	k8s.io/client-go v0.35.3
-	k8s.io/kubectl v0.35.3
+	k8s.io/api v0.36.3
+	k8s.io/apimachinery v0.36.3
+	k8s.io/client-go v0.36.3
+	k8s.io/kubectl v0.36.3
+	k8s.io/streaming v0.36.3
 	k8s.io/utils v0.0.0-20260210185600-b8788abfbbc2
 	libvirt.org/go/libvirtxml v1.12005.0
-	sigs.k8s.io/controller-runtime v0.23.3
+	sigs.k8s.io/controller-runtime v0.24.1
 )
 
 require (
@@ -72,7 +73,6 @@ require (
 	github.com/go-openapi/swag/typeutils v0.25.1 // indirect
 	github.com/go-openapi/swag/yamlutils v0.25.1 // indirect
 	github.com/go-task/slim-sprig/v3 v3.0.0 // indirect
-	github.com/google/btree v1.1.3 // indirect
 	github.com/google/gnostic-models v0.7.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/pprof v0.0.0-20260402051712-545e8a4df936 // indirect
@@ -89,7 +89,6 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
-	github.com/mxk/go-flowrate v0.0.0-20140419014527-cca7078d478f // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
@@ -131,16 +130,16 @@ require (
 	google.golang.org/protobuf v1.36.12-0.20260120151049-f2248ac996af // indirect
 	gopkg.in/evanphx/json-patch.v4 v4.13.0 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/apiextensions-apiserver v0.35.3 // indirect
-	k8s.io/apiserver v0.35.3 // indirect
-	k8s.io/cli-runtime v0.35.3 // indirect
-	k8s.io/component-base v0.35.3 // indirect
+	k8s.io/apiextensions-apiserver v0.36.3 // indirect
+	k8s.io/apiserver v0.36.3 // indirect
+	k8s.io/cli-runtime v0.36.3 // indirect
+	k8s.io/component-base v0.36.3 // indirect
 	k8s.io/klog/v2 v2.140.0 // indirect
 	k8s.io/kube-openapi v0.0.0-20260317180543-43fb72c5454a // indirect
 	oras.land/oras-go/v2 v2.6.2 // indirect
 	sigs.k8s.io/apiserver-network-proxy/konnectivity-client v0.34.0 // indirect
 	sigs.k8s.io/json v0.0.0-20250730193827-2d320260d730 // indirect
 	sigs.k8s.io/randfill v1.0.0 // indirect
-	sigs.k8s.io/structured-merge-diff/v6 v6.3.2 // indirect
+	sigs.k8s.io/structured-merge-diff/v6 v6.3.3 // indirect
 	sigs.k8s.io/yaml v1.6.0 // indirect
 )

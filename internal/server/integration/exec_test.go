@@ -17,9 +17,10 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
-	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/client-go/tools/remotecommand"
+	transportspdy "k8s.io/client-go/transport/spdy"
 	"k8s.io/kubectl/pkg/util/term"
+	"k8s.io/streaming/pkg/httpstream/spdy"
 )
 
 var _ = Describe("Exec", func() {
@@ -122,7 +123,7 @@ func runExec(ctx context.Context, execUrl *url.URL) error {
 	if err != nil {
 		return err
 	}
-	exec, err := remotecommand.NewSPDYExecutorForTransports(roundTripper, roundTripper, http.MethodGet, execUrl)
+	exec, err := remotecommand.NewSPDYExecutorForTransports(roundTripper, transportspdy.NewUpgraderForStreaming(roundTripper), http.MethodGet, execUrl)
 	if err != nil {
 		return err
 	}

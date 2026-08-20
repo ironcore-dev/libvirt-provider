@@ -50,7 +50,7 @@ func IRIMachineLabelsEncoder(data map[string]string) string {
 	var builder strings.Builder
 
 	for key, value := range data {
-		builder.WriteString(fmt.Sprintf("\n\"%s\": \"%s\"", key, value))
+		fmt.Fprintf(&builder, "\n\"%s\": \"%s\"", key, value)
 	}
 
 	return builder.String()
