@@ -66,6 +66,12 @@ var _ = Describe("HealthCheckHandler", func() {
 			h.HealthCheckHandler(rec, newRequest())
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
+
+		It("reports the failing checker in the body", func() {
+			rec = httptest.NewRecorder()
+			h.HealthCheckHandler(rec, newRequest())
+			Expect(rec.Body.String()).To(ContainSubstring("apinet-config"))
+		})
 	})
 
 	Context("when only one of multiple checkers fails", func() {
@@ -85,6 +91,14 @@ var _ = Describe("HealthCheckHandler", func() {
 			h.HealthCheckHandler(rec, newRequest())
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
 		})
+
+		It("reports only the failing checker in the body", func() {
+			rec = httptest.NewRecorder()
+			h.HealthCheckHandler(rec, newRequest())
+			Expect(rec.Body.String()).To(ContainSubstring("bad"))
+			Expect(rec.Body.String()).NotTo(ContainSubstring("ok-1"))
+			Expect(rec.Body.String()).NotTo(ContainSubstring("ok-2"))
+		})
 	})
 
 	Context("when libvirt is down but checkers are healthy", func() {
@@ -101,6 +115,13 @@ var _ = Describe("HealthCheckHandler", func() {
 			rec = httptest.NewRecorder()
 			h.HealthCheckHandler(rec, newRequest())
 			Expect(rec.Code).To(Equal(http.StatusServiceUnavailable))
+		})
+
+		It("reports the failing libvirt connection in the body", func() {
+			rec = httptest.NewRecorder()
+			h.HealthCheckHandler(rec, newRequest())
+			Expect(rec.Body.String()).To(ContainSubstring("libvirt"))
+			Expect(rec.Body.String()).NotTo(ContainSubstring("rotator"))
 		})
 	})
 })

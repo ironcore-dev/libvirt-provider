@@ -4,6 +4,7 @@
 package healthcheck
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/go-logr/logr"
@@ -21,10 +22,12 @@ type HealthCheck struct {
 }
 
 func (h HealthCheck) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
-	healthy := true
 	if err := libvirtutils.IsConnected(h.Libvirt); err != nil {
-		h.Log.Error(err, "failed to get active connection to libvirtd")
-		healthy = false
+		msg := "failed to get active connection to libvirtd"
+		h.Log.Error(err, msg)
+		http.Error(w, msg, http.StatusServiceUnavailable)
+
+		return
 	}
 
 	for _, checker := range h.Checkers {
@@ -32,14 +35,13 @@ func (h HealthCheck) HealthCheckHandler(w http.ResponseWriter, r *http.Request) 
 			continue
 		}
 		if err := checker.Check(r); err != nil {
-			h.Log.Error(err, "health check failed", "check", checker.Name())
-			healthy = false
+			msg := fmt.Sprintf("health check failed, check: %s", checker.Name())
+			h.Log.Error(err, msg)
+			http.Error(w, msg, http.StatusServiceUnavailable)
+
+			return
 		}
 	}
 
-	if healthy {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		w.WriteHeader(http.StatusServiceUnavailable)
-	}
+	w.WriteHeader(http.StatusOK)
 }

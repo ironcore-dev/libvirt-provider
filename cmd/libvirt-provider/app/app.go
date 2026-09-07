@@ -53,7 +53,6 @@ import (
 	"github.com/spf13/pflag"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
-	"k8s.io/apiserver/pkg/server/healthz"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 )
@@ -403,7 +402,7 @@ func Run(ctx context.Context, opts Options) error {
 		Log:     log.WithName("health-check"),
 	}
 	if nicConfigCtrl != nil {
-		healthCheck.Checkers = append(healthCheck.Checkers, healthz.NamedCheck(nicConfigCtrl.Name(), nicConfigCtrl.Check))
+		healthCheck.Checkers = append(healthCheck.Checkers, nicConfigCtrl)
 	}
 
 	setupLog.Info("Starting resource claimer")
