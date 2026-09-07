@@ -397,13 +397,10 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	healthCheck := healthcheck.HealthCheck{
-		Libvirt: libvirt,
-		Log:     log.WithName("health-check"),
-	}
-	if nicConfigCtrl != nil {
-		healthCheck.Checkers = append(healthCheck.Checkers, nicConfigCtrl)
-	}
+	healthCheck := healthcheck.New(log.WithName("health-check"),
+		healthcheck.NewLibvirtChecker(libvirt),
+		nicConfigCtrl,
+	)
 
 	setupLog.Info("Starting resource claimer")
 	go func() {
@@ -598,7 +595,7 @@ func runMetricsServer(ctx context.Context, setupLog logr.Logger, opts HTTPServer
 	return nil
 }
 
-func runHealthCheckServer(ctx context.Context, setupLog logr.Logger, healthCheck healthcheck.HealthCheck, opts HTTPServerOptions) error {
+func runHealthCheckServer(ctx context.Context, setupLog logr.Logger, healthCheck *healthcheck.HealthCheck, opts HTTPServerOptions) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/healthz", healthCheck.HealthCheckHandler)
 
