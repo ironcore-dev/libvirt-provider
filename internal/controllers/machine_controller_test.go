@@ -169,6 +169,8 @@ var _ = Describe("MachineController", func() {
 			Expect(err).NotTo(HaveOccurred())
 			Expect(machine).NotTo(BeNil())
 
+			DeferCleanup(cleanupMachine(machine.ID))
+
 			diskPath := filepath.Join(
 				providerHost.MachineVolumeDir(
 					machine.ID,
