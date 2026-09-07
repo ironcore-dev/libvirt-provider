@@ -17,6 +17,9 @@ type Exec struct{}
 
 const filePerm = 0660
 
+// Create writes a raw disk image at filename.
+// A source file, if given, is copied and then extended to the requested size.
+// It returns an error if the requested size is smaller than the source.
 func (Exec) Create(filename string, opts ...CreateOption) error {
 	o := &CreateOptions{}
 	o.ApplyOptions(opts)
