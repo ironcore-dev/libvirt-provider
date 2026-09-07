@@ -4,6 +4,8 @@
 package controllers_test
 
 import (
+	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/digitalocean/go-libvirt"
@@ -11,6 +13,7 @@ import (
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	utilstrings "k8s.io/utils/strings"
 	"libvirt.org/go/libvirtxml"
 )
 
@@ -142,6 +145,48 @@ var _ = Describe("MachineController", func() {
 				})),
 				HaveField("State", Equal(api.MachineStateRunning)),
 			))
+		})
+
+		It("should handle machine with boot image and size limit set", func(ctx SpecContext) {
+			By("creating a machine with boot volume")
+			image := osImage
+
+			machine, err := createMachine(api.MachineSpec{
+				Power:       api.PowerStatePowerOn,
+				Cpu:         4,
+				MemoryBytes: 2147483648,
+				Volumes: []*api.VolumeSpec{
+					{
+						Name: "disk-0",
+						LocalDisk: &api.LocalDiskSpec{
+							Image: &image,
+							Size:  10 * 1024 * 1024 * 1024, // 10GB
+						},
+						Device: "oda",
+					},
+				},
+			})
+			Expect(err).NotTo(HaveOccurred())
+			Expect(machine).NotTo(BeNil())
+
+			diskPath := filepath.Join(
+				providerHost.MachineVolumeDir(
+					machine.ID,
+					utilstrings.EscapeQualifiedName("libvirt-provider.ironcore.dev/local-disk"),
+					"disk-0",
+				),
+				"disk.raw",
+			)
+			var stat os.FileInfo
+			Eventually(func(g Gomega) {
+				stat, err = os.Stat(diskPath)
+				g.Expect(err).NotTo(HaveOccurred())
+			}).
+				WithTimeout(5 * time.Minute).WithPolling(5 * time.Second).
+				Should(Succeed())
+
+			Expect(stat.Size()).To(BeNumerically("==", int64(10*1024*1024*1024)),
+				"disc size should be as configured")
 		})
 
 		It("should update machine power state", func(ctx SpecContext) {
