@@ -44,8 +44,7 @@ func (Exec) Create(filename string, opts ...CreateOption) error {
 			if fi.Size() > *o.Size {
 				return fmt.Errorf("cannot resize %q to %d: file size is already %d", filename, *o.Size, fi.Size())
 			}
-			err = os.Truncate(filename, *o.Size)
-			if err != nil {
+			if err := os.Truncate(filename, *o.Size); err != nil {
 				return fmt.Errorf("resizing file: %w", err)
 			}
 		}
