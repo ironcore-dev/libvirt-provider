@@ -36,6 +36,19 @@ func (Exec) Create(filename string, opts ...CreateOption) error {
 		if err := copyFile(log, o.SourceFile, filename); err != nil {
 			return fmt.Errorf("failed creating virtual disk image, source: %s, destination: %s: %w", o.SourceFile, filename, err)
 		}
+		if o.Size != nil && *o.Size > 0 {
+			fi, err := os.Stat(filename)
+			if err != nil {
+				return fmt.Errorf("could not stat %q: %w", filename, err)
+			}
+			if fi.Size() > *o.Size {
+				return fmt.Errorf("cannot resize %q to %d: file size is already %d", filename, *o.Size, fi.Size())
+			}
+			err = os.Truncate(filename, *o.Size)
+			if err != nil {
+				return fmt.Errorf("resizing file: %w", err)
+			}
+		}
 	}
 
 	return nil
