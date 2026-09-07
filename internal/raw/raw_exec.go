@@ -33,18 +33,27 @@ func (Exec) Create(filename string, opts ...CreateOption) error {
 			return fmt.Errorf("failed creating the empty ephemeral disk at %s: %w", filename, err)
 		}
 	} else {
+		var wantSize int64
+		if o.Size != nil {
+			wantSize = *o.Size
+		}
+
+		if wantSize > 0 {
+			fi, err := os.Stat(o.SourceFile)
+			if err != nil {
+				return fmt.Errorf("could not stat %q: %w", o.SourceFile, err)
+			}
+			if fi.Size() > wantSize {
+				return fmt.Errorf("cannot create %q at %d: source file %q is already %d", filename, wantSize, o.SourceFile, fi.Size())
+			}
+		}
+
 		if err := copyFile(log, o.SourceFile, filename); err != nil {
 			return fmt.Errorf("failed creating virtual disk image, source: %s, destination: %s: %w", o.SourceFile, filename, err)
 		}
-		if o.Size != nil && *o.Size > 0 {
-			fi, err := os.Stat(filename)
-			if err != nil {
-				return fmt.Errorf("could not stat %q: %w", filename, err)
-			}
-			if fi.Size() > *o.Size {
-				return fmt.Errorf("cannot resize %q to %d: file size is already %d", filename, *o.Size, fi.Size())
-			}
-			if err := os.Truncate(filename, *o.Size); err != nil {
+
+		if wantSize > 0 {
+			if err := os.Truncate(filename, wantSize); err != nil {
 				return fmt.Errorf("resizing file: %w", err)
 			}
 		}

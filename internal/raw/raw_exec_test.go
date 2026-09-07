@@ -73,15 +73,13 @@ func TestExecCreateRejectsSizeSmallerThanSource(t *testing.T) {
 	}
 
 	// localdisk.Apply skips creation when the disk already exists.
-	stat, statErr := os.Stat(diskFile)
-	if os.IsNotExist(statErr) {
+	_, statErr := os.Stat(diskFile)
+	if statErr == nil {
+		t.Error("disk file exists after a rejected create, expected absent")
 		return
 	}
-	if statErr != nil {
+	if !os.IsNotExist(statErr) {
 		t.Fatalf("stat %s: %v", diskFile, statErr)
-	}
-	if stat.Size() != sourceSize {
-		t.Errorf("disk left at size %d, want it absent or intact at %d", stat.Size(), sourceSize)
 	}
 }
 
