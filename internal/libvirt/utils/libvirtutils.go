@@ -183,7 +183,12 @@ func ApplySecret(lv *libvirt.Libvirt, secret *libvirtxml.Secret, value []byte) e
 	return nil
 }
 
-func IsConnected(clnt *libvirt.Libvirt) error {
+// Connector is the subset of *libvirt.Libvirt used by IsConnected.
+type Connector interface {
+	IsConnected() bool
+}
+
+func IsConnected(clnt Connector) error {
 	if !clnt.IsConnected() {
 		return errors.New("no active libvirt connection")
 	}
