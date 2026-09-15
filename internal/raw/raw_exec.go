@@ -31,6 +31,10 @@ func (Exec) Create(filename string, opts ...CreateOption) (err error) {
 		}
 	}()
 
+	if o.Size != nil && *o.Size <= 0 {
+		return fmt.Errorf("size must be greater than zero, got %d", *o.Size)
+	}
+
 	if o.SourceFile == "" {
 		if o.Size == nil {
 			return fmt.Errorf("must specify Size when creating without source file")

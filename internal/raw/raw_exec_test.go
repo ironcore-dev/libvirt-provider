@@ -55,6 +55,17 @@ var _ = Describe("Exec", func() {
 				// localdisk.Apply skips creation for existing disks:
 				Expect(diskFile).ToNot(BeAnExistingFile())
 			})
+
+			DescribeTable("invalid file size", func(size raw.WithSize) {
+				e := raw.Exec{}
+
+				Expect(e.Create(diskFile, raw.WithSourceFile(imageSource), size)).ToNot(Succeed())
+
+				Expect(diskFile).ToNot(BeAnExistingFile())
+			},
+				Entry("negative size", raw.WithSize(-1)),
+				Entry("zero", raw.WithSize(0)),
+			)
 		})
 
 		When("the source file is a directory", func() {
