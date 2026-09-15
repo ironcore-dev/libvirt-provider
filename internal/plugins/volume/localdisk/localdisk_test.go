@@ -23,6 +23,7 @@ const (
 	machineID          = "1a2b3c"
 	volumeName         = "disk-1"
 	imageSize    int64 = 4096
+	grownSize    int64 = imageSize * 4
 	negativeSize int64 = -1
 )
 
@@ -41,14 +42,26 @@ var _ = Describe("Plugin", func() {
 
 		When("local disk with image", func() {
 			It("rejects a negative size", func(ctx SpecContext) {
-				_, err := plugin.Apply(ctx, imageBackedVolume(negativeSize), &api.Machine{
-					Metadata: apiutils.Metadata{ID: machineID},
-				})
+				_, err := plugin.Apply(ctx, imageBackedVolume(negativeSize), testMachine())
 
 				Expect(err).To(HaveOccurred())
 
 				Expect(diskFile).ToNot(BeAnExistingFile(),
 					"disk with the wrong size gets stuck and will not be fixed on reapply")
+			})
+
+			It("keeps the image size when no size is set", func(ctx SpecContext) {
+				vol, err := plugin.Apply(ctx, imageBackedVolume(0), testMachine())
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vol.EffectiveStorageBytesSize).To(Equal(imageSize))
+			})
+
+			It("grows the disk to the configured size", func(ctx SpecContext) {
+				vol, err := plugin.Apply(ctx, imageBackedVolume(grownSize), testMachine())
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(vol.EffectiveStorageBytesSize).To(Equal(grownSize))
 			})
 		})
 	})
@@ -64,6 +77,10 @@ func imageBackedVolume(size int64) *api.VolumeSpec {
 			Image: &image,
 		},
 	}
+}
+
+func testMachine() *api.Machine {
+	return &api.Machine{Metadata: apiutils.Metadata{ID: machineID}}
 }
 
 func writeImageRootFS() string {
