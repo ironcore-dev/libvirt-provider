@@ -87,6 +87,10 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 	}
 
 	if !ok {
+		if spec.LocalDisk.Size < 0 {
+			return nil, fmt.Errorf("local disk size must not be negative, got %d", spec.LocalDisk.Size)
+		}
+
 		var createOpts []raw.CreateOption
 
 		if imgRef := spec.LocalDisk.Image; imgRef != nil {
