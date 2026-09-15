@@ -57,6 +57,19 @@ var _ = Describe("Exec", func() {
 			})
 		})
 
+		When("the source file is a directory", func() {
+			It("leaves no disk behind", func() {
+				e := raw.Exec{}
+				sourceDir := GinkgoT().TempDir()
+
+				Expect(e.Create(diskFile, raw.WithSourceFile(sourceDir))).
+					ToNot(Succeed())
+
+				Expect(diskFile).ToNot(BeAnExistingFile(),
+					"Create must delete the disk on failure, localdisk.Apply assumes disks are set up properly.")
+			})
+		})
+
 		When("no source file set", func() {
 			It("creates an empty disk of the requested size", func() {
 				e := raw.Exec{}

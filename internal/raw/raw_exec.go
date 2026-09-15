@@ -20,10 +20,16 @@ const filePerm = 0660
 // Create writes a raw disk image at filename.
 // A source file, if given, is copied and then extended to the requested size.
 // It returns an error if the requested size is smaller than the source.
-func (Exec) Create(filename string, opts ...CreateOption) error {
+func (Exec) Create(filename string, opts ...CreateOption) (err error) {
 	o := &CreateOptions{}
 	o.ApplyOptions(opts)
 	log := ctrl.Log.WithName("raw-disk").WithValues("filename", filename)
+
+	defer func() {
+		if err != nil {
+			os.Remove(filename)
+		}
+	}()
 
 	if o.SourceFile == "" {
 		if o.Size == nil {
