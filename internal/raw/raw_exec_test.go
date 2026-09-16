@@ -56,6 +56,16 @@ var _ = Describe("Exec", func() {
 				Expect(diskFile).ToNot(BeAnExistingFile())
 			})
 
+			It("does not delete a disk it did not create", func() {
+				e := raw.Exec{}
+				existingDisk := []byte("disk written by someone else")
+				Expect(os.WriteFile(diskFile, existingDisk, 0o600)).To(Succeed())
+
+				Expect(e.Create(diskFile, raw.WithSourceFile(imageSource), raw.WithSize(undersizedSize))).ToNot(Succeed())
+
+				Expect(os.ReadFile(diskFile)).To(Equal(existingDisk))
+			})
+
 			DescribeTable("invalid file size", func(size raw.WithSize) {
 				e := raw.Exec{}
 
