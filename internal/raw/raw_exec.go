@@ -17,24 +17,60 @@ type Exec struct{}
 
 const filePerm = 0660
 
-func (Exec) Create(filename string, opts ...CreateOption) error {
+// Create writes a raw disk image at filename.
+// A source file, if given, is copied and then extended to the requested size.
+// It returns an error if the requested size is smaller than the source.
+func (Exec) Create(filename string, opts ...CreateOption) (err error) {
 	o := &CreateOptions{}
 	o.ApplyOptions(opts)
 	log := ctrl.Log.WithName("raw-disk").WithValues("filename", filename)
 
-	if o.SourceFile == "" {
-		if o.Size == nil {
-			return fmt.Errorf("must specify Size when creating without source file")
+	if o.Size != nil && *o.Size <= 0 {
+		return fmt.Errorf("size must be greater than zero, got %d", *o.Size)
+	}
+
+	if o.SourceFile == "" && o.Size == nil {
+		return fmt.Errorf("must specify Size when creating without source file")
+	}
+
+	var wantSize int64
+	if o.Size != nil {
+		wantSize = *o.Size
+	}
+
+	if o.SourceFile != "" && wantSize > 0 {
+		fi, err := os.Stat(o.SourceFile)
+		if err != nil {
+			return fmt.Errorf("could not stat %q: %w", o.SourceFile, err)
 		}
-		seek := *o.Size
+		if fi.Size() > wantSize {
+			return fmt.Errorf("cannot create %q at %d: source file %q is already %d", filename, wantSize, o.SourceFile, fi.Size())
+		}
+	}
+
+	defer func() {
+		if err != nil {
+			os.Remove(filename)
+		}
+	}()
+
+	if o.SourceFile == "" {
 		// Position the file cursor one byte before the desired seek position to write a single byte,
 		// to ensure that data is written at the exact byte position specified by seek.
-		if err := createEmptyFileWithSeek(log, filename, seek-1); err != nil {
+		if err := createEmptyFileWithSeek(log, filename, wantSize-1); err != nil {
 			return fmt.Errorf("failed creating the empty ephemeral disk at %s: %w", filename, err)
 		}
-	} else {
-		if err := copyFile(log, o.SourceFile, filename); err != nil {
-			return fmt.Errorf("failed creating virtual disk image, source: %s, destination: %s: %w", o.SourceFile, filename, err)
+
+		return nil
+	}
+
+	if err := copyFile(log, o.SourceFile, filename); err != nil {
+		return fmt.Errorf("failed creating virtual disk image, source: %s, destination: %s: %w", o.SourceFile, filename, err)
+	}
+
+	if wantSize > 0 {
+		if err := os.Truncate(filename, wantSize); err != nil {
+			return fmt.Errorf("resizing file: %w", err)
 		}
 	}
 
