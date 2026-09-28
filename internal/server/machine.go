@@ -240,6 +240,10 @@ func (s *Server) getVolumeFromIRIVolume(iriVolume *iri.Volume) (*api.VolumeSpec,
 
 	var localDiskSpec *api.LocalDiskSpec
 	if localDisk := iriVolume.LocalDisk; localDisk != nil {
+		if localDisk.SizeBytes < 0 {
+			return nil, fmt.Errorf("%w: local disk size must not be negative, got %d", ErrInvalidRequest, localDisk.SizeBytes)
+		}
+
 		localDiskSpec = &api.LocalDiskSpec{
 			Size: localDisk.SizeBytes,
 		}

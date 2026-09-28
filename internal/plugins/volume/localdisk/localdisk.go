@@ -87,7 +87,12 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 	}
 
 	if !ok {
-		var createOption raw.CreateOption
+		if spec.LocalDisk.Size < 0 {
+			return nil, fmt.Errorf("local disk size must not be negative, got %d", spec.LocalDisk.Size)
+		}
+
+		var createOpts []raw.CreateOption
+
 		if imgRef := spec.LocalDisk.Image; imgRef != nil {
 			img, err := p.imageCache.Get(ctx, *imgRef)
 			if err != nil {
@@ -95,7 +100,12 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 			}
 
 			log.V(2).Info("Create disk with rootfs from img", "file", img.RootFS.Path)
-			createOption = raw.WithSourceFile(img.RootFS.Path)
+			createOpts = append(createOpts, raw.WithSourceFile(img.RootFS.Path))
+
+			if spec.LocalDisk.Size > 0 {
+				log.V(2).Info("Grow disk to configured size", "size", spec.LocalDisk.Size)
+				createOpts = append(createOpts, raw.WithSize(spec.LocalDisk.Size))
+			}
 		} else {
 			size := spec.LocalDisk.Size
 			if size == 0 {
@@ -103,10 +113,10 @@ func (p *plugin) Apply(ctx context.Context, spec *api.VolumeSpec, machine *api.M
 			}
 
 			log.V(2).Info("Create disk", "size", size)
-			createOption = raw.WithSize(size)
+			createOpts = append(createOpts, raw.WithSize(size))
 		}
 
-		if err := p.raw.Create(diskFilename, createOption); err != nil {
+		if err := p.raw.Create(diskFilename, createOpts...); err != nil {
 			return nil, fmt.Errorf("error creating disk %w", err)
 		}
 		if err := os.Chmod(diskFilename, filePerm); err != nil {
