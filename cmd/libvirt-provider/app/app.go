@@ -22,8 +22,6 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/ironcore-image/oci/remote"
 	ocistore "github.com/ironcore-dev/ironcore-image/oci/store"
-	"github.com/ironcore-dev/ironcore/broker/common"
-	commongrpc "github.com/ironcore-dev/ironcore/broker/common/grpc"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/internal/console"
@@ -45,8 +43,10 @@ import (
 	"github.com/ironcore-dev/provider-utils/claimutils/pci"
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
+	"github.com/ironcore-dev/provider-utils/grpcutils"
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
+	"github.com/ironcore-dev/provider-utils/osutils"
 	hostutils "github.com/ironcore-dev/provider-utils/storeutils/host"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -491,14 +491,14 @@ func Run(ctx context.Context, opts Options) error {
 
 func RunGRPCServer(ctx context.Context, setupLog logr.Logger, log logr.Logger, srv *server.Server, address string) error {
 	setupLog.V(1).Info("Cleaning up any previous socket")
-	if err := common.CleanupSocketIfExists(address); err != nil {
+	if err := osutils.CleanupSocketIfExists(address); err != nil {
 		return fmt.Errorf("error cleaning up socket: %w", err)
 	}
 
 	grpcSrv := grpc.NewServer(
 		grpc.ChainUnaryInterceptor(
-			commongrpc.InjectLogger(log.WithName("iri-server")),
-			commongrpc.LogRequest,
+			grpcutils.InjectLogger(log.WithName("iri-server")),
+			grpcutils.LogRequest,
 		),
 	)
 	iri.RegisterMachineRuntimeServer(grpcSrv, srv)

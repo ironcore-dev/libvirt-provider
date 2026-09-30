@@ -13,9 +13,8 @@ import (
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/google/uuid"
-	"github.com/ironcore-dev/ironcore/broker/common/idgen"
-	"github.com/ironcore-dev/ironcore/broker/common/request"
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
+	"github.com/ironcore-dev/ironcore/iri/common/idgen"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
 	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
@@ -23,6 +22,7 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
 	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
+	"github.com/ironcore-dev/provider-utils/requestutils"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -45,7 +45,7 @@ type Server struct {
 	machineClasses  MachineClassRegistry
 	resourceClaimer claim.Claimer
 
-	execRequestCache request.Cache[*iri.ExecRequest]
+	execRequestCache requestutils.Cache[*iri.ExecRequest]
 	activeConsoles   sync.Map
 	libvirt          *libvirt.Libvirt
 
@@ -104,7 +104,7 @@ func New(opts Options) (*Server, error) {
 		machineClasses:         opts.MachineClasses,
 		enableHugepages:        opts.EnableHugepages,
 		guestAgent:             opts.GuestAgent,
-		execRequestCache:       request.NewCache[*iri.ExecRequest](),
+		execRequestCache:       requestutils.NewCache[*iri.ExecRequest](),
 		activeConsoles:         sync.Map{},
 	}, nil
 }
