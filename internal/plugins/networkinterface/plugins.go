@@ -45,6 +45,7 @@ type NetworkInterface struct {
 
 	HostDevice      *HostDevice
 	Direct          *Direct
+	Ethernet        *Ethernet
 	Isolated        *Isolated
 	ProviderNetwork *ProviderNetwork
 }
@@ -64,12 +65,26 @@ type HostDevice struct {
 
 // Direct renders
 //
-//	<interface type='direct'><source dev='<Dev>'mode='bridge'/></interface>.
+//	<interface type='direct'><source dev='<Dev>'mode='bridge'/></interface>
 //
 // libvirt wraps the given device in a new macvtap (bridge mode) that qemu
 // attaches to. Use this when the fd end of the tap in Dev is consumed by
 // another process (e.g. a DPDK dataplane) and the guest should be coupled via
 // the netdev end.
 type Direct struct {
+	Dev string
+}
+
+// Ethernet renders
+//
+//	<interface type='ethernet'><target dev='<Dev>' managed='no'/> <driver name='vhost' queues='4'/></interface>
+//
+// qemu attaches directly to the pre-created, persistent TAP device Dev and
+// libvirt performs no setup on it (managed='no'). The plugin owning the device
+// is fully responsible for its lifecycle: Dev must exist before the domain is
+// defined, be configured as required (up state, MTU, addressing) and survive
+// domain restarts. Use this when the host kernel consumes the netdev end of the
+// tap and qemu is the only fd-end consumer.
+type Ethernet struct {
 	Dev string
 }

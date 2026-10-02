@@ -475,6 +475,15 @@ func libvirtInterfaceToProviderNetworkInterface(iface *libvirtxml.DomainInterfac
 				Dev: src.Direct.Dev,
 			},
 		}, nil
+	case src.Ethernet != nil:
+		if iface.Target == nil || iface.Target.Dev == "" {
+			return nil, fmt.Errorf("ethernet interface without target device: %#v", iface)
+		}
+		return &providernetworkinterface.NetworkInterface{
+			Ethernet: &providernetworkinterface.Ethernet{
+				Dev: iface.Target.Dev,
+			},
+		}, nil
 	default:
 		return nil, fmt.Errorf("invalid network source")
 	}
@@ -523,6 +532,28 @@ func providerNetworkInterfaceToLibvirt(name string, nic *providernetworkinterfac
 						Dev:  nic.Direct.Dev,
 						Mode: "bridge",
 					},
+				},
+			},
+		}, nil
+	case nic.Ethernet != nil:
+		return &libvirtNetworkInterface{
+			iface: &libvirtxml.DomainInterface{
+				Alias: &libvirtxml.DomainAlias{
+					Name: networkInterfaceAlias(name),
+				},
+				Model: &libvirtxml.DomainInterfaceModel{
+					Type: "virtio",
+				},
+				Source: &libvirtxml.DomainInterfaceSource{
+					Ethernet: &libvirtxml.DomainInterfaceSourceEthernet{},
+				},
+				Target: &libvirtxml.DomainInterfaceTarget{
+					Dev:     nic.Ethernet.Dev,
+					Managed: "no",
+				},
+				Driver: &libvirtxml.DomainInterfaceDriver{
+					Name:   "vhost",
+					Queues: 2,
 				},
 			},
 		}, nil
