@@ -86,9 +86,12 @@ func (r *MachineReconciler) setDomainNetworkInterfaces(
 		}
 
 		states = append(states, api.NetworkInterfaceStatus{
-			Name:   nic.Name,
-			Handle: providerNic.Handle,
-			State:  api.NetworkInterfaceStateAttached,
+			Name:      nic.Name,
+			Handle:    providerNic.Handle,
+			State:     api.NetworkInterfaceStateAttached,
+			Ips:       providerNic.Ips,
+			Prefixes:  providerNic.Prefixes,
+			VirtualIP: providerNic.VirtualIP,
 		})
 	}
 
@@ -172,9 +175,12 @@ func (r *MachineReconciler) attachDetachNetworkInterfaces(
 		log.V(1).Info("Successfully reconciled desired network interface", "NetworkInterfaceName", nicName)
 		mountedNics[nicName] = *mountedNic
 		nicStates = append(nicStates, api.NetworkInterfaceStatus{
-			Name:   nicName,
-			Handle: mountedNic.networkInterface.Handle,
-			State:  api.NetworkInterfaceStateAttached,
+			Name:      nicName,
+			Handle:    mountedNic.networkInterface.Handle,
+			State:     api.NetworkInterfaceStateAttached,
+			Ips:       mountedNic.networkInterface.Ips,
+			Prefixes:  mountedNic.networkInterface.Prefixes,
+			VirtualIP: mountedNic.networkInterface.VirtualIP,
 		})
 	}
 
@@ -209,6 +215,13 @@ func (r *MachineReconciler) deleteNetworkInterface(
 	return r.networkInterfacePlugin.Delete(ctx, nic.NetworkInterfaceName, machine.ID)
 }
 
+func alignReportedNetworkInterfaceFields(readBack, applied *providernetworkinterface.NetworkInterface) {
+	readBack.Handle = applied.Handle
+	readBack.Ips = applied.Ips
+	readBack.Prefixes = applied.Prefixes
+	readBack.VirtualIP = applied.VirtualIP
+}
+
 func (r *MachineReconciler) reconcileDesiredNetworkInterface(
 	ctx context.Context,
 	machine *api.Machine,
@@ -223,7 +236,7 @@ func (r *MachineReconciler) reconcileDesiredNetworkInterface(
 
 	mountedNic, ok := mountedNics[nic.Name]
 	if ok {
-		mountedNic.networkInterface.Handle = providerNic.Handle
+		alignReportedNetworkInterfaceFields(mountedNic.networkInterface, providerNic)
 		if reflect.DeepEqual(mountedNic.networkInterface, providerNic) {
 			return &mountedNic, nil
 		}
