@@ -99,12 +99,11 @@ func (s *Server) createMachineFromIRIMachine(ctx context.Context, log logr.Logge
 
 	var networkInterfaces []*api.NetworkInterfaceSpec
 	for _, iriNetworkInterface := range iriMachine.Spec.NetworkInterfaces {
-		networkInterfaceSpec := &api.NetworkInterfaceSpec{
-			Name:       iriNetworkInterface.Name,
-			NetworkId:  iriNetworkInterface.NetworkId,
-			Ips:        iriNetworkInterface.Ips,
-			Attributes: iriNetworkInterface.Attributes,
+		networkInterfaceSpec, err := s.getNICFromIRINIC(iriNetworkInterface)
+		if err != nil {
+			return nil, fmt.Errorf("error converting network interface: %w", err)
 		}
+
 		networkInterfaces = append(networkInterfaces, networkInterfaceSpec)
 	}
 
