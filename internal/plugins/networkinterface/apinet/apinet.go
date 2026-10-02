@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"sync"
 
@@ -205,6 +206,11 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 		return nil, providernetworkinterface.ErrNotReady
 	}
 
+	var virtualIP string
+	if len(apinetNic.Status.PublicIPs) > 0 {
+		virtualIP = apinetNic.Status.PublicIPs[0].String()
+	}
+
 	return &providernetworkinterface.NetworkInterface{
 		Handle: provider.GetNetworkInterfaceID(
 			apinetNic.Namespace,
@@ -212,9 +218,20 @@ func (p *Plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, mach
 			apinetNic.Spec.NodeRef.Name,
 			apinetNic.UID,
 		),
+		Ips:        toString(apinetNic.Spec.IPs),
+		Prefixes:   toString(apinetNic.Status.Prefixes),
+		VirtualIP:  virtualIP,
 		HostDevice: hostDev,
 		Direct:     direct,
 	}, nil
+}
+
+func toString[S fmt.Stringer](ss []S) []string {
+	ret := make([]string, len(ss))
+	for i, s := range ss {
+		ret[i] = s.String()
+	}
+	return ret
 }
 
 func getHostDevice(apinetNic *apinetv1alpha1.NetworkInterface) (*providernetworkinterface.HostDevice, *providernetworkinterface.Direct, error) {
@@ -365,7 +382,7 @@ func (p *Plugin) handleNICUpdate(log logr.Logger, oldObj, newObj interface{}) {
 		return
 	}
 
-	if oldNic.Status.State == newNic.Status.State {
+	if reflect.DeepEqual(oldNic.Status, newNic.Status) {
 		return
 	}
 

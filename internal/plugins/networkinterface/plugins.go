@@ -37,7 +37,12 @@ type Plugin interface {
 }
 
 type NetworkInterface struct {
-	Handle          string
+	Handle string
+
+	Ips       []string
+	Prefixes  []string
+	VirtualIP string
+
 	HostDevice      *HostDevice
 	Direct          *Direct
 	Isolated        *Isolated
@@ -57,6 +62,14 @@ type HostDevice struct {
 	Function uint
 }
 
+// Direct renders
+//
+//	<interface type='direct'><source dev='<Dev>'mode='bridge'/></interface>.
+//
+// libvirt wraps the given device in a new macvtap (bridge mode) that qemu
+// attaches to. Use this when the fd end of the tap in Dev is consumed by
+// another process (e.g. a DPDK dataplane) and the guest should be coupled via
+// the netdev end.
 type Direct struct {
 	Dev string
 }

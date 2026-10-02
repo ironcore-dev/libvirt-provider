@@ -129,23 +129,48 @@ const (
 )
 
 type NetworkInterfaceSpec struct {
+	// Metadata of the stand-alone network interface referenced by the machine.
+	Metadata *NetworkInterfaceMetadata `json:"metadata,omitempty"`
+	// Name of the network interface within the machine.
 	Name       string            `json:"name"`
 	NetworkId  string            `json:"networkId"`
 	Ips        []string          `json:"ips"`
 	Attributes map[string]string `json:"attributes"`
 }
 
-type NetworkInterfaceStatus struct {
-	Name   string                `json:"name"`
-	Handle string                `json:"handle"`
-	State  NetworkInterfaceState `json:"state"`
+type NetworkInterfaceMetadata struct {
+	ID          string            `json:"id,omitempty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
+	Labels      map[string]string `json:"labels,omitempty"`
 }
 
+type NetworkInterfaceStatus struct {
+	Name      string                `json:"name"`
+	Handle    string                `json:"handle"`
+	State     NetworkInterfaceState `json:"state"`
+	Ips       []string              `json:"ips,omitempty"`
+	Prefixes  []string              `json:"prefixes,omitempty"`
+	VirtualIP string                `json:"virtualIP,omitempty"`
+}
+
+// NetworkInterfaceState is a combined state of the IronCore NetworkInterface
+// and the network interface sub-resource of the machine.
 type NetworkInterfaceState string
 
 const (
-	NetworkInterfaceStatePending  NetworkInterfaceState = "Pending"
+	// NetworkInterfaceStatePending means the networking for the interface is
+	// not realized yet and the interface is not attached to the machine.
+	NetworkInterfaceStatePending NetworkInterfaceState = "Pending"
+	// NetworkInterfaceStateReady means the networking for the interface is
+	// realized (addresses allocated, network plane programmed) but the
+	// interface is not yet attached to the machine.
+	NetworkInterfaceStateReady NetworkInterfaceState = "Ready"
+	// NetworkInterfaceStateAttached means the interface is attached to the
+	// machine.
 	NetworkInterfaceStateAttached NetworkInterfaceState = "Attached"
+	// NetworkInterfaceStateError means realizing or attaching the interface
+	// failed.
+	NetworkInterfaceStateError NetworkInterfaceState = "Error"
 )
 
 type GuestAgentStatus struct {
