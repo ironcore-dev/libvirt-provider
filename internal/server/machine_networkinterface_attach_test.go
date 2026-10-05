@@ -50,6 +50,11 @@ var _ = Describe("NetworkInterfaceAttach", func() {
 			MachineId: createResp.Machine.Metadata.Id,
 			NetworkInterface: &iri.NetworkInterface{
 				Name: "nic-1",
+				Metadata: &irimeta.ObjectMetadata{
+					Id:        "nic-uid-1",
+					Name:      "nic-name-1",
+					Namespace: "nic-namespace-1",
+				},
 			},
 		})
 		Expect(err).NotTo(HaveOccurred())
@@ -65,6 +70,11 @@ var _ = Describe("NetworkInterfaceAttach", func() {
 		}).Should(SatisfyAll(
 			HaveField("Spec.NetworkInterfaces", ContainElement(SatisfyAll(
 				HaveField("Name", "nic-1"),
+				HaveField("Metadata", Equal(&api.NetworkInterfaceMetadata{
+					ID:        "nic-uid-1",
+					Name:      "nic-name-1",
+					Namespace: "nic-namespace-1",
+				})),
 			))),
 		))
 

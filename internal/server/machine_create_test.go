@@ -81,6 +81,11 @@ var _ = Describe("CreateMachine", func() {
 					NetworkInterfaces: []*iri.NetworkInterface{
 						{
 							Name: "nic-1",
+							Metadata: &irimeta.ObjectMetadata{
+								Id:        "nic-uid-1",
+								Name:      "nic-name-1",
+								Namespace: "nic-namespace-1",
+							},
 						},
 					},
 				},
@@ -103,9 +108,12 @@ var _ = Describe("CreateMachine", func() {
 				},
 				Device: "oda",
 			})),
-			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(&iri.NetworkInterface{
-				Name: "nic-1",
-			})),
+			HaveField("Machine.Spec.NetworkInterfaces", ContainElement(SatisfyAll(
+				HaveField("Name", "nic-1"),
+				HaveField("Metadata.Id", "nic-uid-1"),
+				HaveField("Metadata.Name", Equal("nic-name-1")),
+				HaveField("Metadata.Namespace", Equal("nic-namespace-1")),
+			))),
 			HaveField("Machine.Status.ObservedGeneration", BeZero()),
 			HaveField("Machine.Status.State", Equal(iri.MachineState_MACHINE_PENDING)),
 			HaveField("Machine.Status.ImageRef", BeEmpty()),
@@ -127,6 +135,11 @@ var _ = Describe("CreateMachine", func() {
 			))),
 			HaveField("Spec.NetworkInterfaces", ContainElement(SatisfyAll(
 				HaveField("Name", "nic-1"),
+				HaveField("Metadata", Equal(&api.NetworkInterfaceMetadata{
+					ID:        "nic-uid-1",
+					Name:      "nic-name-1",
+					Namespace: "nic-namespace-1",
+				})),
 			))),
 		))
 	})
