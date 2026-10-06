@@ -49,6 +49,8 @@ github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc h1:U9qPSI2PIWSS1
 github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c h1:VTYS0X+Vfs/W5ABzT5SerR4bTc5n27oOVgGqM2Tbg90=
 github.com/digitalocean/go-libvirt v0.0.0-20250616175656-5843751af96c/go.mod h1:GwQQeZzqvtOneY034nAMNxnXA/6aXd/9z7uDm7Hb8sk=
+github.com/digitalocean/go-libvirt v0.0.0-20260814190004-1a83157e1858 h1:8xCFt73OddCD5WXxoYidJBWp3bJMC+CpE7Zwf5tcwk8=
+github.com/digitalocean/go-libvirt v0.0.0-20260814190004-1a83157e1858/go.mod h1:qb0Ofa71d3oXARQf633h2tNaeBxLsVxuDp+jcsVO2+4=
 github.com/distribution/reference v0.6.0 h1:0IXCQ5g4/QMHHkarYzh5l+u8T3t73zM5QvfrDyIgxBk=
 github.com/distribution/reference v0.6.0/go.mod h1:BbU0aIcezP1/5jX/8MP0YiH4SdvB5Y4f/wlDRiLyi3E=
 github.com/ebitengine/purego v0.10.2 h1:W809HbnvzAxgdm+aOvlSekrM16wGCdT/e76+9tS7gzE=
