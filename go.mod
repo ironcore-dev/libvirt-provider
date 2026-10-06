@@ -2,6 +2,10 @@ module github.com/ironcore-dev/libvirt-provider
 
 go 1.26.4
 
+// Vendored go-libvirt with bidirectional console support.
+// See thirdparty/README.md.
+replace github.com/digitalocean/go-libvirt => ./thirdparty/go-libvirt
+
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/digitalocean/go-libvirt v0.0.0-20260814190004-1a83157e1858
@@ -13,7 +17,6 @@ require (
 	github.com/ironcore-dev/ironcore-image v0.5.0
 	github.com/ironcore-dev/ironcore-net v0.5.2
 	github.com/ironcore-dev/provider-utils v0.0.0-20260930123425-b7b21dc74537
-	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.33.0
 	github.com/onsi/gomega v1.43.1
 	github.com/prometheus/client_golang v1.24.1
@@ -85,6 +88,7 @@ require (
 	github.com/mitchellh/go-wordwrap v1.0.1 // indirect
 	github.com/moby/locker v1.0.1 // indirect
 	github.com/moby/spdystream v0.5.1 // indirect
+	github.com/moby/term v0.5.2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.3-0.20250322232337-35a7c28c31ee // indirect
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect

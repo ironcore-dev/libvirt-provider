@@ -4,12 +4,12 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"sync"
 	"time"
 
@@ -20,15 +20,56 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/api"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
-	"github.com/moby/term"
 	"k8s.io/client-go/tools/remotecommand"
-	"libvirt.org/go/libvirtxml"
 )
 
 const (
 	StreamCreationTimeout = 30 * time.Second
 	StreamIdleTimeout     = 2 * time.Minute
 )
+
+// consoleEscapeByte is the escape byte terminating an exec console session:
+// Ctrl-] (0x1d), the same escape character `virsh console` uses.
+const consoleEscapeByte = 0x1d
+
+// consoleEscapeReader truncates the console input at the consoleEscapeByte
+// and reports io.EOF from then on, so the console stream terminates cleanly
+// when the user presses the escape character. Data between escape bytes - as
+// happens with large pastes and cursor movement - is passed through
+// untouched; only input up to the first escape byte is forwarded.
+type consoleEscapeReader struct {
+	r io.Reader
+	// done latches once the escape byte or the end of the underlying reader
+	// has been reached; from then on Read reports io.EOF.
+	done bool
+}
+
+func newConsoleEscapeReader(r io.Reader) io.Reader {
+	return &consoleEscapeReader{r: r}
+}
+
+func (r *consoleEscapeReader) Read(p []byte) (int, error) {
+	if r.done {
+		return 0, io.EOF
+	}
+	n, err := r.r.Read(p)
+	if i := bytes.IndexByte(p[:n], consoleEscapeByte); i >= 0 {
+		r.done = true
+		if i == 0 {
+			return 0, io.EOF
+		}
+		return i, nil
+	}
+	if err == io.EOF {
+		r.done = true
+		if n > 0 {
+			// Deliver the data first; report io.EOF on the next call.
+			return n, nil
+		}
+		return 0, io.EOF
+	}
+	return n, err
+}
 
 type executorExec struct {
 	Libvirt        *libvirt.Libvirt
@@ -123,70 +164,24 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 		return convertInternalErrorToGRPC(fmt.Errorf("machine %s has not yet been synced: %w %w", machineID, ErrMachineUnavailable, err))
 	}
 
-	domainXMLData, err := e.Libvirt.DomainGetXMLDesc(domain, 0)
-	if err != nil {
-		return convertInternalErrorToGRPC(fmt.Errorf("failed to lookup domain: %w", err))
-	}
+	log := logr.FromContextOrDiscard(ctx).WithName(machineID)
+	log.Info("Opening bidirectional console stream through libvirtd")
 
-	domainXML := &libvirtxml.Domain{}
-	if err := domainXML.Unmarshal(domainXMLData); err != nil {
-		return convertInternalErrorToGRPC(fmt.Errorf("failed to unmarshal domain: %w", err))
-	}
+	// Wrap the input stream with the escape reader, truncating the input at the
+	// escape character (Ctrl + ]), which cleanly ends the console stream.
+	inputReader := newConsoleEscapeReader(in)
 
-	if domainXML.Devices == nil || len(domainXML.Devices.Consoles) == 0 {
-		return convertInternalErrorToGRPC(errors.New("device console not set in machine domainXML"))
-	}
-	ttyPath := domainXML.Devices.Consoles[0].TTY
-
-	f, err := os.OpenFile(ttyPath, os.O_RDWR, 0)
-	if err != nil {
-		return convertInternalErrorToGRPC(fmt.Errorf("error opening PTY: %w", err))
-	}
-
-	// Wrap the input stream with an escape proxy. Escape Sequence Ctrl + ] = 29
-	inputReader := term.NewEscapeProxy(in, []byte{29})
-
-	// Print escape character information to the exec console
 	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\n")
 
-	var wg sync.WaitGroup
-	log := logr.FromContextOrDiscard(ctx).WithName(machineID)
+	// Open the machine console through libvirtd (like `virsh console`) and
+	// stream it bidirectionally. Opening the console PTY by its host path
+	// does not work when libvirt runs the QEMU process in a private mount
+	// namespace (the libvirt default), where the PTY only exists in the
+	// guest's private devpts.
+	if err := e.Libvirt.DomainOpenConsoleBidirectionalIroncore(domain, nil, inputReader, out, 0); err != nil {
+		return convertInternalErrorToGRPC(fmt.Errorf("error streaming console: %w", err))
+	}
 
-	wg.Add(2)
-	// ReadInput: go routine to read the input from the reader, and write to the terminal.
-	go func() {
-		defer wg.Done()
-
-		buf := make([]byte, 1024)
-		for {
-			n, err := inputReader.Read(buf)
-			if err != nil {
-				if _, ok := err.(term.EscapeError); ok {
-					f.Close() // This is to close the writer, allowing io.Copy to exit the loop.
-					log.Info("Closed reading the terminal. Escape sequence received")
-					return
-				}
-				log.Error(err, "error reading bytes")
-				return
-			}
-
-			_, err = f.Write(buf[:n])
-			if err != nil {
-				log.Error(err, "error writing to the file descriptor")
-				return
-			}
-		}
-	}()
-
-	// WriteOutput: go routine for writing the output back to the Writer.
-	go func() {
-		defer wg.Done()
-		// Ignoring error to allow graceful shutdown without flagging as an error; not needed at this stage.
-		_, _ = io.Copy(out, f)
-		log.Info("Closed writing to the terminal")
-	}()
-
-	wg.Wait()
 	log.Info("Closed console for the machine")
 	return nil
 }

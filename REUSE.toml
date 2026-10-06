@@ -25,7 +25,24 @@ SPDX-FileCopyrightText = "SAP SE or an SAP affiliate company and IronCore contri
 SPDX-License-Identifier = "Apache-2.0"
 
 [[annotations]]
-path = ["README.md"]
+path = ["README.md", "thirdparty/README.md"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "SAP SE or an SAP affiliate company and IronCore contributors"
 SPDX-License-Identifier = "Apache-2.0"
+
+# Vendored copy of github.com/digitalocean/go-libvirt (see thirdparty/README.md).
+# Upstream files carry Apache-2.0 boilerplate without SPDX tags, so REUSE
+# cannot detect them file-by-file; console_bidirectional.go is IronCore's own
+# patch and additionally carries its own in-file tag.
+[[annotations]]
+path = ["thirdparty/go-libvirt/**"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2018 The go-libvirt Authors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# thirdparty/go-libvirt/internal/go-xdr is davecgh/go-xdr under the ISC license.
+[[annotations]]
+path = ["thirdparty/go-libvirt/internal/go-xdr/**"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2012-2014 Dave Collins <dave@davec.name>"
+SPDX-License-Identifier = "ISC"
