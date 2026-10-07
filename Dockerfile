@@ -11,6 +11,10 @@ WORKDIR /workspace
 # Copy the Go Modules manifests
 COPY go.mod go.sum ./
 
+# Vendored go-libvirt (go.mod has a local replace directive pointing at it,
+# so it must be present for go mod download and the build)
+COPY thirdparty/ thirdparty/
+
 # Cache dependencies before copying source code
 RUN --mount=type=cache,target=/root/.cache/go-build \
     --mount=type=cache,target=/go/pkg \
