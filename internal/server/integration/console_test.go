@@ -131,6 +131,9 @@ var _ = Describe("Bidirectional console", func() {
 			return streamExecConsole(ctx, execURL, stdinR, stdout)
 		})
 
+		By("ensuring the escape hint is framed for raw terminals (CRLF, not bare LF)")
+		expectConsoleOutput(sess, "Escape character is ^] (Ctrl + ])\r\n", echoTimeout)
+
 		By("waiting for the guest's login prompt (console output direction)")
 		expectConsoleOutput(sess, "login:", bootTimeout)
 

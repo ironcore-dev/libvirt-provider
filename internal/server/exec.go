@@ -171,7 +171,7 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 	// escape character (Ctrl + ]), which cleanly ends the console stream.
 	inputReader := newConsoleEscapeReader(in)
 
-	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\n")
+	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\r\n")
 
 	// Open the machine console through libvirtd (like `virsh console`) and
 	// stream it bidirectionally. Opening the console PTY by its host path
