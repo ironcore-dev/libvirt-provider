@@ -178,7 +178,7 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 	// does not work when libvirt runs the QEMU process in a private mount
 	// namespace (the libvirt default), where the PTY only exists in the
 	// guest's private devpts.
-	if err := e.Libvirt.DomainOpenConsoleBidirectionalIroncore(domain, nil, inputReader, out, 0); err != nil {
+	if err := e.Libvirt.DomainOpenConsoleBidirectional(domain, nil, inputReader, out, 0); err != nil {
 		return convertInternalErrorToGRPC(fmt.Errorf("error streaming console: %w", err))
 	}
 

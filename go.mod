@@ -2,9 +2,10 @@ module github.com/ironcore-dev/libvirt-provider
 
 go 1.26.4
 
-// Vendored go-libvirt with bidirectional console support.
-// See thirdparty/README.md.
-replace github.com/digitalocean/go-libvirt => ./thirdparty/go-libvirt
+// Fork of go-libvirt fixing bidirectional stream teardown in requestStream
+// (https://github.com/digitalocean/go-libvirt/issues/260). Drop once merged
+// upstream.
+replace github.com/digitalocean/go-libvirt => github.com/sap-contributions/ironcore-go-libvirt v0.0.0-20261007130926-c3db65786c96
 
 require (
 	github.com/blang/semver/v4 v4.0.0

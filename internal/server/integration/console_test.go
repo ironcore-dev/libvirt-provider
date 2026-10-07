@@ -99,7 +99,7 @@ var _ = Describe("Bidirectional console", func() {
 		By("opening the domain console through libvirtd, like `virsh console` does")
 		stdinR, stdinW := io.Pipe()
 		sess := newConsoleSession(func(stdout io.Writer) error {
-			return libvirtConn.DomainOpenConsoleBidirectionalIroncore(domain, nil, stdinR, stdout, 0)
+			return libvirtConn.DomainOpenConsoleBidirectional(domain, nil, stdinR, stdout, 0)
 		})
 
 		By("waiting for the guest's login prompt (console output direction)")
