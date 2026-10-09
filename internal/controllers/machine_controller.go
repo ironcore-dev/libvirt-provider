@@ -465,20 +465,23 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 
 	log.V(1).Info("Reconciling domain")
 	state, volumeStates, nicStates, err := r.reconcileDomain(ctx, log, machine)
-	if err != nil {
-		return ociutils.IgnoreImagePulling(err)
-	}
 	log.V(1).Info("Reconciled domain")
 
-	machine.Status.VolumeStatus = volumeStates
-	machine.Status.NetworkInterfaceStatus = nicStates
-	machine.Status.State = state
-
-	if _, err = r.machines.Update(ctx, machine); err != nil {
-		return fmt.Errorf("failed to update machine status: %w", err)
+	if volumeStates != nil {
+		machine.Status.VolumeStatus = volumeStates
+	}
+	if nicStates != nil {
+		machine.Status.NetworkInterfaceStatus = nicStates
+	}
+	if state != "" {
+		machine.Status.State = state
 	}
 
-	return nil
+	if _, uerr := r.machines.Update(ctx, machine); uerr != nil {
+		return fmt.Errorf("failed to update machine status: %w", errors.Join(err, uerr))
+	}
+
+	return ociutils.IgnoreImagePulling(err)
 }
 
 func (r *MachineReconciler) reconcileDomain(
@@ -495,7 +498,7 @@ func (r *MachineReconciler) reconcileDomain(
 		log.V(1).Info("Creating new domain")
 		volumeStates, nicStates, err := r.createDomain(ctx, log, machine)
 		if err != nil {
-			return "", nil, nil, err
+			return "", volumeStates, nicStates, err
 		}
 
 		log.V(1).Info("Created domain")
@@ -503,19 +506,22 @@ func (r *MachineReconciler) reconcileDomain(
 	}
 
 	log.V(1).Info("Updating existing domain")
-	volumeStates, nicStates, err := r.updateDomain(ctx, log, machine)
-	if err != nil {
-		return "", nil, nil, err
-	}
-
 	state, err := r.getMachineState(machine.ID)
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("error getting machine state: %w", err)
 	}
 
+	volumeStates, nicStates, err := r.updateDomain(ctx, log, machine)
+	if err != nil {
+		return "", volumeStates, nicStates, err
+	}
+
 	return state, volumeStates, nicStates, nil
 }
 
+// updateDomain by attaching / detaching volumes and NICs. Since some steps may
+// succeed while others fail this function can return partial state alongside an
+// error.
 func (r *MachineReconciler) updateDomain(
 	ctx context.Context,
 	log logr.Logger,
@@ -534,13 +540,13 @@ func (r *MachineReconciler) updateDomain(
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachVolumeFailed", "AttachDetachVolume", "Volume attach/detach failed: %s", err)
-		return nil, nil, fmt.Errorf("[volumes] %w", err)
+		return volumeStates, nil, fmt.Errorf("[volumes] %w", err)
 	}
 
 	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachNICFailed", "AttachDetachNIC", "NIC attach/detach failed: %s", err)
-		return nil, nil, fmt.Errorf("[network interfaces] %w", err)
+		return volumeStates, nicStates, fmt.Errorf("[network interfaces] %w", err)
 	}
 
 	return volumeStates, nicStates, nil
@@ -562,21 +568,21 @@ func (r *MachineReconciler) createDomain(
 	ctx context.Context,
 	log logr.Logger,
 	machine *api.Machine,
-) ([]api.VolumeStatus, []api.NetworkInterfaceStatus, error) { // TODO add NetworkInterfaceStatus
+) ([]api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
 	domainXML, volumeStates, nicStates, err := r.domainFor(ctx, log, machine)
 	if err != nil {
-		return nil, nil, err
+		return volumeStates, nicStates, err
 	}
 
 	domainXMLData, err := domainXML.Marshal()
 	if err != nil {
-		return nil, nil, err
+		return volumeStates, nicStates, err
 	}
 
 	log.V(1).Info("Creating domain")
 	log.V(2).Info("Domain", "XML", domainXMLData)
 	if _, err := r.host.Libvirt().DomainCreateXML(domainXMLData, libvirt.DomainNone); err != nil {
-		return nil, nil, err
+		return volumeStates, nicStates, err
 	}
 
 	return volumeStates, nicStates, nil
@@ -608,7 +614,6 @@ func (r *MachineReconciler) domainFor(
 		Architecture: architecture,
 		OSType:       osType,
 	})
-
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -759,16 +764,16 @@ func (r *MachineReconciler) domainFor(
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachVolumeFailed", "AttachDetachVolume", "Failed to attach/detach volume: %s", err)
-		return nil, nil, nil, err
+		return nil, volumeStates, nil, err
 	}
 	if machine.Spec.Volumes != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttachVolumeSucceeded", "AttachDetachVolume", "Attached volumes")
 	}
 
-	nicStates, err := r.setDomainNetworkInterfaces(ctx, machine, domainDesc)
+	nicStates, err := r.setDomainNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachNICFailed", "AttachDetachNIC", "Failed to set domain network interface: %s", err)
-		return nil, nil, nil, err
+		return nil, volumeStates, nicStates, err
 	}
 	if machine.Spec.NetworkInterfaces != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttachNICSucceeded", "AttachDetachNIC", "Attached network interfaces")

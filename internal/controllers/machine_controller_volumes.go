@@ -135,26 +135,29 @@ func (r *MachineReconciler) attachDetachVolumes(ctx context.Context, log logr.Lo
 		}
 	}
 
-	var volumeStates []api.VolumeStatus
+	volumeStates := []api.VolumeStatus{}
 	for _, volume := range specVolumes {
 		log.V(1).Info("Reconciling volume", "volumeName", volume.Name)
 		volumeID, volumeSize, err := r.applyVolume(ctx, log, machine, volume, mounter, attacher)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("[volume %s] error reconciling: %w", volume.Name, err))
-			continue
+			volumeStates = append(volumeStates, api.VolumeStatus{
+				Name:  volume.Name,
+				State: api.VolumeStatePending,
+			})
+		} else {
+			log.V(1).Info("Successfully reconciled volume", "volumeName", volume.Name, "volumeID", volumeID)
+			volumeStates = append(volumeStates, api.VolumeStatus{
+				Name:   volume.Name,
+				Handle: volumeID,
+				State:  api.VolumeStateAttached,
+				Size:   volumeSize,
+			})
 		}
-
-		log.V(1).Info("Successfully reconciled volume", "volumeName", volume.Name, "volumeID", volumeID)
-		volumeStates = append(volumeStates, api.VolumeStatus{
-			Name:   volume.Name,
-			Handle: volumeID,
-			State:  api.VolumeStateAttached,
-			Size:   volumeSize,
-		})
 	}
 
 	if len(errs) > 0 {
-		return nil, fmt.Errorf("attach/detach error(s): %v", errs)
+		return volumeStates, fmt.Errorf("attach/detach error(s): %v", errs)
 	}
 	return volumeStates, nil
 }
