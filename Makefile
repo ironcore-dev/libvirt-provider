@@ -175,7 +175,7 @@ CONTROLLER_TOOLS_VERSION ?= v0.21.0
 ENVTEST_VERSION ?= $(shell go list -m -f "{{ .Version }}" sigs.k8s.io/controller-runtime | awk -F'[v.]' '{printf "release-%d.%d", $$2, $$3}')
 # ENVTEST_K8S_VERSION is the Kubernetes version for envtest binaries (i.e. 1.36.0).
 ENVTEST_K8S_VERSION ?= $(shell go list -m -f "{{ .Version }}" k8s.io/api | awk -F'[v.]' '{printf "1.%d.%d",$$3, $$2}')
-GOLANGCI_LINT_VERSION ?= v2.12
+GOLANGCI_LINT_VERSION ?= v2.14
 ADDLICENSE_VERSION ?= v1.1.1
 
 .PHONY: kustomize

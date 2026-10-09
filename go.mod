@@ -9,13 +9,13 @@ require (
 	github.com/go-logr/logr v1.4.4
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.14.1-0.20260904065051-9ddd709051f4
-	github.com/ironcore-dev/ironcore v0.8.1-0.20261005140517-6ec7ff227ec3
+	github.com/ironcore-dev/ironcore v0.8.1-0.20261008070126-308a8977709e
 	github.com/ironcore-dev/ironcore-image v0.5.0
 	github.com/ironcore-dev/ironcore-net v0.5.2
-	github.com/ironcore-dev/provider-utils v0.0.0-20260930123425-b7b21dc74537
+	github.com/ironcore-dev/provider-utils v0.0.0-20261009075155-2798f2521268
 	github.com/moby/term v0.5.2
 	github.com/onsi/ginkgo/v2 v2.33.0
-	github.com/onsi/gomega v1.43.1
+	github.com/onsi/gomega v1.44.0
 	github.com/prometheus/client_golang v1.24.1
 	github.com/shirou/gopsutil/v4 v4.26.8
 	github.com/spf13/cobra v1.10.2
