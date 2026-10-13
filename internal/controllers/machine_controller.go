@@ -537,19 +537,21 @@ func (r *MachineReconciler) updateDomain(
 		return nil, nil, fmt.Errorf("error construction volume attacher: %w", err)
 	}
 
+	var errs []error
+
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachVolumeFailed", "AttachDetachVolume", "Volume attach/detach failed: %s", err)
-		return volumeStates, nil, fmt.Errorf("[volumes] %w", err)
+		errs = append(errs, fmt.Errorf("[volumes] %w", err))
 	}
 
 	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachNICFailed", "AttachDetachNIC", "NIC attach/detach failed: %s", err)
-		return volumeStates, nicStates, fmt.Errorf("[network interfaces] %w", err)
+		errs = append(errs, fmt.Errorf("[network interfaces] %w", err))
 	}
 
-	return volumeStates, nicStates, nil
+	return volumeStates, nicStates, errors.Join(errs...)
 }
 
 func (r *MachineReconciler) getMachineState(machineID string) (api.MachineState, error) {
