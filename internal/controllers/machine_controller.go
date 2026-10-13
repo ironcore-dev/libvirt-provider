@@ -512,11 +512,7 @@ func (r *MachineReconciler) reconcileDomain(
 	}
 
 	volumeStates, nicStates, err := r.updateDomain(ctx, log, machine)
-	if err != nil {
-		return "", volumeStates, nicStates, err
-	}
-
-	return state, volumeStates, nicStates, nil
+	return state, volumeStates, nicStates, err
 }
 
 // updateDomain by attaching / detaching volumes and NICs. Since some steps may
