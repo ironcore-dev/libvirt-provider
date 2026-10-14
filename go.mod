@@ -2,14 +2,9 @@ module github.com/ironcore-dev/libvirt-provider
 
 go 1.26.4
 
-// Fork of go-libvirt fixing bidirectional stream teardown in requestStream
-// (https://github.com/digitalocean/go-libvirt/issues/260). Drop once merged
-// upstream.
-replace github.com/digitalocean/go-libvirt => github.com/sap-contributions/ironcore-go-libvirt v0.0.0-20261007130926-c3db65786c96
-
 require (
 	github.com/blang/semver/v4 v4.0.0
-	github.com/digitalocean/go-libvirt v0.0.0-20260814190004-1a83157e1858
+	github.com/digitalocean/go-libvirt v0.0.0-20261013170128-efbbdf578ac8
 	github.com/go-chi/chi/v5 v5.3.2
 	github.com/go-logr/logr v1.4.4
 	github.com/google/uuid v1.6.0
