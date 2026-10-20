@@ -29,7 +29,7 @@ const (
 )
 
 // consoleEscapeByte is the escape byte terminating an exec console session:
-// Ctrl-] (0x1d), the same escape character `virsh console` uses.
+// Ctrl-], the same escape character `virsh console` uses.
 const consoleEscapeByte = 0x1d
 
 // consoleEscapeReader truncates the console input at the consoleEscapeByte
@@ -173,11 +173,6 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 
 	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\r\n")
 
-	// Open the machine console through libvirtd (like `virsh console`) and
-	// stream it bidirectionally. Opening the console PTY by its host path
-	// does not work when libvirt runs the QEMU process in a private mount
-	// namespace (the libvirt default), where the PTY only exists in the
-	// guest's private devpts.
 	if err := e.Libvirt.DomainOpenConsoleBidirectional(domain, nil, inputReader, out, 0); err != nil {
 		return convertInternalErrorToGRPC(fmt.Errorf("error streaming console: %w", err))
 	}
