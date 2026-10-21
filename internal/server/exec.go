@@ -60,7 +60,7 @@ func (r *consoleEscapeReader) Read(p []byte) (int, error) {
 		}
 		return i, nil
 	}
-	if err == io.EOF {
+	if errors.Is(err, io.EOF) {
 		r.done = true
 		if n > 0 {
 			// Deliver the data first; report io.EOF on the next call.
@@ -171,7 +171,7 @@ func (e executorExec) Exec(ctx context.Context, in io.Reader, out io.WriteCloser
 	// escape character (Ctrl + ]), which cleanly ends the console stream.
 	inputReader := newConsoleEscapeReader(in)
 
-	fmt.Fprintf(out, "Escape character is ^] (Ctrl + ])\r\n")
+	fmt.Fprint(out, "Escape character is ^] (Ctrl + ])\r\n")
 
 	if err := e.Libvirt.DomainOpenConsoleBidirectional(domain, nil, inputReader, out, 0); err != nil {
 		return convertInternalErrorToGRPC(fmt.Errorf("error streaming console: %w", err))
