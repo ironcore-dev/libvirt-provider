@@ -5,7 +5,7 @@ go 1.26.4
 require (
 	github.com/blang/semver/v4 v4.0.0
 	github.com/digitalocean/go-libvirt v0.0.0-20261013170128-efbbdf578ac8
-	github.com/go-chi/chi/v5 v5.3.2
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/go-logr/logr v1.4.4
 	github.com/google/uuid v1.6.0
 	github.com/ironcore-dev/controller-utils v0.14.1-0.20260904065051-9ddd709051f4
@@ -13,7 +13,7 @@ require (
 	github.com/ironcore-dev/ironcore-image v0.5.0
 	github.com/ironcore-dev/ironcore-net v0.6.0
 	github.com/ironcore-dev/provider-utils v0.0.0-20261009075155-2798f2521268
-	github.com/onsi/ginkgo/v2 v2.33.0
+	github.com/onsi/ginkgo/v2 v2.33.1
 	github.com/onsi/gomega v1.44.0
 	github.com/prometheus/client_golang v1.25.0
 	github.com/shirou/gopsutil/v4 v4.26.9
