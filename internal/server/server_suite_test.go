@@ -21,7 +21,6 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/host"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
-	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
 	volumeplugin "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/localdisk"
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
@@ -80,9 +79,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	logf.SetLogger(log)
 
 	By("starting the app")
-
-	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
-	pluginOpts.PluginName = "isolated"
 
 	tempDir = GinkgoT().TempDir()
 	Expect(os.Chmod(tempDir, 0730)).Should(Succeed())
@@ -175,13 +171,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 	})
 	Expect(err).NotTo(HaveOccurred())
 
-	By("setting up the network interface plugin")
-	nicPlugin, _, cleanup, err := pluginOpts.NetworkInterfacePlugin(ctx)
-	Expect(err).NotTo(HaveOccurred())
-	if cleanup != nil {
-		DeferCleanup(cleanup)
-	}
-
 	resClaimer, err = claim.NewResourceClaimer(
 		log, gpu.NewGPUClaimPlugin(log, api.NvidiaGPUPlugin, NewTestingPCIReader([]pci.Address{
 			{Domain: 0, Bus: 3, Slot: 0, Function: 0},
@@ -197,7 +186,6 @@ var _ = BeforeSuite(func(ctx SpecContext) {
 		EventStore:      eventStore,
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
-		NetworkPlugins:  nicPlugin,
 		ResourceClaimer: resClaimer,
 		EnableHugepages: false,
 		GuestAgent:      api.GuestAgentNone,

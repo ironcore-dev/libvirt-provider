@@ -26,7 +26,6 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
 	"github.com/ironcore-dev/libvirt-provider/internal/networkinterfaceplugin"
-	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	volumeplugin "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume/localdisk"
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
@@ -37,6 +36,7 @@ import (
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
+	"github.com/ironcore-dev/provider-utils/plugin"
 	hostutils "github.com/ironcore-dev/provider-utils/storeutils/host"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	. "github.com/onsi/ginkgo/v2"
@@ -63,7 +63,7 @@ var (
 	machineEvents     *event.ListWatchSource[*api.Machine]
 	eventRecorder     recorder.EventRecorder
 	volumePlugins     *volumeplugin.PluginManager
-	networkPlugin     providernetworkinterface.Plugin
+	networkPlugin     plugin.NetworkInterface
 	providerHost      host.LibvirtHost
 	libvirtConn       *libvirt.Libvirt
 	tempDir           string
@@ -176,19 +176,14 @@ var _ = BeforeSuite(func() {
 	Expect(err).NotTo(HaveOccurred())
 
 	By("setting up network interface plugin")
-	var cleanup func()
 	pluginCtx, pluginCancel := context.WithCancel(context.Background())
 	DeferCleanup(pluginCancel)
 
 	pluginOpts := networkinterfaceplugin.NewDefaultOptions()
 	pluginOpts.PluginName = "isolated"
 
-	networkPlugin, _, cleanup, err = pluginOpts.NetworkInterfacePlugin(pluginCtx)
+	networkPlugin, _, err = pluginOpts.New(pluginCtx, networkinterfaceplugin.Deps{})
 	Expect(err).NotTo(HaveOccurred())
-	if cleanup != nil {
-		DeferCleanup(cleanup)
-	}
-	Expect(networkPlugin.Init(pluginCtx, providerHost)).To(Succeed())
 
 	By("setting up resource claimer")
 	resClaimer, err = claim.NewResourceClaimer(

@@ -5,120 +5,102 @@ package networkinterfaceplugin
 
 import (
 	"context"
+	"crypto/x509"
+	"crypto/x509/pkix"
 	"fmt"
-	"sort"
 
+	networkingv1alpha1 "github.com/ironcore-dev/ironcore/api/networking/v1alpha1"
+	utilcertificate "github.com/ironcore-dev/ironcore/utils/certificate"
 	"github.com/ironcore-dev/ironcore/utils/client/config"
-	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
+	"github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface/apinet"
+	"github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface/isolated"
+	"github.com/ironcore-dev/provider-utils/plugin"
 	"github.com/spf13/pflag"
+	certificatesv1 "k8s.io/api/certificates/v1"
 )
 
-type TypeOptions interface {
-	PluginName() string
-	AddFlags(fs *pflag.FlagSet)
-	NetworkInterfacePlugin(ctx context.Context) (providernetworkinterface.Plugin, config.Controller, func(), error)
-}
+const (
+	PluginNameAPInet   = "apinet"
+	PluginNameIsolated = "isolated"
 
-type TypeOptionsRegistry struct {
-	nameToPluginOpts map[string]typeOptionsAndPriority
-}
+	apinetFieldOwner     = "networking.ironcore.dev/libvirt-provider"
+	apinetMachineIDLabel = "libvirt-provider.ironcore.dev/machine-id"
+)
 
-type typeOptionsAndPriority struct {
-	TypeOptions
-	priority int
-}
-
-func NewTypeOptionsRegistry() *TypeOptionsRegistry {
-	return &TypeOptionsRegistry{
-		nameToPluginOpts: make(map[string]typeOptionsAndPriority),
-	}
-}
-
-func (r *TypeOptionsRegistry) Register(pluginOpts TypeOptions, priority int) error {
-	pluginName := pluginOpts.PluginName()
-	if _, ok := r.nameToPluginOpts[pluginName]; ok {
-		return fmt.Errorf("plugin %q already registered", pluginName)
-	}
-
-	r.nameToPluginOpts[pluginName] = typeOptionsAndPriority{pluginOpts, priority}
-	return nil
-}
-
-func (r *TypeOptionsRegistry) PluginNames() []string {
-	names := make([]string, 0, len(r.nameToPluginOpts))
-	for name := range r.nameToPluginOpts {
-		names = append(names, name)
-	}
-	sort.Slice(names, func(i, j int) bool {
-		return r.nameToPluginOpts[names[i]].priority < r.nameToPluginOpts[names[j]].priority
-	})
-	return names
-}
-
-func (r *TypeOptionsRegistry) DefaultPluginName() string {
-	var (
-		pluginName  string
-		maxPriority *int
-	)
-	for name, entry := range r.nameToPluginOpts {
-		if maxPriority == nil || *maxPriority > entry.priority {
-			pluginName = name
-			priority := entry.priority
-			maxPriority = &priority
-		}
-	}
-	return pluginName
-}
-
-func (r *TypeOptionsRegistry) ForeachPluginTypeOpts(f func(pluginName string, pluginOpts TypeOptions) bool) {
-	for pluginName, pluginOpts := range r.nameToPluginOpts {
-		if !f(pluginName, pluginOpts) {
-			break
-		}
-	}
-}
-
-func (r *TypeOptionsRegistry) PluginTypeOptsByName(pluginName string) (TypeOptions, error) {
-	pluginOpts, ok := r.nameToPluginOpts[pluginName]
-	if !ok {
-		return nil, fmt.Errorf("no plugin options for plugin name %q", pluginName)
-	}
-
-	return pluginOpts, nil
-}
-
+// Options select and configure the network interface plugin.
 type Options struct {
 	PluginName string
-	registry   *TypeOptionsRegistry
+
+	APInetNodeName   string
+	GetConfigOptions config.GetConfigOptions
 }
 
-func NewOptions(registry *TypeOptionsRegistry) *Options {
-	return &Options{
-		registry: registry,
-	}
+// Deps are the provider callbacks handed to the plugin.
+type Deps struct {
+	// MachineExists reports whether the provider knows the machine. Optional.
+	MachineExists func(machineID string) (bool, error)
+}
+
+func NewDefaultOptions() *Options {
+	return &Options{PluginName: PluginNameAPInet}
 }
 
 func (o *Options) AddFlags(fs *pflag.FlagSet) {
-	fs.StringVar(&o.PluginName, "network-interface-plugin-name", o.registry.DefaultPluginName(), fmt.Sprintf("Name of the network interface plugin to use. Available: %v", o.registry.PluginNames()))
-	o.registry.ForeachPluginTypeOpts(func(pluginName string, pluginOpts TypeOptions) bool {
-		pluginOpts.AddFlags(fs)
-		return true
-	})
+	fs.StringVar(&o.PluginName, "network-interface-plugin-name", o.PluginName,
+		fmt.Sprintf("Name of the network interface plugin to use. Available: [%s %s]", PluginNameAPInet, PluginNameIsolated))
+	fs.StringVar(&o.APInetNodeName, "apinet-node-name", "", "APInet node name")
+	o.GetConfigOptions.BindFlags(fs, config.WithNamePrefix("apinet-"))
 }
 
-func (o *Options) NetworkInterfacePlugin(ctx context.Context) (providernetworkinterface.Plugin, config.Controller, func(), error) {
-	pluginOpts, err := o.registry.PluginTypeOptsByName(o.PluginName)
-	if err != nil {
-		return nil, nil, nil, err
+// New creates the selected network interface plugin. The returned config
+// controller is nil unless the plugin needs one; if set it must be started by
+// the caller. Plugins that need a background process additionally implement
+// the start interface the caller checks for.
+func (o *Options) New(ctx context.Context, deps Deps) (plugin.NetworkInterface, config.Controller, error) {
+	switch o.PluginName {
+	case PluginNameAPInet:
+		return o.newAPInet(ctx, deps)
+	case PluginNameIsolated:
+		return isolated.New(), nil, nil
+	default:
+		return nil, nil, fmt.Errorf("unknown network interface plugin %q", o.PluginName)
+	}
+}
+
+func (o *Options) newAPInet(ctx context.Context, deps Deps) (plugin.NetworkInterface, config.Controller, error) {
+	if o.APInetNodeName == "" {
+		return nil, nil, fmt.Errorf("must specify apinet-node-name")
 	}
 
-	return pluginOpts.NetworkInterfacePlugin(ctx)
-}
+	getter, err := config.NewGetter(config.GetterOptions{
+		Name:       "libvirt-provider-apinet-plugin",
+		SignerName: certificatesv1.KubeAPIServerClientSignerName,
+		Template: &x509.CertificateRequest{
+			Subject: pkix.Name{
+				CommonName:   networkingv1alpha1.NetworkPluginUserNamePrefix + o.APInetNodeName,
+				Organization: []string{networkingv1alpha1.NetworkPluginsGroup},
+			},
+		},
+		GetUsages: utilcertificate.DefaultKubeAPIServerClientGetUsages,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating getter: %w", err)
+	}
 
-var (
-	DefaultPluginTypeRegistry = NewTypeOptionsRegistry()
-)
+	cfg, configCtrl, err := getter.GetConfig(ctx, &o.GetConfigOptions)
+	if err != nil {
+		return nil, nil, fmt.Errorf("error getting apinet config: %w", err)
+	}
 
-func NewDefaultOptions() *Options {
-	return NewOptions(DefaultPluginTypeRegistry)
+	p, err := apinet.New(apinet.Options{
+		NodeName:       o.APInetNodeName,
+		RestConfig:     cfg,
+		FieldOwner:     apinetFieldOwner,
+		MachineIDLabel: apinetMachineIDLabel,
+		MachineExists:  deps.MachineExists,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("error creating apinet plugin: %w", err)
+	}
+	return p, configCtrl, nil
 }

@@ -6,9 +6,9 @@ package server
 import (
 	"context"
 	"fmt"
+	"time"
 
 	iri "github.com/ironcore-dev/ironcore/iri/apis/machine/v1alpha1"
-	"github.com/ironcore-dev/libvirt-provider/api"
 )
 
 func (s *Server) DetachNetworkInterface(
@@ -27,21 +27,22 @@ func (s *Server) DetachNetworkInterface(
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get machine '%s': %w", req.MachineId, err))
 	}
 
-	var updatedNICS []*api.NetworkInterfaceSpec
 	found := false
 	for _, nic := range apiMachine.Spec.NetworkInterfaces {
 		if nic.Name != req.Name {
-			updatedNICS = append(updatedNICS, nic)
-		} else {
-			found = true
+			continue
 		}
+
+		if nic.DeletionTimestamp == nil {
+			nic.DeletionTimestamp = new(time.Now())
+		}
+		found = true
+		break
 	}
 
 	if !found {
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("nic '%s' not found in machine '%s': %w", req.Name, req.MachineId, ErrNicNotFound))
 	}
-
-	apiMachine.Spec.NetworkInterfaces = updatedNICS
 
 	if _, err := s.machineStore.Update(ctx, apiMachine); err != nil {
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to update machine: %w", err))

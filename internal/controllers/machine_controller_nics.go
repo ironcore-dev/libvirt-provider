@@ -7,16 +7,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
+	"slices"
 	"strings"
 
 	"github.com/digitalocean/go-libvirt"
 	"github.com/go-logr/logr"
 	"github.com/ironcore-dev/libvirt-provider/api"
-	providerhost "github.com/ironcore-dev/libvirt-provider/internal/host"
-	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
-	"k8s.io/apimachinery/pkg/util/sets"
 	"libvirt.org/go/libvirtxml"
 )
 
@@ -24,73 +21,108 @@ var (
 	errNoNetworkInterfaceAlias = errors.New("no network interface alias")
 )
 
-func (r *MachineReconciler) deleteNetworkInterfaces(ctx context.Context, log logr.Logger, machine *api.Machine) error {
-	machineNetworkInterfaces, err := providerhost.ReadMachineNetworkInterfaces(r.host, machine.ID)
-	if err != nil {
-		if !errors.Is(err, os.ErrNotExist) {
-			return fmt.Errorf("error listing machine network interfaces: %w", err)
-		}
-
-		log.V(1).Info("Machine network interfaces already gone")
-		return nil
-	}
-
-	for _, machineNic := range machineNetworkInterfaces {
-		if err := r.networkInterfacePlugin.Delete(ctx, machineNic.NetworkInterfaceName, machine.ID); err != nil {
-			return fmt.Errorf("[machine network interface %s] error deleting: %w", machineNic.NetworkInterfaceName, err)
+// deleteAllNetworkInterfaces irrespective of their state through the network
+// interface plugin. Does not consider which state the network interface might
+// be in.
+func (r *MachineReconciler) deleteAllNetworkInterfaces(ctx context.Context, log logr.Logger, machine *api.Machine) error {
+	var errs []error
+	for _, nic := range machine.Spec.NetworkInterfaces {
+		log.V(1).Info("Deleting network interface", "NetworkInterfaceName", nic.Name)
+		if err := r.networkInterfacePlugin.Delete(ctx, networkInterfaceSpecToPlugin(nic, machine), machine.ID); err != nil {
+			errs = append(errs, fmt.Errorf("[network interface %s] error deleting: %w", nic.Name, err))
 		}
 	}
-
-	log.V(1).Info("All network interfaces cleaned up, removing network interfaces directory")
-	if err := os.RemoveAll(r.host.MachineNetworkInterfacesDir(machine.ID)); err != nil {
-		return fmt.Errorf("error removing machine network interfaces directory: %w", err)
-	}
-
-	return nil
+	return errors.Join(errs...)
 }
 
+// deleteNetworkInterfaces which are safe to delete because they are marked for
+// deletion and are not attached to the machine.
+func (r *MachineReconciler) deleteNetworkInterfaces(
+	ctx context.Context,
+	log logr.Logger,
+	machine *api.Machine,
+	mountedNics map[string]mountedNetworkInterface,
+) []error {
+	nicStatus := make(map[string]api.NetworkInterfaceStatus, len(machine.Status.NetworkInterfaceStatus))
+	for _, status := range machine.Status.NetworkInterfaceStatus {
+		nicStatus[status.Name] = status
+	}
+
+	var errs []error
+	var deleted []string
+	for _, nic := range machine.Spec.NetworkInterfaces {
+		if nic.DeletionTimestamp == nil || isNicMounted(mountedNics, nic.Name) {
+			continue
+		}
+
+		log.V(1).Info("Deleting network interface", "NetworkInterfaceName", nic.Name)
+		if err := r.networkInterfacePlugin.Delete(ctx, networkInterfaceSpecToPlugin(nic, machine), machine.ID); err != nil {
+			errs = append(errs, fmt.Errorf("[network interface %s] error deleting: %w", nic.Name, err))
+			continue
+		}
+		log.V(1).Info("Successfully deleted network interface", "NetworkInterfaceName", nic.Name)
+		deleted = append(deleted, nic.Name)
+	}
+
+	for _, e := range deleted {
+		machine.Spec.NetworkInterfaces = slices.DeleteFunc(machine.Spec.NetworkInterfaces, func(nic *api.NetworkInterfaceSpec) bool {
+			return e == nic.Name
+		})
+		machine.Status.NetworkInterfaceStatus = slices.DeleteFunc(machine.Status.NetworkInterfaceStatus, func(nic api.NetworkInterfaceStatus) bool {
+			return e == nic.Name
+		})
+	}
+
+	return errs
+}
+
+func isNicMounted(mountedNics map[string]mountedNetworkInterface, name string) bool {
+	if mountedNics == nil {
+		return false
+	}
+
+	_, ok := mountedNics[name]
+	return ok
+}
+
+// setDomainNetworkInterfaces prepares the interfaces for a new machine.
+//
+// TODO: this shares a lot of code with [MachineReconciler.attachDetachNetworkInterfaces]
+// and they could be merged by defining an interface for attach / detach that
+// is implemented for both the create and the update case.
 func (r *MachineReconciler) setDomainNetworkInterfaces(
 	ctx context.Context,
 	log logr.Logger,
 	machine *api.Machine,
 	domainDesc *libvirtxml.Domain,
-) ([]api.NetworkInterfaceStatus, error) {
-	machineNics, err := providerhost.ReadMachineNetworkInterfaces(r.host, machine.ID)
-	if err != nil {
-		return nil, err
+) error {
+
+	nicStatus := make(map[string]*api.NetworkInterfaceStatus, len(machine.Spec.NetworkInterfaces))
+	for _, status := range machine.Status.NetworkInterfaceStatus {
+		nicStatus[status.Name] = &status
 	}
 
-	specNicNames := sets.NewString()
-	states := []api.NetworkInterfaceStatus{}
-	errs := []error{}
+	var errs []error
 	for _, nic := range machine.Spec.NetworkInterfaces {
-		specNicNames.Insert(nic.Name)
-
+		if nic.DeletionTimestamp != nil {
+			log.V(1).Info("Skipping network interface due to deletion timestamp", "NetworkInterfaceName", nic.Name)
+			continue
+		}
 		log.V(1).Info("Applying network interface", "NetworkInterfaceName", nic.Name)
 
-		providerNic, err := r.networkInterfacePlugin.Apply(ctx, nic, machine)
+		status, dev, err := r.applyNetworkInterface(ctx, machine, nic)
+		if status != nil {
+			nicStatus[nic.Name] = status
+		}
 		if err != nil {
-			var state api.NetworkInterfaceState
-			if errors.Is(err, providernetworkinterface.ErrNotReady) {
-				state = api.NetworkInterfaceStatePending
-			} else {
-				state = api.NetworkInterfaceStateError
-			}
 			errs = append(errs, fmt.Errorf("[network interface %s] error applying: %w", nic.Name, err))
-			states = append(states, api.NetworkInterfaceStatus{
-				Name:  nic.Name,
-				State: state,
-			})
 			continue
 		}
 
-		libvirtNic, err := providerNetworkInterfaceToLibvirt(nic.Name, providerNic)
+		libvirtNic, err := nicDeviceToLibvirt(nic.Name, dev)
 		if err != nil {
 			errs = append(errs, fmt.Errorf("[network interface %s] error converting to libvirt nic: %w", nic.Name, err))
-			states = append(states, api.NetworkInterfaceStatus{
-				Name:  nic.Name,
-				State: api.NetworkInterfaceStateError,
-			})
+			nicStatus[nic.Name].State = api.NetworkInterfaceStateError
 			continue
 		}
 
@@ -99,43 +131,31 @@ func (r *MachineReconciler) setDomainNetworkInterfaces(
 			addDomainHostdev(domainDesc, *libvirtNic.hostDev)
 		case libvirtNic.iface != nil:
 			addDomainInterface(domainDesc, *libvirtNic.iface)
-		default:
-			errs = append(errs, fmt.Errorf("[network interface %s] unsupported by libvirt", nic.Name))
-			states = append(states, api.NetworkInterfaceStatus{
-				Name:  nic.Name,
-				State: api.NetworkInterfaceStateError,
-			})
-			continue
 		}
 
 		log.V(1).Info("Successfully applied network interface", "NetworkInterfaceName", nic.Name)
-		states = append(states, api.NetworkInterfaceStatus{
-			Name:      nic.Name,
-			Handle:    providerNic.Handle,
-			State:     api.NetworkInterfaceStateAttached,
-			Ips:       providerNic.Ips,
-			Prefixes:  providerNic.Prefixes,
-			VirtualIP: providerNic.VirtualIP,
-		})
+		nicStatus[nic.Name].State = api.NetworkInterfaceStateAttached
 	}
 
-	for _, machineNic := range machineNics {
-		if specNicNames.Has(machineNic.NetworkInterfaceName) {
+	// deleteNetworkInterfaces expect up-to-date state on the machine. Mirror
+	// the new status objects back into the machine ordered like they are in the
+	// spec.
+	machine.Status.NetworkInterfaceStatus = make([]api.NetworkInterfaceStatus, 0, len(nicStatus))
+	for _, nic := range machine.Spec.NetworkInterfaces {
+		s, ok := nicStatus[nic.Name]
+		if !ok {
 			continue
 		}
-
-		log.V(1).Info("Deleting network interface", "NetworkInterfaceName", machineNic.NetworkInterfaceName)
-		if err := r.networkInterfacePlugin.Delete(ctx, machineNic.NetworkInterfaceName, machine.ID); err != nil {
-			errs = append(errs, fmt.Errorf("[network interface %s] error deleting: %w", machineNic.NetworkInterfaceName, err))
-		} else {
-			log.V(1).Info("Successfully deleted network interface", "NetworkInterfaceName", machineNic.NetworkInterfaceName)
-		}
+		machine.Status.NetworkInterfaceStatus = append(machine.Status.NetworkInterfaceStatus, *s)
 	}
+
+	deleteErrs := r.deleteNetworkInterfaces(ctx, log, machine, nil)
+	errs = append(errs, deleteErrs...)
 
 	if len(errs) > 0 {
-		return states, fmt.Errorf("attach / detach error(s): %v", errs)
+		return fmt.Errorf("network interface attach / detach error(s): %w", errors.Join(errs...))
 	}
-	return states, nil
+	return nil
 }
 
 func addDomainHostdev(domainDesc *libvirtxml.Domain, hostdev libvirtxml.DomainHostdev) {
@@ -159,23 +179,29 @@ func (r *MachineReconciler) attachDetachNetworkInterfaces(
 	log logr.Logger,
 	machine *api.Machine,
 	domainDesc *libvirtxml.Domain,
-) ([]api.NetworkInterfaceStatus, error) {
+) error {
 	domain := machineDomain(machine.ID)
-
-	machineNicByName, err := r.listMachineNetworkInterfaces(machine.ID)
-	if err != nil {
-		return nil, err
-	}
 
 	mountedNics, err := r.computeMountedNetworkInterfaces(domainDesc)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
-	desiredNics := r.desiredNetworkInterfaces(machine)
+	desiredNics := make(map[string]*api.NetworkInterfaceSpec)
+	for _, nic := range machine.Spec.NetworkInterfaces {
+		if nic.DeletionTimestamp == nil {
+			desiredNics[nic.Name] = nic
+		}
+	}
 
-	nicStates := []api.NetworkInterfaceStatus{}
-	errs := []error{}
+	nicStatus := make(map[string]*api.NetworkInterfaceStatus, len(machine.Spec.NetworkInterfaces))
+	for _, status := range machine.Status.NetworkInterfaceStatus {
+		nicStatus[status.Name] = &status
+	}
+
+	var errs []error
+
+	// Unmount all NICs which should not be mounted.
 	for nicName, actualNic := range mountedNics {
 		if _, ok := desiredNics[nicName]; ok {
 			continue
@@ -184,133 +210,131 @@ func (r *MachineReconciler) attachDetachNetworkInterfaces(
 		log.V(1).Info("Detaching network interface", "NetworkInterfaceName", nicName)
 		if err := r.detachDomainDevice(domain, actualNic.libvirt.device()); err != nil {
 			errs = append(errs, fmt.Errorf("[network interface %s] error detaching: %w", nicName, err))
-		} else {
-			log.V(1).Info("Successfully detached network interface", "NetworkInterfaceName", nicName)
-			delete(mountedNics, nicName)
+			continue
+		}
+
+		log.V(1).Info("Successfully detached network interface", "NetworkInterfaceName", nicName)
+		delete(mountedNics, nicName)
+
+		s, ok := nicStatus[nicName]
+		if ok {
+			s.State = api.NetworkInterfaceStateReady
 		}
 	}
 
-	for nicName, desiredNic := range desiredNics {
-		log.V(1).Info("Reconciling desired network interface", "NetworkInterfaceName", nicName)
-		mountedNic, err := r.reconcileDesiredNetworkInterface(ctx, machine, domain, mountedNics, desiredNic)
+	// Reconcile desired NICs.
+	for _, nic := range machine.Spec.NetworkInterfaces {
+		if nic.DeletionTimestamp != nil {
+			log.V(1).Info("Skipping network interface due to deletion timestamp", "NetworkInterfaceName", nic.Name)
+			continue
+		}
+		log.V(1).Info("Applying network interface", "NetworkInterfaceName", nic.Name)
+
+		status, dev, err := r.applyNetworkInterface(ctx, machine, nic)
+		if status != nil {
+			// If apply did not return an error, status is guaranteed to be
+			// non-nil.  But we also want to recored any state updated when the
+			// apply went through but a later step failed. Since it may be nil
+			// in case of an error we can't set the value unconditionally.
+			nicStatus[nic.Name] = status
+		}
 		if err != nil {
-			var state api.NetworkInterfaceState
-			if errors.Is(err, providernetworkinterface.ErrNotReady) {
-				state = api.NetworkInterfaceStatePending
-			} else {
-				state = api.NetworkInterfaceStateError
+			errs = append(errs, fmt.Errorf("[network interface %s] error applying: %w", nic.Name, err))
+			continue
+		}
+
+		mountedNic, ok := mountedNics[nic.Name]
+		if ok {
+			if reflect.DeepEqual(mountedNic.device, dev) {
+				// The status update from the earlier apply may have overridden
+				// the interface state to ready, make sure we keep it set to
+				// attached.
+				nicStatus[nic.Name].State = api.NetworkInterfaceStateAttached
+				continue
 			}
-			errs = append(errs, fmt.Errorf("[network interface %s] error reconciling: %w", nicName, err))
-			nicStates = append(nicStates, api.NetworkInterfaceStatus{
-				Name:  nicName,
-				State: state,
-			})
-		} else {
-			log.V(1).Info("Successfully reconciled desired network interface", "NetworkInterfaceName", nicName)
-			mountedNics[nicName] = *mountedNic
-			nicStates = append(nicStates, api.NetworkInterfaceStatus{
-				Name:      nicName,
-				Handle:    mountedNic.networkInterface.Handle,
-				State:     api.NetworkInterfaceStateAttached,
-				Ips:       mountedNic.networkInterface.Ips,
-				Prefixes:  mountedNic.networkInterface.Prefixes,
-				VirtualIP: mountedNic.networkInterface.VirtualIP,
-			})
-		}
-	}
 
-	for nicName, machineNic := range machineNicByName {
-		if _, ok := mountedNics[nicName]; ok {
-			continue
+			if err := r.detachDomainDevice(domain, mountedNic.libvirt.device()); err != nil {
+				nicStatus[nic.Name].State = api.NetworkInterfaceStateError
+				errs = append(errs, err)
+				continue
+			}
 		}
-		if _, ok := desiredNics[nicName]; ok {
-			log.V(1).Info("Skipping not ready NICs", "NetworkInterfaceName", nicName)
+
+		libvirtNic, err := nicDeviceToLibvirt(nic.Name, dev)
+		if err != nil {
+			nicStatus[nic.Name].State = api.NetworkInterfaceStateError
+			errs = append(errs, err)
 			continue
 		}
 
-		log.V(1).Info("Tearing down network interface", "NetworkInterfaceName", nicName)
-		if err := r.deleteNetworkInterface(ctx, machine, machineNic); err != nil {
-			errs = append(errs, fmt.Errorf("[network interface %s] error deleting: %w", nicName, err))
-		} else {
-			log.V(1).Info("Successfully torn down network interface", "NetworkInterfaceName", nicName)
+		if err := r.attachDomainDevice(domain, libvirtNic.device()); err != nil {
+			nicStatus[nic.Name].State = api.NetworkInterfaceStateError
+			errs = append(errs, fmt.Errorf("[network interface %s] failed to attach domain device: %w", nic.Name, err))
+			continue
 		}
+
+		log.V(1).Info("Successfully reconciled desired network interface", "NetworkInterfaceName", nic.Name)
+		nicStatus[nic.Name].State = api.NetworkInterfaceStateAttached
 	}
+
+	// deleteNetworkInterfaces expect up-to-date state on the machine. Mirror
+	// the new status objects back into the machine ordered like they are in the
+	// spec.
+	machine.Status.NetworkInterfaceStatus = make([]api.NetworkInterfaceStatus, 0, len(nicStatus))
+	for _, nic := range machine.Spec.NetworkInterfaces {
+		s, ok := nicStatus[nic.Name]
+		if !ok {
+			continue
+		}
+		machine.Status.NetworkInterfaceStatus = append(machine.Status.NetworkInterfaceStatus, *s)
+	}
+
+	deleteErrs := r.deleteNetworkInterfaces(ctx, log, machine, mountedNics)
+	errs = append(errs, deleteErrs...)
 
 	if len(errs) > 0 {
-		return nicStates, fmt.Errorf("attach / detach error(s): %v", errs)
+		return fmt.Errorf("attach / detach error(s): %w", errors.Join(errs...))
 	}
-	return nicStates, nil
+	return nil
 }
 
-func (r *MachineReconciler) deleteNetworkInterface(
+// applyNetworkInterface applies the network interface via the plugin. The
+// status is reported as a best-effort and may be nil when an err is not nil.
+func (r *MachineReconciler) applyNetworkInterface(
 	ctx context.Context,
 	machine *api.Machine,
-	nic providerhost.MachineNetworkInterface,
-) error {
-	return r.networkInterfacePlugin.Delete(ctx, nic.NetworkInterfaceName, machine.ID)
-}
-
-func alignReportedNetworkInterfaceFields(readBack, applied *providernetworkinterface.NetworkInterface) {
-	readBack.Handle = applied.Handle
-	readBack.Ips = applied.Ips
-	readBack.Prefixes = applied.Prefixes
-	readBack.VirtualIP = applied.VirtualIP
-}
-
-func (r *MachineReconciler) reconcileDesiredNetworkInterface(
-	ctx context.Context,
-	machine *api.Machine,
-	domain libvirt.Domain,
-	mountedNics map[string]mountedNetworkInterface,
 	nic *api.NetworkInterfaceSpec,
-) (*mountedNetworkInterface, error) {
-	providerNic, err := r.networkInterfacePlugin.Apply(ctx, nic, machine)
+) (*api.NetworkInterfaceStatus, *nicDevice, error) {
+	pluginStatus, err := r.networkInterfacePlugin.Apply(ctx, networkInterfaceSpecToPlugin(nic, machine), machine.ID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	mountedNic, ok := mountedNics[nic.Name]
-	if ok {
-		alignReportedNetworkInterfaceFields(mountedNic.networkInterface, providerNic)
-		if reflect.DeepEqual(mountedNic.networkInterface, providerNic) {
-			return &mountedNic, nil
-		}
+	status := networkInterfaceStatus(nic.Name, pluginStatus)
 
-		if err := r.detachDomainDevice(domain, mountedNic.libvirt.device()); err != nil {
-			return nil, err
-		}
+	switch status.State {
+	case api.NetworkInterfaceStateError:
+		return &status, nil, errNetworkInterfaceFailed
+	case api.NetworkInterfaceStatePending:
+		return &status, nil, errNetworkInterfaceNotReady
+	case api.NetworkInterfaceStateReady:
+		// do not return, continue below
+	default:
+		panic(fmt.Errorf("unknown network interface plugin state %q", status.State))
 	}
 
-	libvirtNic, err := providerNetworkInterfaceToLibvirt(nic.Name, providerNic)
+	device, err := nicDeviceFromStatus(pluginStatus)
 	if err != nil {
-		return nil, err
+		status.State = api.NetworkInterfaceStateError
+		return &status, nil, err
 	}
 
-	if err := r.attachDomainDevice(domain, libvirtNic.device()); err != nil {
-		return nil, fmt.Errorf("error attaching network interface device: %w", err)
-	}
-	return &mountedNetworkInterface{
-		networkInterface: providerNic,
-		libvirt:          libvirtNic,
-	}, nil
-}
-
-func (r *MachineReconciler) listMachineNetworkInterfaces(machineUID string) (map[string]providerhost.MachineNetworkInterface, error) {
-	machineNics, err := providerhost.ReadMachineNetworkInterfaces(r.host, machineUID)
-	if err != nil {
-		return nil, err
-	}
-
-	res := make(map[string]providerhost.MachineNetworkInterface, len(machineNics))
-	for _, machineVolume := range machineNics {
-		res[machineVolume.NetworkInterfaceName] = machineVolume
-	}
-	return res, nil
+	return &status, device, nil
 }
 
 type mountedNetworkInterface struct {
-	networkInterface *providernetworkinterface.NetworkInterface
-	libvirt          *libvirtNetworkInterface
+	device  *nicDevice
+	libvirt *libvirtNetworkInterface
 }
 
 type libvirtNetworkInterface struct {
@@ -342,13 +366,13 @@ func (r *MachineReconciler) computeMountedNetworkInterfaces(domainDesc *libvirtx
 		}
 
 		hostDev := hostDev
-		nic, err := libvirtHostdevToProviderNetworkInterface(&hostDev)
+		device, err := libvirtHostdevToNicDevice(&hostDev)
 		if err != nil {
 			return nil, err
 		}
 
 		res[name] = mountedNetworkInterface{
-			networkInterface: nic,
+			device: device,
 			libvirt: &libvirtNetworkInterface{
 				hostDev: &hostDev,
 			},
@@ -365,13 +389,13 @@ func (r *MachineReconciler) computeMountedNetworkInterfaces(domainDesc *libvirtx
 		}
 
 		iface := iface
-		nic, err := libvirtInterfaceToProviderNetworkInterface(&iface)
+		device, err := libvirtInterfaceToNicDevice(&iface)
 		if err != nil {
 			return nil, err
 		}
 
 		res[name] = mountedNetworkInterface{
-			networkInterface: nic,
+			device: device,
 			libvirt: &libvirtNetworkInterface{
 				iface: &iface,
 			},
@@ -392,14 +416,6 @@ func domainDescInterfaces(domainDesc *libvirtxml.Domain) []libvirtxml.DomainInte
 		return nil
 	}
 	return domainDesc.Devices.Interfaces
-}
-
-func (r *MachineReconciler) desiredNetworkInterfaces(machine *api.Machine) map[string]*api.NetworkInterfaceSpec {
-	res := make(map[string]*api.NetworkInterfaceSpec)
-	for _, nic := range machine.Spec.NetworkInterfaces {
-		res[nic.Name] = nic
-	}
-	return res
 }
 
 func (r *MachineReconciler) attachDomainDevice(domain libvirt.Domain, dev libvirtxml.Document) error {
@@ -425,132 +441,6 @@ func parseNetworkInterfaceAlias(alias string) (string, error) {
 	return strings.TrimPrefix(alias, networkInterfaceAliasPrefix), nil
 }
 
-func libvirtHostdevToProviderNetworkInterface(hostDev *libvirtxml.DomainHostdev) (*providernetworkinterface.NetworkInterface, error) {
-	if hostDev.Managed != "yes" {
-		return &providernetworkinterface.NetworkInterface{}, fmt.Errorf("non-managed host device: %#v", hostDev)
-	}
-	if hostDev.SubsysPCI == nil || hostDev.SubsysPCI.Source == nil || hostDev.SubsysPCI.Source.Address == nil {
-		return nil, fmt.Errorf("no pci subsystem: %#v", hostDev)
-	}
-	if hostDev.Address == nil || hostDev.Address.PCI == nil {
-		return nil, fmt.Errorf("no pci address: %#v", hostDev)
-	}
-
-	sourceAddr := hostDev.SubsysPCI.Source.Address
-
-	if sourceAddr.Domain == nil || sourceAddr.Bus == nil || sourceAddr.Slot == nil || sourceAddr.Function == nil {
-		return nil, fmt.Errorf("missing pci subsystem source address fields: %#v", sourceAddr)
-	}
-
-	return &providernetworkinterface.NetworkInterface{
-		HostDevice: &providernetworkinterface.HostDevice{
-			Domain:   *sourceAddr.Domain,
-			Bus:      *sourceAddr.Bus,
-			Slot:     *sourceAddr.Slot,
-			Function: *sourceAddr.Function,
-		},
-	}, nil
-}
-
-func libvirtInterfaceToProviderNetworkInterface(iface *libvirtxml.DomainInterface) (*providernetworkinterface.NetworkInterface, error) {
-	src := iface.Source
-	if src == nil {
-		return nil, fmt.Errorf("no interface source specified")
-	}
-
-	switch {
-	case src.User != nil:
-		return &providernetworkinterface.NetworkInterface{
-			Isolated: &providernetworkinterface.Isolated{},
-		}, nil
-	case src.Network != nil:
-		return &providernetworkinterface.NetworkInterface{
-			ProviderNetwork: &providernetworkinterface.ProviderNetwork{
-				NetworkName: src.Network.Network,
-			},
-		}, nil
-	case src.Direct != nil:
-		return &providernetworkinterface.NetworkInterface{
-			Direct: &providernetworkinterface.Direct{
-				Dev: src.Direct.Dev,
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("invalid network source")
-	}
-}
-
 func networkInterfaceAlias(name string) string {
 	return fmt.Sprintf("%s%s", networkInterfaceAliasPrefix, name)
-}
-
-func providerNetworkInterfaceToLibvirt(name string, nic *providernetworkinterface.NetworkInterface) (*libvirtNetworkInterface, error) {
-	switch {
-	case nic.HostDevice != nil:
-		return &libvirtNetworkInterface{
-			hostDev: &libvirtxml.DomainHostdev{
-				Alias: &libvirtxml.DomainAlias{
-					Name: networkInterfaceAlias(name),
-				},
-				Managed: "yes",
-				SubsysPCI: &libvirtxml.DomainHostdevSubsysPCI{
-					Source: &libvirtxml.DomainHostdevSubsysPCISource{
-						Address: &libvirtxml.DomainAddressPCI{
-							Domain:   &nic.HostDevice.Domain,
-							Bus:      &nic.HostDevice.Bus,
-							Slot:     &nic.HostDevice.Slot,
-							Function: &nic.HostDevice.Function,
-						},
-					},
-				},
-				Address: &libvirtxml.DomainAddress{
-					//if not defined, not conflicting pci address will be selected
-					PCI: &libvirtxml.DomainAddressPCI{},
-				},
-			},
-		}, nil
-	case nic.Direct != nil:
-		return &libvirtNetworkInterface{
-			iface: &libvirtxml.DomainInterface{
-				Alias: &libvirtxml.DomainAlias{
-					Name: networkInterfaceAlias(name),
-				},
-				Model: &libvirtxml.DomainInterfaceModel{
-					Type: "virtio",
-				},
-				Source: &libvirtxml.DomainInterfaceSource{
-					Direct: &libvirtxml.DomainInterfaceSourceDirect{
-						Dev:  nic.Direct.Dev,
-						Mode: "bridge",
-					},
-				},
-			},
-		}, nil
-	case nic.Isolated != nil:
-		return &libvirtNetworkInterface{
-			iface: &libvirtxml.DomainInterface{
-				Alias: &libvirtxml.DomainAlias{
-					Name: networkInterfaceAlias(name),
-				},
-				Source: &libvirtxml.DomainInterfaceSource{
-					User: &libvirtxml.DomainInterfaceSourceUser{},
-				},
-			},
-		}, nil
-	case nic.ProviderNetwork != nil:
-		return &libvirtNetworkInterface{
-			iface: &libvirtxml.DomainInterface{
-				Alias: &libvirtxml.DomainAlias{
-					Name: networkInterfaceAlias(name),
-				},
-				Source: &libvirtxml.DomainInterfaceSource{
-					Network: &libvirtxml.DomainInterfaceSourceNetwork{
-						Network: nic.ProviderNetwork.NetworkName,
-					},
-				},
-			},
-		}, nil
-	default:
-		return nil, fmt.Errorf("unsupported provider network interface: %#+v", nic)
-	}
 }

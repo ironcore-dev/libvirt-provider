@@ -28,6 +28,12 @@ func (s *Server) AttachNetworkInterface(ctx context.Context, req *iri.AttachNetw
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get nic from iri nic: %w", err))
 	}
 
+	for _, spec := range apiMachine.Spec.NetworkInterfaces {
+		if spec.Name == nicSpec.Name {
+			return nil, convertInternalErrorToGRPC(fmt.Errorf("nic with same name already exists"))
+		}
+	}
+
 	apiMachine.Spec.NetworkInterfaces = append(apiMachine.Spec.NetworkInterfaces, nicSpec)
 
 	if _, err := s.machineStore.Update(ctx, apiMachine); err != nil {
