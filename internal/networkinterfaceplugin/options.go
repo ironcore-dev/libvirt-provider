@@ -39,6 +39,11 @@ type Options struct {
 type Deps struct {
 	// MachineExists reports whether the provider knows the machine. Optional.
 	MachineExists func(machineID string) (bool, error)
+	// EnqueueMachine requests a reconcile of the machine with the given ID,
+	// e.g. after one of its network interfaces changed. Plugins must only
+	// call it from their background process (see the start interface), not
+	// during New. Optional.
+	EnqueueMachine func(machineID string)
 }
 
 func NewDefaultOptions() *Options {
@@ -98,6 +103,7 @@ func (o *Options) newAPInet(ctx context.Context, deps Deps) (plugin.NetworkInter
 		FieldOwner:     apinetFieldOwner,
 		MachineIDLabel: apinetMachineIDLabel,
 		MachineExists:  deps.MachineExists,
+		EnqueueMachine: deps.EnqueueMachine,
 	})
 	if err != nil {
 		return nil, nil, fmt.Errorf("error creating apinet plugin: %w", err)

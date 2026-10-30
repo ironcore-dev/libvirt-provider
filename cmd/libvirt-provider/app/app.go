@@ -94,12 +94,12 @@ type Options struct {
 
 // NetworkInterfacePluginStarter is implemented by network interface plugins
 // that need a background process, e.g. to watch for changes. Start is run once
-// the machine reconciler exists, blocks until ctx is done and calls onChange to
-// request a reconcile of a machine.
+// the machine reconciler exists and blocks until ctx is done. Reconciles of
+// machines are requested via networkinterfaceplugin.Deps.EnqueueMachine.
 //
 // TODO: move into provider-utils' plugin contract if most plugins need it.
 type NetworkInterfacePluginStarter interface {
-	Start(ctx context.Context, onChange func(machineID string)) error
+	Start(ctx context.Context) error
 }
 
 type HTTPServerOptions struct {
@@ -287,6 +287,10 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
+	// machineReconciler depends on nicPlugin, so EnqueueMachine is bound late.
+	// It is only called from the plugin's Start, which runs after
+	// machineReconciler is set.
+	var machineReconciler *controllers.MachineReconciler
 	nicPlugin, nicConfigCtrl, err := opts.NicPlugin.New(ctx, networkinterfaceplugin.Deps{
 		MachineExists: func(machineID string) (bool, error) {
 			if _, err := os.Stat(providerHost.MachineDir(machineID)); err != nil {
@@ -296,6 +300,9 @@ func Run(ctx context.Context, opts Options) error {
 				return false, err
 			}
 			return true, nil
+		},
+		EnqueueMachine: func(machineID string) {
+			machineReconciler.EnqueueMachine(machineID)
 		},
 	})
 	if err != nil {
@@ -354,7 +361,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	machineReconciler, err := controllers.NewMachineReconciler(
+	machineReconciler, err = controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
 		providerHost,
 		machineStore,
@@ -435,7 +442,7 @@ func Run(ctx context.Context, opts Options) error {
 	if starter, ok := nicPlugin.(NetworkInterfacePluginStarter); ok {
 		g.Go(func() error {
 			setupLog.Info("Starting network interface plugin", "Plugin", nicPlugin.Name())
-			if err := starter.Start(ctx, machineReconciler.EnqueueMachine); err != nil {
+			if err := starter.Start(ctx); err != nil {
 				setupLog.Error(err, "failed to run network interface plugin")
 				return err
 			}

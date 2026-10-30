@@ -56,6 +56,9 @@ type Options struct {
 	// network interfaces of unknown machines are garbage collected in Start.
 	// Optional.
 	MachineExists func(machineID string) (bool, error)
+	// EnqueueMachine is called from Start with the machine ID whenever a
+	// network interface of that machine changed or was deleted. Optional.
+	EnqueueMachine func(machineID string)
 }
 
 // Plugin is the apinet network interface plugin.
@@ -65,7 +68,7 @@ type Plugin struct {
 	fieldOwner     client.FieldOwner
 	machineIDLabel string
 	machineExists  func(machineID string) (bool, error)
-	onChange       func(machineID string)
+	enqueueMachine func(machineID string)
 
 	client client.Client
 }
@@ -97,6 +100,7 @@ func New(opts Options) (*Plugin, error) {
 		fieldOwner:     opts.FieldOwner,
 		machineIDLabel: opts.MachineIDLabel,
 		machineExists:  opts.MachineExists,
+		enqueueMachine: opts.EnqueueMachine,
 		client:         c,
 	}, nil
 }
@@ -247,21 +251,19 @@ func (p *Plugin) Delete(ctx context.Context, spec *plugin.NetworkInterfaceSpec, 
 }
 
 func (p *Plugin) notify(machineID string) {
-	if p.onChange != nil {
-		p.onChange(machineID)
+	if p.enqueueMachine != nil {
+		p.enqueueMachine(machineID)
 	}
 }
 
-// Start watches the plugin's apinet network interfaces and calls onChange with
-// the machine ID whenever the network interface of a machine changed or was
-// deleted. Once the cache is synced it garbage collects network interfaces of
-// unknown machines (if Options.MachineExists is set) and calls onChange for
-// all remaining ones. Start blocks until ctx is done and must be called at
-// most once.
-func (p *Plugin) Start(ctx context.Context, onChange func(machineID string)) error {
+// Start watches the plugin's apinet network interfaces and calls
+// Options.EnqueueMachine with the machine ID whenever the network interface of
+// a machine changed or was deleted. Once the cache is synced it garbage
+// collects network interfaces of unknown machines (if Options.MachineExists is
+// set) and calls Options.EnqueueMachine for all remaining ones. Start blocks
+// until ctx is done and must be called at most once.
+func (p *Plugin) Start(ctx context.Context) error {
 	log := ctrl.Log.WithName("apinet-watcher")
-
-	p.onChange = onChange
 
 	c, err := cache.New(p.restConfig, cache.Options{
 		Scheme: scheme,
