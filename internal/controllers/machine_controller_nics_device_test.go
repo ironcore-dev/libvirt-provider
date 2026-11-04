@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/netip"
+	"reflect"
 	"testing"
 	"time"
 
@@ -201,6 +202,39 @@ func TestNicDeviceFromStatus(t *testing.T) {
 		dev, err := nicDeviceFromStatus(&plugin.NetworkInterfaceStatus{PCI: &plugin.PCI{BDF: "0000:3b:00.1"}})
 		g.Expect(err).NotTo(HaveOccurred())
 		g.Expect(dev).To(Equal(&nicDevice{PCI: &plugin.PCI{BDF: "0000:3b:00.1"}}))
+	})
+
+	t.Run("pci is canonicalized", func(t *testing.T) {
+		// Regression: the device must compare equal (reflect.DeepEqual in the
+		// reconciler) to what libvirtHostdevToNicDevice reads back, which is
+		// always canonical. Otherwise the NIC is detached/attached on every
+		// reconcile.
+		for _, bdf := range []string{"3b:00.1", "0000:3B:00.1", "0:3b:0.1", "0000:3b:00.1"} {
+			g := NewWithT(t)
+			dev, err := nicDeviceFromStatus(&plugin.NetworkInterfaceStatus{PCI: &plugin.PCI{BDF: bdf}})
+			g.Expect(err).NotTo(HaveOccurred(), bdf)
+			g.Expect(dev).To(Equal(&nicDevice{PCI: &plugin.PCI{BDF: "0000:3b:00.1"}}), bdf)
+		}
+	})
+
+	t.Run("pci matches libvirt read-back", func(t *testing.T) {
+		g := NewWithT(t)
+		desired, err := nicDeviceFromStatus(&plugin.NetworkInterfaceStatus{PCI: &plugin.PCI{BDF: "3B:00.1"}})
+		g.Expect(err).NotTo(HaveOccurred())
+
+		nic, err := nicDeviceToLibvirt("nic", desired)
+		g.Expect(err).NotTo(HaveOccurred())
+		// Simulate libvirt reporting the assigned guest address.
+		nic.hostDev.Address.PCI = &libvirtxml.DomainAddressPCI{}
+		mounted, err := libvirtHostdevToNicDevice(nic.hostDev)
+		g.Expect(err).NotTo(HaveOccurred())
+		g.Expect(reflect.DeepEqual(mounted, desired)).To(BeTrue())
+	})
+
+	t.Run("pci invalid", func(t *testing.T) {
+		g := NewWithT(t)
+		_, err := nicDeviceFromStatus(&plugin.NetworkInterfaceStatus{PCI: &plugin.PCI{BDF: "bogus"}})
+		g.Expect(err).To(HaveOccurred())
 	})
 
 	t.Run("tap", func(t *testing.T) {

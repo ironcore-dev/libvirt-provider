@@ -64,7 +64,11 @@ func nicDeviceFromStatus(status *plugin.NetworkInterfaceStatus) (*nicDevice, err
 
 	switch {
 	case status.PCI != nil:
-		return &nicDevice{PCI: &plugin.PCI{BDF: status.PCI.BDF}}, nil
+		addr, err := parseBDF(status.PCI.BDF)
+		if err != nil {
+			return nil, err
+		}
+		return &nicDevice{PCI: &plugin.PCI{BDF: addr.String()}}, nil
 	case status.TAP != nil:
 		if status.TAP.Name == "" {
 			return nil, fmt.Errorf("TAP device without name")
