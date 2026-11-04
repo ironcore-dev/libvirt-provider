@@ -22,6 +22,7 @@ import (
 	"github.com/ironcore-dev/provider-utils/plugin"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
@@ -238,19 +239,11 @@ func (p *Plugin) Delete(ctx context.Context, spec *plugin.NetworkInterfaceSpec, 
 	}
 	name := NicName(machineID, spec.Name)
 
-	nic := &apinetv1alpha1.NetworkInterface{}
-	if err := p.client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: name}, nic); err != nil {
-		if apierrors.IsNotFound(err) {
-			return nil
-		}
-		return fmt.Errorf("error getting apinet network interface: %w", err)
+	nic := &apinetv1alpha1.NetworkInterface{
+		ObjectMeta: metav1.ObjectMeta{Namespace: namespace, Name: name},
 	}
-
 	log.V(1).Info("Deleting APINet network interface", "APInetNetworkInterface", client.ObjectKeyFromObject(nic))
-	if err := p.client.Delete(ctx, nic); err != nil {
-		if apierrors.IsNotFound(err) || apierrors.IsConflict(err) {
-			return nil
-		}
+	if err := p.client.Delete(ctx, nic); client.IgnoreNotFound(err) != nil {
 		return fmt.Errorf("error deleting apinet network interface: %w", err)
 	}
 	return nil
