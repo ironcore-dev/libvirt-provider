@@ -228,7 +228,13 @@ func (p *Plugin) Delete(ctx context.Context, spec *plugin.NetworkInterfaceSpec, 
 
 	namespace, _, _, _, err := provider.ParseNetworkID(spec.NetworkId)
 	if err != nil {
-		return fmt.Errorf("error parsing ApiNet NetworkID %s: %w", spec.NetworkId, err)
+		// Since the network ID is immutable the apply could not have succeeded
+		// either as it too parses the ID as a first step. If such an apply
+		// failed the provider may call delete to ensure no dangling resources
+		// are left. Since nothing could've been created we return no error,
+		// indicating no dangling resources are left.
+		log.V(1).Info("Encountered invalid network ID, ignoring error", "NicName", spec.Name, "NetworkID", spec.NetworkId)
+		return nil
 	}
 	name := NicName(machineID, spec.Name)
 

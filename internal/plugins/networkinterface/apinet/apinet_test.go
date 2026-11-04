@@ -220,9 +220,9 @@ func TestDelete(t *testing.T) {
 		g.Expect(newPlugin().Delete(context.Background(), spec, "machine")).To(Succeed())
 	})
 
-	t.Run("invalid network id is an error", func(t *testing.T) {
+	t.Run("invalid network id is ignored", func(t *testing.T) {
 		g := NewWithT(t)
-		g.Expect(newPlugin().Delete(context.Background(), &plugin.NetworkInterfaceSpec{Name: "nic", NetworkId: "bogus"}, "machine")).To(HaveOccurred())
-		g.Expect(newPlugin().Delete(context.Background(), &plugin.NetworkInterfaceSpec{Name: "nic"}, "machine")).To(HaveOccurred())
+		g.Expect(newPlugin().Delete(context.Background(), &plugin.NetworkInterfaceSpec{Name: "nic", NetworkId: "bogus"}, "machine")).To(Succeed())
+		g.Expect(newPlugin().Delete(context.Background(), &plugin.NetworkInterfaceSpec{Name: "nic"}, "machine")).To(Succeed())
 	})
 }
