@@ -30,7 +30,7 @@ func (s *Server) AttachNetworkInterface(ctx context.Context, req *iri.AttachNetw
 
 	for _, spec := range apiMachine.Spec.NetworkInterfaces {
 		if spec.Name == nicSpec.Name {
-			return nil, convertInternalErrorToGRPC(fmt.Errorf("nic with same name already exists"))
+			return nil, convertInternalErrorToGRPC(fmt.Errorf("nic with same name already exists: %w", ErrNicAlreadyExists))
 		}
 	}
 

@@ -27,21 +27,25 @@ func (s *Server) DetachNetworkInterface(
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("failed to get machine '%s': %w", req.MachineId, err))
 	}
 
-	found := false
+	found, changed := false, false
 	for _, nic := range apiMachine.Spec.NetworkInterfaces {
 		if nic.Name != req.Name {
 			continue
 		}
 
+		found = true
 		if nic.DeletionTimestamp == nil {
+			changed = true
 			nic.DeletionTimestamp = new(time.Now())
 		}
-		found = true
 		break
 	}
 
 	if !found {
 		return nil, convertInternalErrorToGRPC(fmt.Errorf("nic '%s' not found in machine '%s': %w", req.Name, req.MachineId, ErrNicNotFound))
+	}
+	if !changed {
+		return &iri.DetachNetworkInterfaceResponse{}, nil
 	}
 
 	if _, err := s.machineStore.Update(ctx, apiMachine); err != nil {
