@@ -320,7 +320,7 @@ func (r *MachineReconciler) applyNetworkInterface(
 	case api.NetworkInterfaceStateReady:
 		// do not return, continue below
 	default:
-		panic(fmt.Errorf("unknown network interface plugin state %q", status.State))
+		return nil, nil, fmt.Errorf("unknown network interface plugin state %q", status.State)
 	}
 
 	device, err := nicDeviceFromStatus(pluginStatus)
