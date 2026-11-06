@@ -92,6 +92,16 @@ type Options struct {
 	VolumeCachePolicy string
 }
 
+// NetworkInterfacePluginStarter is implemented by network interface plugins
+// that need a background process, e.g. to watch for changes. Start is run once
+// the machine reconciler exists and blocks until ctx is done. Reconciles of
+// machines are requested via networkinterfaceplugin.Deps.EnqueueMachine.
+//
+// TODO: move into provider-utils' plugin contract if most plugins need it.
+type NetworkInterfacePluginStarter interface {
+	Start(ctx context.Context) error
+}
+
 type HTTPServerOptions struct {
 	Addr            string
 	GracefulTimeout time.Duration
@@ -277,17 +287,25 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	nicPlugin, nicConfigCtrl, nicPluginCleanup, err := opts.NicPlugin.NetworkInterfacePlugin(ctx)
+	// machineReconciler depends on nicPlugin, so EnqueueMachine is bound late.
+	// It is only called from the plugin's Start, which runs after
+	// machineReconciler is set.
+	var machineReconciler *controllers.MachineReconciler
+	nicPlugin, nicConfigCtrl, err := opts.NicPlugin.New(ctx, networkinterfaceplugin.Deps{
+		MachineExists: func(machineID string) (bool, error) {
+			if _, err := os.Stat(providerHost.MachineDir(machineID)); err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					return false, nil
+				}
+				return false, err
+			}
+			return true, nil
+		},
+		EnqueueMachine: func(machineID string) {
+			machineReconciler.EnqueueMachine(machineID)
+		},
+	})
 	if err != nil {
-		setupLog.Error(err, "failed to initialize network plugin")
-		return err
-	}
-	if nicPluginCleanup != nil {
-		defer nicPluginCleanup()
-	}
-
-	setupLog.Info("Initializing network interface plugin")
-	if err := nicPlugin.Init(ctx, providerHost); err != nil {
 		setupLog.Error(err, "failed to initialize network plugin")
 		return err
 	}
@@ -343,7 +361,7 @@ func Run(ctx context.Context, opts Options) error {
 		return err
 	}
 
-	machineReconciler, err := controllers.NewMachineReconciler(
+	machineReconciler, err = controllers.NewMachineReconciler(
 		log.WithName("machine-reconciler"),
 		providerHost,
 		machineStore,
@@ -387,7 +405,6 @@ func Run(ctx context.Context, opts Options) error {
 		EventStore:      eventStore,
 		MachineClasses:  machineClasses,
 		VolumePlugins:   volumePlugins,
-		NetworkPlugins:  nicPlugin,
 		ResourceClaimer: resClaimer,
 		EnableHugepages: opts.EnableHugepages,
 		GuestAgent:      opts.GuestAgent.GetAPIGuestAgent(),
@@ -419,6 +436,17 @@ func Run(ctx context.Context, opts Options) error {
 	if nicConfigCtrl != nil {
 		g.Go(func() error {
 			return nicConfigCtrl.Start(ctx)
+		})
+	}
+
+	if starter, ok := nicPlugin.(NetworkInterfacePluginStarter); ok {
+		g.Go(func() error {
+			setupLog.Info("Starting network interface plugin", "Plugin", nicPlugin.Name())
+			if err := starter.Start(ctx); err != nil {
+				setupLog.Error(err, "failed to run network interface plugin")
+				return err
+			}
+			return nil
 		})
 	}
 

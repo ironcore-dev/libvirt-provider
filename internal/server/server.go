@@ -17,7 +17,6 @@ import (
 	"github.com/ironcore-dev/ironcore/iri/common/idgen"
 	"github.com/ironcore-dev/libvirt-provider/api"
 	"github.com/ironcore-dev/libvirt-provider/internal/mcr"
-	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	"github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
 	claim "github.com/ironcore-dev/provider-utils/claimutils/claim"
@@ -38,8 +37,6 @@ type Server struct {
 
 	machineStore store.Store[*api.Machine]
 	eventStore   recorder.EventStore
-
-	networkInterfacePlugin providernetworkinterface.Plugin
 
 	volumePlugins   *volume.PluginManager
 	machineClasses  MachineClassRegistry
@@ -68,7 +65,6 @@ type Options struct {
 	MachineClasses MachineClassRegistry
 
 	VolumePlugins   *volume.PluginManager
-	NetworkPlugins  providernetworkinterface.Plugin
 	ResourceClaimer claim.Claimer
 	EnableHugepages bool
 	GuestAgent      api.GuestAgent
@@ -93,19 +89,18 @@ func New(opts Options) (*Server, error) {
 	}
 
 	return &Server{
-		baseURL:                baseURL,
-		idGen:                  opts.IDGen,
-		libvirt:                opts.Libvirt,
-		machineStore:           opts.MachineStore,
-		eventStore:             opts.EventStore,
-		resourceClaimer:        opts.ResourceClaimer,
-		volumePlugins:          opts.VolumePlugins,
-		networkInterfacePlugin: opts.NetworkPlugins,
-		machineClasses:         opts.MachineClasses,
-		enableHugepages:        opts.EnableHugepages,
-		guestAgent:             opts.GuestAgent,
-		execRequestCache:       requestutils.NewCache[*iri.ExecRequest](),
-		activeConsoles:         sync.Map{},
+		baseURL:          baseURL,
+		idGen:            opts.IDGen,
+		libvirt:          opts.Libvirt,
+		machineStore:     opts.MachineStore,
+		eventStore:       opts.EventStore,
+		resourceClaimer:  opts.ResourceClaimer,
+		volumePlugins:    opts.VolumePlugins,
+		machineClasses:   opts.MachineClasses,
+		enableHugepages:  opts.EnableHugepages,
+		guestAgent:       opts.GuestAgent,
+		execRequestCache: requestutils.NewCache[*iri.ExecRequest](),
+		activeConsoles:   sync.Map{},
 	}, nil
 }
 

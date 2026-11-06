@@ -1,51 +1,45 @@
 // SPDX-FileCopyrightText: SAP SE or an SAP affiliate company and IronCore contributors
 // SPDX-License-Identifier: Apache-2.0
 
+// Package isolated implements a stateless network interface plugin that
+// connects guests to libvirt user-mode networking.
+//
+// TODO: remove once inisix lands.
 package isolated
 
 import (
 	"context"
-	"os"
 
-	"github.com/ironcore-dev/libvirt-provider/api"
-	providerhost "github.com/ironcore-dev/libvirt-provider/internal/host"
-	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
+	"github.com/ironcore-dev/provider-utils/plugin"
 )
 
 const (
-	perm           = 0777
-	pluginIsolated = "isolated"
+	pluginName = "isolated"
+
+	// NetdevName is the name of the Netdev reported by the plugin. The provider
+	// renders a Netdev with this name as user-mode networking.
+	NetdevName = "isolated"
 )
 
-type plugin struct {
-	host providerhost.LibvirtHost
+type Plugin struct{}
+
+var _ plugin.NetworkInterface = (*Plugin)(nil)
+
+func New() *Plugin {
+	return &Plugin{}
 }
 
-func NewPlugin() providernetworkinterface.Plugin {
-	return &plugin{}
+func (p *Plugin) Name() string {
+	return pluginName
 }
 
-func (p *plugin) Init(ctx context.Context, host providerhost.LibvirtHost) error {
-	p.host = host
-	return nil
-}
-
-func (p *plugin) AddEventHandler(handler providernetworkinterface.EventHandler) {}
-
-func (p *plugin) Apply(ctx context.Context, spec *api.NetworkInterfaceSpec, machine *api.Machine) (*providernetworkinterface.NetworkInterface, error) {
-	if err := os.MkdirAll(p.host.MachineNetworkInterfaceDir(machine.ID, spec.Name), perm); err != nil {
-		return nil, err
-	}
-
-	return &providernetworkinterface.NetworkInterface{
-		Isolated: &providernetworkinterface.Isolated{},
+func (p *Plugin) Apply(_ context.Context, _ *plugin.NetworkInterfaceSpec, _ string) (*plugin.NetworkInterfaceStatus, error) {
+	return &plugin.NetworkInterfaceStatus{
+		State:  plugin.NetworkInterfaceStateReady,
+		Netdev: &plugin.Netdev{Name: NetdevName},
 	}, nil
 }
 
-func (p *plugin) Delete(ctx context.Context, computeNicName string, machineID string) error {
-	return os.RemoveAll(p.host.MachineNetworkInterfaceDir(machineID, computeNicName))
-}
-
-func (p *plugin) Name() string {
-	return pluginIsolated
+func (p *Plugin) Delete(_ context.Context, _ *plugin.NetworkInterfaceSpec, _ string) error {
+	return nil
 }
