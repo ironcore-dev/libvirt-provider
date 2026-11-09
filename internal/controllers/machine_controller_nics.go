@@ -43,11 +43,6 @@ func (r *MachineReconciler) deleteNetworkInterfaces(
 	machine *api.Machine,
 	mountedNics map[string]mountedNetworkInterface,
 ) []error {
-	nicStatus := make(map[string]api.NetworkInterfaceStatus, len(machine.Status.NetworkInterfaceStatus))
-	for _, status := range machine.Status.NetworkInterfaceStatus {
-		nicStatus[status.Name] = status
-	}
-
 	var errs []error
 	var deleted []string
 	for _, nic := range machine.Spec.NetworkInterfaces {
