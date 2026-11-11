@@ -130,11 +130,12 @@ const (
 
 type NetworkInterfaceSpec struct {
 	// Metadata of the stand-alone network interface referenced by the machine.
-	Metadata   *NetworkInterfaceMetadata `json:"metadata,omitempty"`
-	Name       string                    `json:"name"`
-	NetworkId  string                    `json:"networkId"`
-	Ips        []string                  `json:"ips"`
-	Attributes map[string]string         `json:"attributes"`
+	Metadata          *NetworkInterfaceMetadata `json:"metadata,omitempty"`
+	DeletionTimestamp *time.Time                `json:"deletionTimestamp,omitempty"`
+	Name              string                    `json:"name"`
+	NetworkId         string                    `json:"networkId"`
+	Ips               []string                  `json:"ips"`
+	Attributes        map[string]string         `json:"attributes"`
 }
 
 type NetworkInterfaceMetadata struct {

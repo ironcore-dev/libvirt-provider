@@ -15,18 +15,17 @@ const (
 	DefaultImagesDir  = "images"
 	DefaultPluginsDir = "plugins"
 
-	DefaultMachinesDir                 = "machines"
-	DefaultStoreDir                    = "store"
-	DefaultMachineStoreDir             = "machines"
-	DefaultMachineVolumesDir           = "volumes"
-	DefaultMachineIgnitionsDir         = "ignitions"
-	DefaultMachineIgnitionFile         = "data.ign"
-	DefaultMachineRootFSDir            = "rootfs"
-	DefaultMachineRootFSFile           = "rootfs"
-	DefaultMachinePluginsDir           = "plugins"
-	DefaultMachineNetworkInterfacesDir = "networkinterfaces"
-	DefaultMachineLogsDir              = "logs"
-	DefaultMachineConsoleLogFile       = "console.log"
+	DefaultMachinesDir           = "machines"
+	DefaultStoreDir              = "store"
+	DefaultMachineStoreDir       = "machines"
+	DefaultMachineVolumesDir     = "volumes"
+	DefaultMachineIgnitionsDir   = "ignitions"
+	DefaultMachineIgnitionFile   = "data.ign"
+	DefaultMachineRootFSDir      = "rootfs"
+	DefaultMachineRootFSFile     = "rootfs"
+	DefaultMachinePluginsDir     = "plugins"
+	DefaultMachineLogsDir        = "logs"
+	DefaultMachineConsoleLogFile = "console.log"
 )
 
 type Paths interface {
@@ -49,9 +48,6 @@ type Paths interface {
 
 	MachineVolumesPluginDir(machineUID string, pluginName string) string
 	MachineVolumeDir(machineUID string, pluginName, volumeName string) string
-
-	MachineNetworkInterfacesDir(machineUID string) string
-	MachineNetworkInterfaceDir(machineUID string, networkInterfaceName string) string
 
 	MachineLogsDir(machineUID string) string
 	MachineConsoleLogFile(machineUID string) string
@@ -124,14 +120,6 @@ func (p *paths) MachinePluginDir(machineUID string, pluginName string) string {
 	return filepath.Join(p.MachinePluginsDir(machineUID), pluginName)
 }
 
-func (p *paths) MachineNetworkInterfacesDir(machineUID string) string {
-	return filepath.Join(p.MachineDir(machineUID), DefaultMachineNetworkInterfacesDir)
-}
-
-func (p *paths) MachineNetworkInterfaceDir(machineUID string, networkInterfaceName string) string {
-	return filepath.Join(p.MachineNetworkInterfacesDir(machineUID), networkInterfaceName)
-}
-
 func (p *paths) MachineLogsDir(machineUID string) string {
 	return filepath.Join(p.MachineDir(machineUID), DefaultMachineLogsDir)
 }
@@ -199,29 +187,6 @@ type MachineVolume struct {
 	ComputeVolumeName string
 }
 
-type MachineNetworkInterface struct {
-	NetworkInterfaceName string
-}
-
-func ReadMachineNetworkInterfaces(paths Paths, machineUID string) ([]MachineNetworkInterface, error) {
-	entries, err := os.ReadDir(paths.MachineNetworkInterfacesDir(machineUID))
-	if err != nil {
-		return nil, err
-	}
-
-	var machineNics []MachineNetworkInterface
-	for _, entry := range entries {
-		if !entry.IsDir() {
-			continue
-		}
-
-		machineNics = append(machineNics, MachineNetworkInterface{
-			NetworkInterfaceName: entry.Name(),
-		})
-	}
-	return machineNics, nil
-}
-
 func MakeMachineDirs(paths Paths, machineUID string) error {
 	if err := os.MkdirAll(paths.MachineDir(machineUID), os.ModePerm); err != nil {
 		return fmt.Errorf("error creating machine directory: %w", err)
@@ -234,9 +199,6 @@ func MakeMachineDirs(paths Paths, machineUID string) error {
 	}
 	if err := os.MkdirAll(paths.MachineIgnitionsDir(machineUID), os.ModePerm); err != nil {
 		return fmt.Errorf("error creating machine ignitions directory: %w", err)
-	}
-	if err := os.MkdirAll(paths.MachineNetworkInterfacesDir(machineUID), os.ModePerm); err != nil {
-		return fmt.Errorf("error creating machine network interfaces directory: %w", err)
 	}
 	if err := os.MkdirAll(paths.MachineLogsDir(machineUID), os.ModePerm); err != nil {
 		return fmt.Errorf("error creating machine logs directory: %w", err)

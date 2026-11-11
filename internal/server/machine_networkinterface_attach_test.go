@@ -80,4 +80,63 @@ var _ = Describe("NetworkInterfaceAttach", func() {
 
 	})
 
+	It("should not attach a network interface with an already existing name", func(ctx SpecContext) {
+		By("creating a machine with a network interface")
+		createResp, err := machineClient.CreateMachine(ctx, &iri.CreateMachineRequest{
+			Machine: &iri.Machine{
+				Metadata: &irimeta.ObjectMetadata{
+					Labels: map[string]string{
+						"machinepoolletv1alpha1.MachineUIDLabel": "foobar",
+					},
+				},
+				Spec: &iri.MachineSpec{
+					Power: iri.Power_POWER_ON,
+					Class: machineClassx3xlarge,
+					NetworkInterfaces: []*iri.NetworkInterface{
+						{
+							Name: "nic-1",
+						},
+					},
+				},
+			},
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(createResp).NotTo(BeNil())
+		DeferCleanup(cleanupMachine(createResp.Machine.Metadata.Id))
+
+		By("attaching a network interface with the same name")
+		attachNetworkResp, err := machineClient.AttachNetworkInterface(ctx, &iri.AttachNetworkInterfaceRequest{
+			MachineId: createResp.Machine.Metadata.Id,
+			NetworkInterface: &iri.NetworkInterface{
+				Name: "nic-1",
+			},
+		})
+
+		By("ensuring the correct error is returned")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("nic with same name already exists"))
+		Expect(attachNetworkResp).To(BeNil())
+
+		By("detaching the network interface")
+		detachNetworkResp, err := machineClient.DetachNetworkInterface(ctx, &iri.DetachNetworkInterfaceRequest{
+			MachineId: createResp.Machine.Metadata.Id,
+			Name:      "nic-1",
+		})
+		Expect(err).NotTo(HaveOccurred())
+		Expect(detachNetworkResp).NotTo(BeNil())
+
+		By("attaching a network interface with the name of the not yet removed one")
+		attachNetworkResp, err = machineClient.AttachNetworkInterface(ctx, &iri.AttachNetworkInterfaceRequest{
+			MachineId: createResp.Machine.Metadata.Id,
+			NetworkInterface: &iri.NetworkInterface{
+				Name: "nic-1",
+			},
+		})
+
+		By("ensuring the correct error is returned")
+		Expect(err).To(HaveOccurred())
+		Expect(err.Error()).To(ContainSubstring("nic with same name already exists"))
+		Expect(attachNetworkResp).To(BeNil())
+	})
+
 })

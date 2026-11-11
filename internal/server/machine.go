@@ -101,6 +101,9 @@ func (s *Server) getIRIVolumeSpec(machine *api.Machine) []*iri.Volume {
 func (s *Server) getIRINICSpec(machine *api.Machine) []*iri.NetworkInterface {
 	var nics []*iri.NetworkInterface
 	for _, nic := range machine.Spec.NetworkInterfaces {
+		if nic.DeletionTimestamp != nil {
+			continue
+		}
 		nics = append(nics, &iri.NetworkInterface{
 			Name:       nic.Name,
 			NetworkId:  nic.NetworkId,

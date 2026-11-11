@@ -13,6 +13,7 @@ import (
 var (
 	ErrMachineNotFound            = errors.New("machine not found")
 	ErrNicNotFound                = errors.New("nic not found")
+	ErrNicAlreadyExists           = errors.New("nic already exists")
 	ErrVolumeNotFound             = errors.New("volume not found")
 	ErrMachineIsntManaged         = errors.New("machine isn't managed")
 	ErrMachineUnavailable         = errors.New("machine isn't available")
@@ -32,6 +33,8 @@ func convertInternalErrorToGRPC(err error) error {
 	switch {
 	case errors.Is(err, store.ErrNotFound), errors.Is(err, ErrMachineNotFound), errors.Is(err, ErrVolumeNotFound), errors.Is(err, ErrNicNotFound):
 		code = codes.NotFound
+	case errors.Is(err, ErrNicAlreadyExists):
+		code = codes.AlreadyExists
 	case errors.Is(err, ErrMachineIsntManaged):
 		code = codes.InvalidArgument
 	case errors.Is(err, ErrPCIControllerMaxedOut):

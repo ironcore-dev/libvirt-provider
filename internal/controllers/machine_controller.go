@@ -23,7 +23,6 @@ import (
 	"github.com/ironcore-dev/libvirt-provider/internal/libvirt/guest"
 	libvirtmeta "github.com/ironcore-dev/libvirt-provider/internal/libvirt/meta"
 	libvirtutils "github.com/ironcore-dev/libvirt-provider/internal/libvirt/utils"
-	providernetworkinterface "github.com/ironcore-dev/libvirt-provider/internal/plugins/networkinterface"
 	providervolume "github.com/ironcore-dev/libvirt-provider/internal/plugins/volume"
 	"github.com/ironcore-dev/libvirt-provider/internal/raw"
 	"github.com/ironcore-dev/libvirt-provider/internal/utils"
@@ -31,6 +30,7 @@ import (
 	"github.com/ironcore-dev/provider-utils/eventutils/event"
 	"github.com/ironcore-dev/provider-utils/eventutils/recorder"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
+	"github.com/ironcore-dev/provider-utils/plugin"
 	"github.com/ironcore-dev/provider-utils/storeutils/store"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -69,7 +69,7 @@ type MachineReconcilerOptions struct {
 	ImageCache                     ociutils.Cache
 	Raw                            raw.Raw
 	VolumePluginManager            *providervolume.PluginManager
-	NetworkInterfacePlugin         providernetworkinterface.Plugin
+	NetworkInterfacePlugin         plugin.NetworkInterface
 	ResourceClaimer                claim.Claimer
 	VolumeEvents                   event.Source[*api.Machine]
 	ResyncIntervalGarbageCollector time.Duration
@@ -136,7 +136,7 @@ type MachineReconciler struct {
 	enableHugepages bool
 
 	volumePluginManager    *providervolume.PluginManager
-	networkInterfacePlugin providernetworkinterface.Plugin
+	networkInterfacePlugin plugin.NetworkInterface
 	resourceClaimer        claim.Claimer
 
 	machines      store.Store[*api.Machine]
@@ -147,6 +147,12 @@ type MachineReconciler struct {
 	resyncIntervalGarbageCollector time.Duration
 
 	volumeCachePolicy string
+}
+
+// EnqueueMachine requests a reconcile of the machine with the given ID.
+func (r *MachineReconciler) EnqueueMachine(machineID string) {
+	r.log.V(1).Info("Requeue machine", "Machine", machineID)
+	r.queue.Add(machineID)
 }
 
 func (r *MachineReconciler) Start(ctx context.Context) error {
@@ -168,13 +174,6 @@ func (r *MachineReconciler) Start(ctx context.Context) error {
 				log.V(1).Info("Image pulled: Requeue machines", "Image", evt.Ref, "Machine", machine.ID)
 				r.queue.Add(machine.ID)
 			}
-		},
-	})
-
-	r.networkInterfacePlugin.AddEventHandler(providernetworkinterface.EventHandlerFuncs{
-		HandleNICEventFunc: func(machineID string) {
-			log.V(1).Info("NIC event: Requeue machine", "Machine", machineID)
-			r.queue.Add(machineID)
 		},
 	})
 
@@ -300,7 +299,7 @@ func (r *MachineReconciler) processMachineDeletion(ctx context.Context, log logr
 	}
 	log.V(1).Info("Removed machine disks")
 
-	if err := r.deleteNetworkInterfaces(ctx, log, machine); err != nil {
+	if err := r.deleteAllNetworkInterfaces(ctx, log, machine); err != nil {
 		return fmt.Errorf("failed to remove machine network interfaces: %w", err)
 	}
 	log.V(1).Info("Removed network interfaces")
@@ -464,14 +463,11 @@ func (r *MachineReconciler) reconcileMachine(ctx context.Context, id string) err
 	}
 
 	log.V(1).Info("Reconciling domain")
-	state, volumeStates, nicStates, err := r.reconcileDomain(ctx, log, machine)
+	state, volumeStates, err := r.reconcileDomain(ctx, log, machine)
 	log.V(1).Info("Reconciled domain")
 
 	if volumeStates != nil {
 		machine.Status.VolumeStatus = volumeStates
-	}
-	if nicStates != nil {
-		machine.Status.NetworkInterfaceStatus = nicStates
 	}
 	if state != "" {
 		machine.Status.State = state
@@ -488,31 +484,31 @@ func (r *MachineReconciler) reconcileDomain(
 	ctx context.Context,
 	log logr.Logger,
 	machine *api.Machine,
-) (api.MachineState, []api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
+) (api.MachineState, []api.VolumeStatus, error) {
 	log.V(1).Info("Looking up domain")
 	if _, err := r.host.Libvirt().DomainLookupByUUID(libvirtutils.UUIDStringToBytes(machine.ID)); err != nil {
 		if !libvirt.IsNotFound(err) {
-			return "", nil, nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
+			return "", nil, fmt.Errorf("error getting domain %s: %w", machine.ID, err)
 		}
 
 		log.V(1).Info("Creating new domain")
-		volumeStates, nicStates, err := r.createDomain(ctx, log, machine)
+		volumeStates, err := r.createDomain(ctx, log, machine)
 		if err != nil {
-			return "", volumeStates, nicStates, err
+			return "", volumeStates, err
 		}
 
 		log.V(1).Info("Created domain")
-		return api.MachineStatePending, volumeStates, nicStates, nil
+		return api.MachineStatePending, volumeStates, nil
 	}
 
 	log.V(1).Info("Updating existing domain")
 	state, err := r.getMachineState(machine.ID)
 	if err != nil {
-		return "", nil, nil, fmt.Errorf("error getting machine state: %w", err)
+		return "", nil, fmt.Errorf("error getting machine state: %w", err)
 	}
 
-	volumeStates, nicStates, err := r.updateDomain(ctx, log, machine)
-	return state, volumeStates, nicStates, err
+	volumeStates, err := r.updateDomain(ctx, log, machine)
+	return state, volumeStates, err
 }
 
 // updateDomain by attaching / detaching volumes and NICs. Since some steps may
@@ -522,15 +518,15 @@ func (r *MachineReconciler) updateDomain(
 	ctx context.Context,
 	log logr.Logger,
 	machine *api.Machine,
-) ([]api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
+) ([]api.VolumeStatus, error) {
 	domainDesc, err := r.getDomainDesc(machine.ID)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error getting domain description: %w", err)
+		return nil, fmt.Errorf("error getting domain description: %w", err)
 	}
 
 	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewRunningDomainExecutor(r.host.Libvirt(), machine.ID), r.volumeCachePolicy)
 	if err != nil {
-		return nil, nil, fmt.Errorf("error construction volume attacher: %w", err)
+		return nil, fmt.Errorf("error construction volume attacher: %w", err)
 	}
 
 	var errs []error
@@ -541,13 +537,13 @@ func (r *MachineReconciler) updateDomain(
 		errs = append(errs, fmt.Errorf("[volumes] %w", err))
 	}
 
-	nicStates, err := r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
+	err = r.attachDetachNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachNICFailed", "AttachDetachNIC", "NIC attach/detach failed: %s", err)
 		errs = append(errs, fmt.Errorf("[network interfaces] %w", err))
 	}
 
-	return volumeStates, nicStates, errors.Join(errs...)
+	return volumeStates, errors.Join(errs...)
 }
 
 func (r *MachineReconciler) getMachineState(machineID string) (api.MachineState, error) {
@@ -566,24 +562,24 @@ func (r *MachineReconciler) createDomain(
 	ctx context.Context,
 	log logr.Logger,
 	machine *api.Machine,
-) ([]api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
-	domainXML, volumeStates, nicStates, err := r.domainFor(ctx, log, machine)
+) ([]api.VolumeStatus, error) {
+	domainXML, volumeStates, err := r.domainFor(ctx, log, machine)
 	if err != nil {
-		return volumeStates, nicStates, err
+		return volumeStates, err
 	}
 
 	domainXMLData, err := domainXML.Marshal()
 	if err != nil {
-		return volumeStates, nicStates, err
+		return volumeStates, err
 	}
 
 	log.V(1).Info("Creating domain")
 	log.V(2).Info("Domain", "XML", domainXMLData)
 	if _, err := r.host.Libvirt().DomainCreateXML(domainXMLData, libvirt.DomainNone); err != nil {
-		return volumeStates, nicStates, err
+		return volumeStates, err
 	}
 
-	return volumeStates, nicStates, nil
+	return volumeStates, nil
 }
 
 func detectArchitecture() (string, error) {
@@ -601,10 +597,10 @@ func (r *MachineReconciler) domainFor(
 	ctx context.Context,
 	log logr.Logger,
 	machine *api.Machine,
-) (*libvirtxml.Domain, []api.VolumeStatus, []api.NetworkInterfaceStatus, error) {
+) (*libvirtxml.Domain, []api.VolumeStatus, error) {
 	architecture, err := detectArchitecture()
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	osType := guest.OSTypeHVM // TODO: Make this configurable via machine class
@@ -613,7 +609,7 @@ func (r *MachineReconciler) domainFor(
 		OSType:       osType,
 	})
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	cpu := &libvirtxml.DomainCPU{}
@@ -727,19 +723,19 @@ func (r *MachineReconciler) domainFor(
 	}
 
 	if err := r.setDomainMetadata(log, machine, domainDesc); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	if err := r.setDomainResources(machine, domainDesc); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	if err := r.setDomainPCIControllers(domainDesc); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	if err := r.setTCMallocPath(domainDesc); err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	if machine.Spec.GuestAgent != api.GuestAgentNone {
@@ -748,7 +744,7 @@ func (r *MachineReconciler) domainFor(
 
 	if ignitionSpec := machine.Spec.Ignition; ignitionSpec != nil {
 		if err := r.setDomainIgnition(machine, domainDesc); err != nil {
-			return nil, nil, nil, err
+			return nil, nil, err
 		}
 	} else {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "IgnitionDataNotFound", "SetIgnition", "Machine does not have ignition data")
@@ -756,28 +752,28 @@ func (r *MachineReconciler) domainFor(
 
 	attacher, err := NewLibvirtVolumeAttacher(domainDesc, NewCreateDomainExecutor(r.host.Libvirt()), r.volumeCachePolicy)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	volumeStates, err := r.attachDetachVolumes(ctx, log, machine, attacher)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachVolumeFailed", "AttachDetachVolume", "Failed to attach/detach volume: %s", err)
-		return nil, volumeStates, nil, err
+		return nil, volumeStates, err
 	}
 	if machine.Spec.Volumes != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttachVolumeSucceeded", "AttachDetachVolume", "Attached volumes")
 	}
 
-	nicStates, err := r.setDomainNetworkInterfaces(ctx, log, machine, domainDesc)
+	err = r.setDomainNetworkInterfaces(ctx, log, machine, domainDesc)
 	if err != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeWarning, "AttachDetachNICFailed", "AttachDetachNIC", "Failed to set domain network interface: %s", err)
-		return nil, volumeStates, nicStates, err
+		return nil, volumeStates, err
 	}
 	if machine.Spec.NetworkInterfaces != nil {
 		r.eventRecorder.Eventf(machine.Metadata, corev1.EventTypeNormal, "AttachNICSucceeded", "AttachDetachNIC", "Attached network interfaces")
 	}
 
-	return domainDesc, volumeStates, nicStates, nil
+	return domainDesc, volumeStates, nil
 }
 
 func (r *MachineReconciler) setDomainMetadata(log logr.Logger, machine *api.Machine, domain *libvirtxml.Domain) error {
