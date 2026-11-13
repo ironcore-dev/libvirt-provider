@@ -47,6 +47,7 @@ import (
 	ocihostutils "github.com/ironcore-dev/provider-utils/ociutils/host"
 	ociutils "github.com/ironcore-dev/provider-utils/ociutils/oci"
 	"github.com/ironcore-dev/provider-utils/osutils"
+	"github.com/ironcore-dev/provider-utils/plugin"
 	hostutils "github.com/ironcore-dev/provider-utils/storeutils/host"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
@@ -90,16 +91,6 @@ type Options struct {
 	MachineEventStore recorder.EventStoreOptions
 
 	VolumeCachePolicy string
-}
-
-// NetworkInterfacePluginStarter is implemented by network interface plugins
-// that need a background process, e.g. to watch for changes. Start is run once
-// the machine reconciler exists and blocks until ctx is done. Reconciles of
-// machines are requested via networkinterfaceplugin.Deps.EnqueueMachine.
-//
-// TODO: move into provider-utils' plugin contract if most plugins need it.
-type NetworkInterfacePluginStarter interface {
-	Start(ctx context.Context) error
 }
 
 type HTTPServerOptions struct {
@@ -439,7 +430,7 @@ func Run(ctx context.Context, opts Options) error {
 		})
 	}
 
-	if starter, ok := nicPlugin.(NetworkInterfacePluginStarter); ok {
+	if starter, ok := nicPlugin.(plugin.NetworkInterfaceStarter); ok {
 		g.Go(func() error {
 			setupLog.Info("Starting network interface plugin", "Plugin", nicPlugin.Name())
 			if err := starter.Start(ctx); err != nil {
