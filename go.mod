@@ -12,7 +12,7 @@ require (
 	github.com/ironcore-dev/ironcore v0.9.0
 	github.com/ironcore-dev/ironcore-image v0.5.0
 	github.com/ironcore-dev/ironcore-net v0.7.0
-	github.com/ironcore-dev/provider-utils v0.0.0-20261030081920-c2209eb7bc56
+	github.com/ironcore-dev/provider-utils v0.0.0-20261113095258-df7ab8c6c646
 	github.com/onsi/ginkgo/v2 v2.34.0
 	github.com/onsi/gomega v1.44.0
 	github.com/prometheus/client_golang v1.25.0

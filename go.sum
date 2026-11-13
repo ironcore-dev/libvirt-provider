@@ -158,6 +158,8 @@ github.com/ironcore-dev/ironcore-net v0.7.0 h1:5Uc7RuevIlnCRYR+1aYPNhCKdO0PZRbqv
 github.com/ironcore-dev/ironcore-net v0.7.0/go.mod h1:uwM0Fz9XYaVAmMdkYy4moh7FllDW8bpaJt4SxMdOca0=
 github.com/ironcore-dev/provider-utils v0.0.0-20261030081920-c2209eb7bc56 h1:nGLQ/UB1DLTqugFAuBlCZoxf3FgnUp+q94QatTZUCW0=
 github.com/ironcore-dev/provider-utils v0.0.0-20261030081920-c2209eb7bc56/go.mod h1:SaKC0yz02kpxidcdoult1GHtJh+ZZmIh2S5Dc932Bow=
+github.com/ironcore-dev/provider-utils v0.0.0-20261113095258-df7ab8c6c646 h1:dmjCC9V486BD5VerIz7Ea/pUwjHNfZnkCH6CBntHpro=
+github.com/ironcore-dev/provider-utils v0.0.0-20261113095258-df7ab8c6c646/go.mod h1:f2Wf67jWVKKFBme5o2xv+ISi/T//3wOwSQZyI9xjd9I=
 github.com/joshdk/go-junit v1.0.0 h1:S86cUKIdwBHWwA6xCmFlf3RTLfVXYQfvanM5Uh+K6GE=
 github.com/joshdk/go-junit v1.0.0/go.mod h1:TiiV0PqkaNfFXjEiyjWM3XXrhVyCa1K4Zfga6W52ung=
 github.com/json-iterator/go v1.1.12 h1:PV8peI4a0ysnczrg+LtxykD8LfKY9ML6u2jnxaEnrnM=
